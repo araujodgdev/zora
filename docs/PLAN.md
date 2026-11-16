@@ -1,6 +1,6 @@
 # Zora implementation plan
 
-Status as of 2026-11-16. Steps 1 to 6 are done; step 7 (review) remains. Update this file as steps finish.
+Status as of 2026-11-16. Steps 1 to 8 are done; what is left is under "Before launch". Update this file as steps finish.
 
 Zora is an internal app for a three-person team to plan and run a product
 launch. The launch is planned for the week of 2026-11-23. The first feature is
@@ -94,28 +94,6 @@ commands and the contracts that the steps below build on; read it first.
   opens a dialog that asks for a date and saves status and date together.
   Cancelling leaves the item where it was.
 
-### 8. Media on the item page
-
-- `/content/$itemId` has a Media section: upload by button or drag and drop
-  (several files, progress per file), previews in place (images and videos open
-  in a viewer, PDFs in a new tab), delete with confirmation.
-- Allowed: PNG, JPEG, GIF, WebP, AVIF, MP4, WebM, MOV, PDF, up to 100 MB each.
-  Files are in Cloudflare R2 (binding `MEDIA`, bucket `zora-media`); metadata
-  in the new `content_asset` table (migration committed).
-- Not on `/content/new`: the item has to exist first.
-
-### 9. Database moved to Cloudflare D1
-
-- Schema rewritten for SQLite (text enums with CHECK, millisecond dates, JSON
-  as text), auth schema regenerated, one fresh migration. Postgres, Docker and
-  `DATABASE_URL` are gone.
-- Item updates no longer use a transaction: they write only if `updated_at`
-  is unchanged and retry otherwise (tested with simultaneous saves).
-- Tests run on an in-memory D1 database; nothing needs to be running.
-- Checked: the 101 tests, and the same Chrome flows as steps 4 to 6 and 8
-  (editor, calendar, pipeline, media upload up to 90 MB, delete cascading to
-  R2) against the local D1.
-
 ### How steps 4 to 6 were checked
 
 - `pnpm typecheck`, `pnpm lint` and `pnpm test` (91 tests) pass.
@@ -125,13 +103,27 @@ commands and the contracts that the steps below build on; read it first.
   to Published, edit, save, delete.
 - Not checked: touch dragging, dark mode, keyboard dragging on the new pages.
 
-## Remaining
+### 7. Media on the item page
 
-### 7. Review
+- `/content/$itemId` has a Media section: upload by button or drag and drop
+  (several files, progress per file), previews in place (images and videos open
+  in a viewer, PDFs in a new tab), delete with confirmation.
+- Allowed: PNG, JPEG, GIF, WebP, AVIF, MP4, WebM, MOV, PDF, up to 100 MB each.
+  Files are in Cloudflare R2 (binding `MEDIA`, bucket `zora-media`); metadata
+  in the new `content_asset` table (migration committed).
+- Not on `/content/new`: the item has to exist first.
 
-- An independent review of steps 4 to 6 together.
-- `pnpm deploy:check`.
-- A manual pass by a person over the whole flow.
+### 8. Database moved to Cloudflare D1
+
+- Schema rewritten for SQLite (text enums with CHECK, millisecond dates, JSON
+  as text), auth schema regenerated, one fresh migration. Postgres, Docker and
+  `DATABASE_URL` are gone.
+- Item updates no longer use a transaction: they write only if `updated_at`
+  is unchanged and retry otherwise (tested with simultaneous saves).
+- Tests run on an in-memory D1 database; nothing needs to be running.
+- Checked: the 101 tests, and the same Chrome flows as steps 4 to 7
+  (editor, calendar, pipeline, media upload up to 90 MB, delete cascading to
+  R2) against the local D1.
 
 ## Before launch
 
