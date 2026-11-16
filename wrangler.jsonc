@@ -1,6 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "zora",
+  // The personal Cloudflare account; deploys and `--remote` commands use it.
+  "account_id": "bf552f67bcf46921dbe4137ee0ff8980",
   // Must not be later than the installed workerd supports.
   "compatibility_date": "2026-11-13",
   // Better Auth needs Node.js APIs.
@@ -11,22 +13,21 @@
     {
       "binding": "DB",
       "database_name": "zora",
-      // Before the first deploy: `pnpm exec wrangler d1 create zora`, then
-      // paste the printed id here as "database_id". Local dev and tests do
-      // not need it.
+      // Production database (region ENAM). Local dev and tests use a
+      // simulated copy under .wrangler/state.
+      "database_id": "31990be2-fe73-4feb-bbda-c6dd16e76b09",
       // drizzle-kit writes each migration as drizzle/<name>/migration.sql.
       "migrations_dir": "drizzle",
       "migrations_pattern": "drizzle/*/migration.sql"
     }
   ],
-  // Uploaded media. Before the first deploy:
-  // `pnpm exec wrangler r2 bucket create zora-media`.
+  // Uploaded media (bucket created with `wrangler r2 bucket create`).
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "zora-media" }],
   "observability": {
     "enabled": true
   }
-  // Secrets (set with `wrangler secret put`, never committed):
-  //   BETTER_AUTH_SECRET
-  // Plain vars to set per environment:
-  //   BETTER_AUTH_URL, ALLOWED_SIGNUP_EMAILS
+  // Set as Worker secrets (`wrangler secret put <NAME>`), never committed:
+  //   BETTER_AUTH_SECRET, BETTER_AUTH_URL, ALLOWED_SIGNUP_EMAILS
+  // (the last two are not secret, but as secrets they stay out of this file
+  // and `wrangler deploy` never resets them).
 }

@@ -127,16 +127,14 @@ commands and the contracts that the steps below build on; read it first.
 
 ## Before launch
 
-- Push `main`. The work is committed locally; `origin/main` is still at the
-  bootstrap commit.
-- Add the other two partners' emails to `ALLOWED_SIGNUP_EMAILS`.
-- First deploy, as in README.md "Deploying": create the D1 database (paste
-  its `database_id` into `wrangler.jsonc`) and the R2 bucket, run
-  `pnpm db:migrate:remote`, set `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and
-  `ALLOWED_SIGNUP_EMAILS`, then build and deploy.
-- Password hashing: Better Auth hashes with scrypt in JavaScript, which will
-  probably exceed the Workers Free plan's CPU limit. Use Workers Paid or
-  configure a cheaper hash.
+- Deployed on 2026-11-16 to https://zora.k5-web.workers.dev (see README.md
+  "Production"). Checked there with a temporary test account, since removed:
+  sign-up and sign-in, the editor, calendar and pipeline flows, media upload,
+  playback and delete. The database and bucket were left empty.
+- The three partners create their accounts (the allowlist has three emails).
+- Password hashing: sign-up and sign-in worked in production. If they ever
+  fail with a CPU limit error (Workers Free allows 10 ms), move to Workers
+  Paid or configure a cheaper hash.
 - Decide on Drizzle: the project uses `1.0.0-rc.5`. Moving to stable 0.45
   means a version change and regenerating the migration.
 

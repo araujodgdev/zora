@@ -63,25 +63,22 @@ All live in `.env` locally (git-ignored; `.env.example` documents them).
 | `BETTER_AUTH_URL` | Public base URL of the app |
 | `ALLOWED_SIGNUP_EMAILS` | Comma-separated emails allowed to sign up |
 
-## Deploying
+## Production
 
-Production is one Cloudflare Worker with a D1 database (`DB`) and an R2 bucket
-(`MEDIA`). First deploy:
+Live at https://zora.k5-web.workers.dev: one Cloudflare Worker (`zora`) with
+the D1 database `zora` (binding `DB`) and the R2 bucket `zora-media` (binding
+`MEDIA`), on the account set as `account_id` in `wrangler.jsonc`.
 
-1. `pnpm exec wrangler login` (and `pnpm exec wrangler whoami` to check the
-   account).
-2. Create the database: `pnpm exec wrangler d1 create zora`. Paste the printed
-   `database_id` into the `DB` entry of `wrangler.jsonc` and commit it.
-3. Create the bucket: `pnpm exec wrangler r2 bucket create zora-media` (R2 must
-   be enabled on the account).
-4. Apply the migrations: `pnpm db:migrate:remote`.
-5. Set the secret: `pnpm exec wrangler secret put BETTER_AUTH_SECRET` (a new
-   value, not your local one).
-6. Set `BETTER_AUTH_URL` (the exact public URL, e.g.
-   `https://zora.<subdomain>.workers.dev`) and `ALLOWED_SIGNUP_EMAILS` as
-   variables in the Cloudflare dashboard, or under `vars` in `wrangler.jsonc`.
-7. `pnpm build && pnpm exec wrangler deploy`. (`pnpm deploy` is a pnpm
+`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `ALLOWED_SIGNUP_EMAILS` are Worker
+secrets (`pnpm exec wrangler secret list`). To change the allowlist:
+`pnpm exec wrangler secret put ALLOWED_SIGNUP_EMAILS` (takes effect in a few
+seconds, no deploy needed). If the app moves to another URL, update
+`BETTER_AUTH_URL` the same way.
+
+To deploy a new version:
+
+1. `pnpm db:migrate:remote` when there are new migrations.
+2. `pnpm build && pnpm exec wrangler deploy`. (`pnpm deploy` is a pnpm
    built-in, not this project's script.)
 
-Later deploys: `pnpm db:migrate:remote` when there are new migrations, then
-step 7. See AGENTS.md for production caveats (Workers CPU limits).
+See AGENTS.md for production caveats (Workers CPU limits, D1 limits).
