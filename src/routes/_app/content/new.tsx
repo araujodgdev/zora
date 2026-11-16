@@ -1,32 +1,41 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { createFileRoute } from '@tanstack/react-router'
 import { PageHeader } from '@/components/app-shell'
-import { editorReturnPath, newItemSearchSchema } from '@/lib/editor-search'
+import { ContentItemForm } from '@/components/content/content-item-form'
+import { teamMembersQueryOptions } from '@/lib/content.queries'
+import { newItemSearchSchema } from '@/lib/editor-search'
 
-// Placeholder. The editor form replaces the component; the path and search
-// contract (`newItemSearchSchema`) are what other pages link against.
 export const Route = createFileRoute('/_app/content/new')({
   validateSearch: newItemSearchSchema,
+  // The form reads and writes local times, so it renders in the browser only.
+  ssr: 'data-only',
+  loader: async ({ context }) => {
+    await context.queryClient.query(teamMembersQueryOptions())
+  },
   head: () => ({ meta: [{ title: 'New item · Zora' }] }),
   component: NewContentItemPage,
 })
 
 function NewContentItemPage() {
   const search = Route.useSearch()
+  const { data: members } = useSuspenseQuery(teamMembersQueryOptions())
   return (
     <>
       <PageHeader
         title="New content item"
-        description="The editor form will appear here."
+        description="One item is one piece of content for one channel."
       />
-      <pre className="bg-muted rounded-md p-3 text-xs">
-        {JSON.stringify(search, null, 2)}
-      </pre>
-      <Link
-        to={editorReturnPath(search.from)}
-        className="mt-4 inline-block text-sm underline underline-offset-4"
-      >
-        Back
-      </Link>
+      <ContentItemForm
+        members={members}
+        from={search.from}
+        defaults={{
+          channel: search.channel,
+          status: search.status,
+          scheduledAt: search.scheduledAt
+            ? new Date(search.scheduledAt)
+            : undefined,
+        }}
+      />
     </>
   )
 }

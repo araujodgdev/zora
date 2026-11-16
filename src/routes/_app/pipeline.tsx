@@ -1,18 +1,272 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { DragDropProvider, useDraggable, useDroppable } from '@dnd-kit/react'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { addDays } from 'date-fns'
+import { Plus } from 'lucide-react'
+import { useState } from 'react'
 import { PageHeader } from '@/components/app-shell'
+import { ContentFilters } from '@/components/content/content-filters'
+import { ContentItemCard } from '@/components/content/content-item-card'
+import { StatusBadge } from '@/components/content/status-badge'
+import { FormField } from '@/components/form-field'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { STATUSES, STATUS_LABELS } from '@/lib/content'
+import type { ContentItem, ContentStatus, TeamMember } from '@/lib/content'
+import {
+  contentFilterSearchSchema,
+  toContentListFilters,
+} from '@/lib/content-filters'
+import type { ContentFilterValues } from '@/lib/content-filters'
+import {
+  contentListQueryOptions,
+  teamMembersQueryOptions,
+  useChangeContentItemStatus,
+  useUpdateContentItem,
+} from '@/lib/content.queries'
+import { defaultTimeOnDay } from '@/lib/calendar'
+import { contentDragSensors } from '@/lib/dnd'
+import { fromDateTimeLocalValue, toDateTimeLocalValue } from '@/lib/dates'
+import { cn } from '@/lib/utils'
 
-// Placeholder. The pipeline board is built on the data layer in
-// src/lib/content.queries.ts (see AGENTS.md).
 export const Route = createFileRoute('/_app/pipeline')({
+  validateSearch: contentFilterSearchSchema,
+  loaderDeps: ({ search }) => ({ filters: toContentListFilters(search) }),
+  loader: async ({ context, deps }) => {
+    await Promise.all([
+      context.queryClient.query(contentListQueryOptions(deps.filters)),
+      context.queryClient.query(teamMembersQueryOptions()),
+    ])
+  },
   head: () => ({ meta: [{ title: 'Pipeline · Zora' }] }),
   component: PipelinePage,
 })
 
 function PipelinePage() {
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const { data: items } = useSuspenseQuery(
+    contentListQueryOptions(toContentListFilters(search)),
+  )
+  const { data: members } = useSuspenseQuery(teamMembersQueryOptions())
+  const changeStatus = useChangeContentItemStatus()
+  // An unscheduled item dropped on "Scheduled" waits here for a date.
+  const [schedulingItem, setSchedulingItem] = useState<ContentItem | null>(null)
+  const membersById = new Map(members.map((member) => [member.id, member]))
+
+  function setFilters(next: ContentFilterValues) {
+    void navigate({ search: next, replace: true })
+  }
+
+  function moveItem(itemId: string, status: ContentStatus) {
+    const item = items.find((candidate) => candidate.id === itemId)
+    if (!item || item.status === status) return
+    if (status === 'scheduled' && !item.scheduledAt) {
+      // The server rejects a scheduled item without a date: ask for one.
+      setSchedulingItem(item)
+      return
+    }
+    changeStatus.mutate({ id: item.id, status })
+  }
+
   return (
-    <PageHeader
-      title="Pipeline"
-      description="The status board will appear here."
+    <>
+      <div className="flex items-start justify-between gap-4">
+        <PageHeader
+          title="Pipeline"
+          description="Drag a card to another column to change its status."
+        />
+        <Button asChild>
+          <Link to="/content/new" search={{ from: 'pipeline' }}>
+            <Plus data-icon="inline-start" />
+            New item
+          </Link>
+        </Button>
+      </div>
+      <div className="grid gap-4">
+        <ContentFilters value={search} onChange={setFilters} members={members} />
+        <DragDropProvider
+          sensors={contentDragSensors}
+          onDragEnd={(event) => {
+            if (event.canceled) return
+            const { source, target } = event.operation
+            if (!source || !target) return
+            const status = STATUSES.find((candidate) => candidate === target.id)
+            if (status) moveItem(String(source.id), status)
+          }}
+        >
+          <div className="overflow-x-auto pb-2">
+            <div className="grid min-w-[62rem] grid-cols-5 gap-3">
+              {STATUSES.map((status) => (
+                <StatusColumn
+                  key={status}
+                  status={status}
+                  items={items.filter((item) => item.status === status)}
+                  membersById={membersById}
+                />
+              ))}
+            </div>
+          </div>
+        </DragDropProvider>
+      </div>
+      <ScheduleDialog
+        // Remount per item so the date field starts fresh.
+        key={schedulingItem?.id}
+        item={schedulingItem}
+        onClose={() => setSchedulingItem(null)}
+      />
+    </>
+  )
+}
+
+function StatusColumn({
+  status,
+  items,
+  membersById,
+}: {
+  status: ContentStatus
+  items: Array<ContentItem>
+  membersById: ReadonlyMap<string, TeamMember>
+}) {
+  const { ref, isDropTarget } = useDroppable({ id: status })
+  return (
+    <section
+      ref={ref}
+      aria-label={STATUS_LABELS[status]}
+      className={cn(
+        'bg-muted/40 flex min-h-96 flex-col gap-2 rounded-lg border p-2 transition-colors',
+        isDropTarget && 'bg-accent border-ring',
+      )}
+    >
+      <header className="flex items-center justify-between px-1 py-0.5">
+        <span className="flex items-center gap-2">
+          <StatusBadge status={status} />
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {items.length}
+          </span>
+        </span>
+        <Button variant="ghost" size="icon-xs" asChild>
+          <Link
+            to="/content/new"
+            search={{ from: 'pipeline', status }}
+            aria-label={`New ${STATUS_LABELS[status].toLowerCase()} item`}
+          >
+            <Plus />
+          </Link>
+        </Button>
+      </header>
+      {items.map((item) => (
+        <DraggableCard
+          key={item.id}
+          item={item}
+          assignee={
+            item.assigneeId ? (membersById.get(item.assigneeId) ?? null) : null
+          }
+        />
+      ))}
+    </section>
+  )
+}
+
+function DraggableCard({
+  item,
+  assignee,
+}: {
+  item: ContentItem
+  assignee: TeamMember | null
+}) {
+  const { ref, isDragging } = useDraggable({ id: item.id })
+  return (
+    <ContentItemCard
+      ref={ref}
+      item={item}
+      from="pipeline"
+      assignee={assignee}
+      className={cn(isDragging && 'opacity-60')}
     />
+  )
+}
+
+/**
+ * Asks for the date of an item dropped on "Scheduled" that has none, then
+ * saves status and date together. Closing it leaves the item where it was.
+ */
+function ScheduleDialog({
+  item,
+  onClose,
+}: {
+  item: ContentItem | null
+  onClose: () => void
+}) {
+  const updateItem = useUpdateContentItem()
+  const [value, setValue] = useState(() =>
+    toDateTimeLocalValue(defaultTimeOnDay(addDays(new Date(), 1))),
+  )
+  const [error, setError] = useState<string | null>(null)
+
+  async function schedule() {
+    if (!item) return
+    const scheduledAt = fromDateTimeLocalValue(value)
+    if (!scheduledAt) {
+      setError('Pick a date and time.')
+      return
+    }
+    try {
+      await updateItem.mutateAsync({ id: item.id, status: 'scheduled', scheduledAt })
+      onClose()
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : 'Could not schedule the item.',
+      )
+    }
+  }
+
+  return (
+    <Dialog open={item !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Schedule this item</DialogTitle>
+          <DialogDescription>
+            “{item?.title}” has no date yet. A scheduled item needs one.
+          </DialogDescription>
+        </DialogHeader>
+        <FormField id="schedule-at" label="Scheduled (local time)">
+          <Input
+            id="schedule-at"
+            type="datetime-local"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+          />
+        </FormField>
+        {error ? (
+          <Alert variant="destructive" role="alert">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={updateItem.isPending}
+            onClick={() => void schedule()}
+          >
+            {updateItem.isPending ? 'Scheduling…' : 'Schedule'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

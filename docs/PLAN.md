@@ -1,6 +1,6 @@
 # Zora implementation plan
 
-Status as of 2026-11-16. Update this file as steps finish.
+Status as of 2026-11-16. Steps 1 to 6 are done; step 7 (review) remains. Update this file as steps finish.
 
 Zora is an internal app for a three-person team to plan and run a product
 launch. The launch is planned for the week of 2026-11-23. The first feature is
@@ -63,59 +63,58 @@ commands and the contracts that the steps below build on; read it first.
   (auth, allowlist, content list, filters, drag and drop under SSR).
 - Not yet confirmed: a sign-up by a team member in this checkout.
 
-## Remaining
-
-Steps 4 to 6 touch mostly separate files and can be done in any order. All
-three use the contracts in `AGENTS.md`; none should need new dependencies.
-
 ### 4. Item editor
 
-Files: `src/routes/_app/content/new.tsx`, `src/routes/_app/content/$itemId.tsx`.
-
-- One form for create and edit, covering every field: title, body, channel,
-  format, status, scheduled time, published time, published URL, notes, asset
-  links, assignee.
-- `/content/new` prefills `scheduledAt`, `status` and `channel` from the URL.
-- After saving or cancelling, return to the page named by `from`.
-- Delete an item, with confirmation.
-- Show the server's rule errors next to the form (for example "A scheduled
-  item needs a scheduled date and time").
-- Remove the quick-create form from `/content` once the editor works.
+- `ContentItemForm` (`src/components/content/content-item-form.tsx`) is used by
+  `/content/new` and `/content/$itemId`: every field, presets from the URL,
+  return to `from` after save, cancel or delete, delete with confirmation.
+- Field errors from the shared schema show next to the fields (including "A
+  scheduled item needs a scheduled date and time"); server errors show in an
+  alert above the form.
+- The quick-create form is gone from `/content`.
+- The editor routes use `ssr: 'data-only'`, because the form reads local times.
 
 ### 5. Calendar
 
-File: `src/routes/_app/calendar.tsx`.
-
-- Month and week views, with navigation between periods.
-- Items shown as compact `ContentItemCard`s at their scheduled time.
-- Drag an item to another day to reschedule it (`useRescheduleContentItem`).
-- Click an empty day to open `/content/new` with that date.
-- The shared filter bar, with filter state in the URL.
-- Days and weeks are computed in the browser's time zone, on the client only.
+- `/calendar`: month and week views, previous / today / next, filters in the
+  URL, `?view=` and `?date=yyyy-MM-dd`. The route has `ssr: false`: days are
+  computed in the browser's time zone. Maths and tests: `src/lib/calendar.ts`.
+- Compact cards at their scheduled time; drag one to another day to reschedule
+  it (the time of day is kept). Click an empty part of a day, or its "+", to
+  open `/content/new` at 09:00 of that day. A month cell shows three items and
+  a "+N more" link to that week.
+- Weeks start on Monday.
 
 ### 6. Pipeline board
 
-File: `src/routes/_app/pipeline.tsx`.
+- `/pipeline`: one column per status, cards draggable between columns,
+  filters in the URL, a "+" per column that opens `/content/new` with that
+  status.
+- Decision on the open question: dropping an unscheduled item on "Scheduled"
+  opens a dialog that asks for a date and saves status and date together.
+  Cancelling leaves the item where it was.
 
-- One column per status, in pipeline order, with `ContentItemCard` cards.
-- Drag a card to another column to change its status
-  (`useChangeContentItemStatus`).
-- The shared filter bar, with filter state in the URL.
-- Open question: dragging an unscheduled item to "Scheduled" is rejected by
-  the server and rolls back with a toast. Decide whether the board should ask
-  for a date instead.
+### How steps 4 to 6 were checked
+
+- `pnpm typecheck`, `pnpm lint` and `pnpm test` (91 tests) pass.
+- Driven in Chrome against the dev server: create with and without a date
+  (field errors), prefilled editor from the calendar, drag on the calendar,
+  click on an empty day, board drags including the schedule dialog and a move
+  to Published, edit, save, delete.
+- Not checked: touch dragging, dark mode, keyboard dragging on the new pages.
+
+## Remaining
 
 ### 7. Review
 
 - An independent review of steps 4 to 6 together.
-- `pnpm typecheck`, `pnpm lint`, `pnpm test` and `pnpm deploy:check`.
-- A manual pass in the browser over the whole flow: create an item, schedule
-  it, move it on the calendar and the board, publish it.
+- `pnpm deploy:check`.
+- A manual pass by a person over the whole flow.
 
 ## Before launch
 
-- Commit and push. Nothing is committed yet: `main` is still at the bootstrap
-  commit and all of the code is uncommitted local changes.
+- Push `main`. The work is committed locally; `origin/main` is still at the
+  bootstrap commit.
 - Add the other two partners' emails to `ALLOWED_SIGNUP_EMAILS`.
 - Create the Neon project and run the migrations against it.
 - Set up the Cloudflare Worker and its secrets: `DATABASE_URL`,

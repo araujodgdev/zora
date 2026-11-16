@@ -67,11 +67,11 @@ src/
     index.tsx                / -> /calendar
     sign-in.tsx, sign-up.tsx public pages (?redirect= returns to the original URL)
     _app.tsx                 pathless layout: session guard + AppShell
-    _app/calendar.tsx        placeholder
-    _app/pipeline.tsx        placeholder
-    _app/content/index.tsx   /content: filtered list (filters in the URL) + quick-create form
-    _app/content/new.tsx     /content/new: editor placeholder (search contract in place)
-    _app/content/$itemId.tsx /content/$itemId: editor placeholder (loader + not-found state)
+    _app/calendar.tsx        /calendar: month/week grid, drag to reschedule (`ssr: false`, see "Dates")
+    _app/pipeline.tsx        /pipeline: one column per status, drag to change status
+    _app/content/index.tsx   /content: filtered list (filters in the URL)
+    _app/content/new.tsx     /content/new: editor form, presets from the search
+    _app/content/$itemId.tsx /content/$itemId: editor form (loader + not-found state)
     api/auth/$.ts            Better Auth HTTP handler
   lib/
     content.ts               SHARED content module (enums, labels, schemas, rules, types)
@@ -81,6 +81,7 @@ src/
     content-cache.ts         contentKeys + optimistic cache apply/rollback (no React; unit-tested)
     content-filters.ts       filter search-param schema + toContentListFilters
     editor-search.ts         search schemas of the editor routes, `from` origins
+    calendar.ts              calendar maths + search schema (local days; browser only; unit-tested)
     dnd.ts                   contentDragSensors for DragDropProvider
     content.server.ts        DB service functions (server-only, unit-tested)
     auth-middleware.ts       authMiddleware (session check for server functions)
@@ -272,9 +273,12 @@ If the page has other search params, keep them:
   `<Link to="/content/new" search={{ from: 'calendar', scheduledAt: day.toISOString() }} />`,
   `<Link to="/content/$itemId" params={{ itemId }} search={{ from: 'pipeline' }} />`.
 - `/content/$itemId` loads the item with `contentItemQueryOptions(itemId)` and
-  renders its `notFoundComponent` for a missing or malformed id. Both editor
-  pages are placeholders until the editor is built; keep the path, search
-  schema and not-found behaviour when replacing them.
+  renders its `notFoundComponent` for a missing or malformed id.
+- Both pages render `ContentItemForm` (`@/components/content/content-item-form`),
+  which validates with `createContentItemSchema` (field errors next to the
+  fields, server errors in an alert), saves, deletes (with confirmation) and
+  returns to `editorReturnPath(from)`. The routes use `ssr: 'data-only'`: the
+  form reads local times, so it renders in the browser.
 
 ### Drag and drop: `@dnd-kit/react`
 
@@ -356,6 +360,12 @@ hydration, because the server does not know the user's zone and would cause a
 hydration mismatch. For the same reason, do day/week arithmetic that depends
 on the local zone (`date-fns` `startOfDay`, `startOfWeek`, ...) on the client
 only, or derive it from an explicit value in the URL.
+
+A route whose loader or markup needs that arithmetic sets `ssr: false`
+(`/calendar`: "today" and the day boundaries come from the browser), or
+`ssr: 'data-only'` when only the markup does (the editor routes). The calendar
+puts its anchor day in the URL as `?date=yyyy-MM-dd` and `?view=month|week`;
+the maths is in `@/lib/calendar`. Weeks start on Monday (`WEEK_STARTS_ON`).
 
 ## Database driver decision
 
