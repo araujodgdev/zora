@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.output/
+.wrangler/
+.tanstack/
+coverage/
+*.log
+
+# Local env files hold secrets. Only .env.example is committed.
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*

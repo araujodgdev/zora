@@ -1,0 +1,24 @@
+# Local development database. Production uses Neon (see AGENTS.md).
+# Host port 5433 avoids clashing with a locally installed Postgres on 5432.
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zora
+      POSTGRES_PASSWORD: zora
+      POSTGRES_DB: zora
+    ports:
+      - "5433:5432"
+    volumes:
+      - zora-db:/var/lib/postgresql/data
+      # Creates the separate `zora_test` database used by Vitest.
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zora -d zora"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  zora-db:

@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zora",
+  // Must not be later than the installed workerd supports.
+  "compatibility_date": "2026-11-13",
+  // Database drivers (pg over TCP) and Better Auth need Node.js APIs.
+  // Default since 2026-08-04, kept explicit for clarity.
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": {
+    "enabled": true
+  }
+  // Secrets (set with `wrangler secret put`, never committed):
+  //   DATABASE_URL, BETTER_AUTH_SECRET
+  // Plain vars to set per environment:
+  //   BETTER_AUTH_URL, ALLOWED_SIGNUP_EMAILS
+}
