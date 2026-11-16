@@ -65,7 +65,8 @@ All live in `.env` locally (git-ignored; `.env.example` documents them).
 
 ## Production
 
-Live at https://zora.k5-web.workers.dev: one Cloudflare Worker (`zora`) with
+Live at https://zora.lume.software (a Custom Domain on the `lume.software`
+zone; the `workers.dev` URL is turned off): one Cloudflare Worker (`zora`) with
 the D1 database `zora` (binding `DB`) and the R2 bucket `zora-media` (binding
 `MEDIA`), on the account set as `account_id` in `wrangler.jsonc`.
 

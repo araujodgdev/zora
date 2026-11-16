@@ -127,7 +127,7 @@ commands and the contracts that the steps below build on; read it first.
 
 ## Before launch
 
-- Deployed on 2026-11-16 to https://zora.k5-web.workers.dev (see README.md
+- Deployed on 2026-11-16, served at https://zora.lume.software (see README.md
   "Production"). Checked there with a temporary test account, since removed:
   sign-up and sign-in, the editor, calendar and pipeline flows, media upload,
   playback and delete. The database and bucket were left empty.
