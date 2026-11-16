@@ -1,6 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { createTestDb, resetDatabase } from '../../test/db'
-import { closeDb } from '../db/client.server'
+import { closeTestDb, createTestDb, resetDatabase } from '../../test/db'
 import { user } from '../db/schema'
 import { MAX_ASSET_BYTES } from './content-assets'
 import {
@@ -17,8 +16,8 @@ import type { MediaBucket, MediaObject } from './content-assets.server'
 import { createContentItem } from './content.server'
 import { createContentItemSchema } from './content'
 
-const db = createTestDb()
-afterAll(() => closeDb(db))
+const db = await createTestDb()
+afterAll(() => closeTestDb(db))
 
 /** An in-memory bucket with the part of the R2 API the service uses. */
 function fakeBucket() {

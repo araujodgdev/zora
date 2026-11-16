@@ -114,9 +114,17 @@ export async function createContentItem(
   return item!
 }
 
+/** How often a change is retried when someone else edits the item meanwhile. */
+const MAX_PATCH_ATTEMPTS = 3
+
 /**
  * Applies a change to one item after checking the scheduling rules against
  * the merged result. Returns `null` when the item does not exist.
+ *
+ * D1 has no interactive transactions, so this is optimistic: the UPDATE only
+ * applies while `updatedAt` still has the value that was read. If someone else
+ * saved in between, it starts over from a fresh read, so the rules are always
+ * checked against the state that gets overwritten.
  */
 async function patchContentItem(
   db: Database,
@@ -124,31 +132,40 @@ async function patchContentItem(
   patch: Partial<CreateContentItemData>,
   now: Date,
 ): Promise<ContentItem | null> {
-  return db.transaction(async (tx) => {
-    const [current] = await tx
+  for (let attempt = 0; attempt < MAX_PATCH_ATTEMPTS; attempt += 1) {
+    const [current] = await db
       .select()
       .from(contentItem)
       .where(eq(contentItem.id, id))
-      .for('update')
     if (!current) return null
 
     const merged = assertScheduleState({ ...current, ...patch }, now)
     if (patch.assigneeId !== undefined) {
-      await assertAssigneeExists(tx, patch.assigneeId)
+      await assertAssigneeExists(db, patch.assigneeId)
     }
 
-    const [updated] = await tx
+    // Strictly after the value read, so every write changes `updatedAt` and a
+    // concurrent writer can never match it by landing in the same millisecond.
+    const updatedAt = new Date(
+      Math.max(now.getTime(), current.updatedAt.getTime() + 1),
+    )
+    const [updated] = await db
       .update(contentItem)
       .set({
         ...patch,
         // normalizeScheduleState may fill publishedAt.
         publishedAt: merged.publishedAt,
-        updatedAt: now,
+        updatedAt,
       })
-      .where(eq(contentItem.id, id))
+      .where(
+        and(eq(contentItem.id, id), eq(contentItem.updatedAt, current.updatedAt)),
+      )
       .returning()
-    return updated ?? null
-  })
+    if (updated) return updated
+  }
+  throw new ContentRuleError(
+    'This item was changed by someone else at the same time. Reload it and try again.',
+  )
 }
 
 /** Partial update. Fields left `undefined` are not changed. */

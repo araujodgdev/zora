@@ -19,8 +19,7 @@ export type AuthEnv = Pick<
 /**
  * Builds the Better Auth instance for one database client.
  *
- * The app calls this once per request through `getRequestServices()`,
- * because the database connection cannot outlive a Workers request.
+ * The app calls this once per request through `getRequestServices()`.
  */
 export function createAuth(db: Database, env: AuthEnv) {
   const allowlist = parseAllowlist(env.ALLOWED_SIGNUP_EMAILS)
@@ -29,7 +28,7 @@ export function createAuth(db: Database, env: AuthEnv) {
     appName: 'Zora',
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
-    database: drizzleAdapter(db, { provider: 'pg', schema: authSchema }),
+    database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
     emailAndPassword: {
       enabled: true,
     },

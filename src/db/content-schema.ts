@@ -1,51 +1,56 @@
 import { sql } from 'drizzle-orm'
 import {
-  bigint,
   check,
   index,
-  jsonb,
-  pgEnum,
-  pgTable,
+  integer,
+  sqliteTable,
   text,
-  timestamp,
-  uuid,
-} from 'drizzle-orm/pg-core'
+} from 'drizzle-orm/sqlite-core'
+import type { SQLiteColumn } from 'drizzle-orm/sqlite-core'
 import { CHANNELS, FORMATS, STATUSES } from '../lib/content'
 import { user } from './auth-schema'
 
-export const contentChannel = pgEnum('content_channel', CHANNELS)
-export const contentFormat = pgEnum('content_format', FORMATS)
-export const contentStatus = pgEnum('content_status', STATUSES)
+// SQLite has no enums: the columns are text, typed by `enum` in TypeScript and
+// guarded by a CHECK constraint built from the same lists. DDL cannot take bound
+// parameters, so the values are written as literals; they are our own constants.
+function oneOf(column: SQLiteColumn, values: ReadonlyArray<string>) {
+  const literals = values.map((value) => `'${value}'`).join(', ')
+  return sql`${column} IN (${sql.raw(literals)})`
+}
 
-export const contentItem = pgTable(
+/** A UTC instant in milliseconds, as a `Date`; defaults to the insert time. */
+const instant = (name: string) => integer(name, { mode: 'timestamp_ms' })
+const now = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
+
+export const contentItem = sqliteTable(
   'content_item',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
     title: text('title').notNull(),
     body: text('body').notNull().default(''),
-    channel: contentChannel('channel').notNull(),
-    format: contentFormat('format').notNull(),
-    status: contentStatus('status').notNull().default('idea'),
-    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
-    publishedAt: timestamp('published_at', { withTimezone: true }),
+    channel: text('channel', { enum: CHANNELS }).notNull(),
+    format: text('format', { enum: FORMATS }).notNull(),
+    status: text('status', { enum: STATUSES }).notNull().default('idea'),
+    scheduledAt: instant('scheduled_at'),
+    publishedAt: instant('published_at'),
     publishedUrl: text('published_url'),
     notes: text('notes').notNull().default(''),
-    assetLinks: jsonb('asset_links')
+    assetLinks: text('asset_links', { mode: 'json' })
       .$type<Array<string>>()
       .notNull()
-      .default(sql`'[]'::jsonb`),
+      .default([]),
     assigneeId: text('assignee_id').references(() => user.id, {
       onDelete: 'set null',
     }),
     createdById: text('created_by_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
-    createdAt: timestamp('created_at', { withTimezone: true })
+    createdAt: instant('created_at').notNull().default(now),
+    updatedAt: instant('updated_at')
       .notNull()
-      .defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true })
-      .notNull()
-      .defaultNow()
+      .default(now)
       .$onUpdate(() => new Date()),
   },
   (table) => [
@@ -54,6 +59,9 @@ export const contentItem = pgTable(
     index('content_item_assignee_id_idx').on(table.assigneeId),
     // Backstops for the rules in src/lib/content.ts (the server checks first
     // and returns a friendly message).
+    check('content_item_channel_valid', oneOf(table.channel, CHANNELS)),
+    check('content_item_format_valid', oneOf(table.format, FORMATS)),
+    check('content_item_status_valid', oneOf(table.status, STATUSES)),
     check(
       'content_item_scheduled_has_date',
       sql`${table.status} <> 'scheduled' OR ${table.scheduledAt} IS NOT NULL`,
@@ -69,22 +77,22 @@ export const contentItem = pgTable(
  * A file uploaded to a content item. The bytes are in the R2 bucket under
  * `content/<contentItemId>/<id>` (see `src/lib/content-assets.server.ts`).
  */
-export const contentAsset = pgTable(
+export const contentAsset = sqliteTable(
   'content_asset',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    contentItemId: uuid('content_item_id')
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    contentItemId: text('content_item_id')
       .notNull()
       .references(() => contentItem.id, { onDelete: 'cascade' }),
     filename: text('filename').notNull(),
     contentType: text('content_type').notNull(),
-    size: bigint('size', { mode: 'number' }).notNull(),
+    size: integer('size').notNull(),
     createdById: text('created_by_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
-    createdAt: timestamp('created_at', { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: instant('created_at').notNull().default(now),
   },
   (table) => [index('content_asset_content_item_id_idx').on(table.contentItemId)],
 )

@@ -1,0 +1,12 @@
+{
+  // Used only by test/db.ts: an in-memory D1 database for the Vitest suites.
+  "name": "zora-test",
+  "compatibility_date": "2026-11-13",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zora-test",
+      "database_id": "00000000-0000-4000-8000-000000000000"
+    }
+  ]
+}

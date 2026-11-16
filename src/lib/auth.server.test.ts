@@ -1,6 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { createTestDb, resetDatabase } from '../../test/db'
-import { closeDb } from '../db/client.server'
+import { closeTestDb, createTestDb, resetDatabase } from '../../test/db'
 import { SIGNUP_NOT_ALLOWED_MESSAGE } from './allowlist'
 import { createAuth } from './auth.server'
 import {
@@ -9,8 +8,8 @@ import {
   requireSessionUser,
 } from './session.server'
 
-// Exercises the real Better Auth configuration against TEST_DATABASE_URL.
-const db = createTestDb()
+// Exercises the real Better Auth configuration against an in-memory D1 database.
+const db = await createTestDb()
 const auth = createAuth(db, {
   BETTER_AUTH_SECRET: 'test-secret-test-secret-test-secret-123',
   BETTER_AUTH_URL: 'http://localhost:3000',
@@ -37,7 +36,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await closeDb(db)
+  await closeTestDb(db)
 })
 
 describe('sign-up allowlist (server side)', () => {

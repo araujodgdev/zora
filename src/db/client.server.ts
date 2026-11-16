@@ -1,28 +1,16 @@
-import { drizzle } from 'drizzle-orm/node-postgres'
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
-import { Pool } from 'pg'
+import { drizzle } from 'drizzle-orm/d1'
+import type { AnyD1Database, DrizzleD1Database } from 'drizzle-orm/d1'
 
-export type Database = NodePgDatabase
+export type Database = DrizzleD1Database
 
 /**
- * Creates a Drizzle client over node-postgres (TCP).
+ * Wraps a D1 binding (`env.DB`) in a Drizzle client. Cheap: it holds no
+ * connection, so creating one per request is fine.
  *
- * On Cloudflare Workers a connection cannot be reused across requests, so the
- * app creates one client per request (see `getRequestServices`). Never hold
- * the result in module scope inside the Worker.
+ * D1 has no interactive transactions (`db.transaction` throws); use single
+ * statements or `db.batch([...])`, and see `patchContentItem` for how a
+ * read-then-write is kept safe.
  */
-export function createDb(connectionString: string): Database {
-  const pool = new Pool({
-    connectionString,
-    // One connection per request is enough for this app; queries in the same
-    // request queue on it.
-    max: 1,
-  })
-  return drizzle({ client: pool })
-}
-
-/** Closes the connection behind a client created by `createDb`. */
-export async function closeDb(db: Database): Promise<void> {
-  const client = (db as Database & { $client: Pool }).$client
-  await client.end()
+export function createDb(binding: AnyD1Database): Database {
+  return drizzle(binding)
 }

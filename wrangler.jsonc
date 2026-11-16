@@ -3,18 +3,30 @@
   "name": "zora",
   // Must not be later than the installed workerd supports.
   "compatibility_date": "2026-11-13",
-  // Database drivers (pg over TCP) and Better Auth need Node.js APIs.
+  // Better Auth needs Node.js APIs.
   // Default since 2026-08-04, kept explicit for clarity.
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
-  // Uploaded media. Create the bucket once with
-  // `wrangler r2 bucket create zora-media`.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "zora",
+      // Before the first deploy: `pnpm exec wrangler d1 create zora`, then
+      // paste the printed id here as "database_id". Local dev and tests do
+      // not need it.
+      // drizzle-kit writes each migration as drizzle/<name>/migration.sql.
+      "migrations_dir": "drizzle",
+      "migrations_pattern": "drizzle/*/migration.sql"
+    }
+  ],
+  // Uploaded media. Before the first deploy:
+  // `pnpm exec wrangler r2 bucket create zora-media`.
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "zora-media" }],
   "observability": {
     "enabled": true
   }
   // Secrets (set with `wrangler secret put`, never committed):
-  //   DATABASE_URL, BETTER_AUTH_SECRET
+  //   BETTER_AUTH_SECRET
   // Plain vars to set per environment:
   //   BETTER_AUTH_URL, ALLOWED_SIGNUP_EMAILS
 }

@@ -13,7 +13,7 @@ commands and the contracts that the steps below build on; read it first.
 | --- | --- |
 | Stack | TanStack Start (React) with TanStack Router, Query and Form; Tailwind CSS + shadcn/ui |
 | Docs rule | Whoever writes code grounds it in the current official docs (URLs in `AGENTS.md`) |
-| Data | PostgreSQL through Drizzle ORM; local Docker Postgres in development, Neon in production |
+| Data | Cloudflare D1 (SQLite) through Drizzle ORM, simulated locally by Wrangler; uploaded media in R2. Switched from Neon Postgres on 2026-11-16, before launch |
 | Auth | Better Auth inside the app, email + password |
 | Team model | One shared workspace: every signed-in user sees and edits everything. No roles, no admin account |
 | Sign-up | Limited to the emails in `ALLOWED_SIGNUP_EMAILS`, enforced on the server |
@@ -29,7 +29,7 @@ commands and the contracts that the steps below build on; read it first.
 
 ### 1. Foundation
 
-- Project scaffold, scripts, lint, tests, Docker Compose database, first migration.
+- Project scaffold, scripts, lint, tests, database, first migration.
 - Auth: sign-up, sign-in, sign-out, the email allowlist, protected routes that
   return to the requested URL after sign-in.
 - App shell with navigation to Calendar, Pipeline and Content.
@@ -104,6 +104,18 @@ commands and the contracts that the steps below build on; read it first.
   in the new `content_asset` table (migration committed).
 - Not on `/content/new`: the item has to exist first.
 
+### 9. Database moved to Cloudflare D1
+
+- Schema rewritten for SQLite (text enums with CHECK, millisecond dates, JSON
+  as text), auth schema regenerated, one fresh migration. Postgres, Docker and
+  `DATABASE_URL` are gone.
+- Item updates no longer use a transaction: they write only if `updated_at`
+  is unchanged and retry otherwise (tested with simultaneous saves).
+- Tests run on an in-memory D1 database; nothing needs to be running.
+- Checked: the 101 tests, and the same Chrome flows as steps 4 to 6 and 8
+  (editor, calendar, pipeline, media upload up to 90 MB, delete cascading to
+  R2) against the local D1.
+
 ### How steps 4 to 6 were checked
 
 - `pnpm typecheck`, `pnpm lint` and `pnpm test` (91 tests) pass.
@@ -123,16 +135,13 @@ commands and the contracts that the steps below build on; read it first.
 
 ## Before launch
 
-- Create the R2 bucket: `wrangler r2 bucket create zora-media` (the name in
-  `wrangler.jsonc`), then deploy. Run the new migration on Neon.
 - Push `main`. The work is committed locally; `origin/main` is still at the
   bootstrap commit.
 - Add the other two partners' emails to `ALLOWED_SIGNUP_EMAILS`.
-- Create the Neon project and run the migrations against it.
-- Set up the Cloudflare Worker and its secrets: `DATABASE_URL`,
-  `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `ALLOWED_SIGNUP_EMAILS`.
-- Put Cloudflare Hyperdrive in front of Neon. Without it every request opens a
-  new database connection.
+- First deploy, as in README.md "Deploying": create the D1 database (paste
+  its `database_id` into `wrangler.jsonc`) and the R2 bucket, run
+  `pnpm db:migrate:remote`, set `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and
+  `ALLOWED_SIGNUP_EMAILS`, then build and deploy.
 - Password hashing: Better Auth hashes with scrypt in JavaScript, which will
   probably exceed the Workers Free plan's CPU limit. Use Workers Paid or
   configure a cheaper hash.
@@ -146,7 +155,9 @@ commands and the contracts that the steps below build on; read it first.
   is mounted. It falls back to the system theme.
 - `pnpm build` copies `.env` into `dist/server/.dev.vars`. `dist/` is
   git-ignored; do not share it.
-- The local database holds test users and test items created by the agents.
+- The `DB` binding is typed loosely (`any`); see AGENTS.md "Database decision".
+- Two people saving the same item at the same instant: the second save is
+  retried up to three times, then fails with "changed by someone else".
 
 ## Later
 

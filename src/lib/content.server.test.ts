@@ -1,6 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { createTestDb, resetDatabase } from '../../test/db'
-import { closeDb } from '../db/client.server'
+import { closeTestDb, createTestDb, resetDatabase } from '../../test/db'
 import { user } from '../db/schema'
 import { createContentItemSchema } from './content'
 import type { CreateContentItemInput } from './content'
@@ -16,8 +15,8 @@ import {
   updateContentItem,
 } from './content.server'
 
-// Runs against TEST_DATABASE_URL (local Docker Postgres).
-const db = createTestDb()
+// Runs against an in-memory D1 database (see test/db.ts).
+const db = await createTestDb()
 const alice = { id: 'user-alice', name: 'Alice', email: 'alice@example.com' }
 const bob = { id: 'user-bob', name: 'Bob', email: 'bob@example.com' }
 const missingId = '00000000-0000-4000-8000-000000000000'
@@ -37,7 +36,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await closeDb(db)
+  await closeTestDb(db)
 })
 
 describe('createContentItem', () => {
@@ -228,6 +227,36 @@ describe('changeContentItemStatus', () => {
     expect((await changeContentItemStatus(db, item.id, 'scheduled'))?.status).toBe(
       'scheduled',
     )
+  })
+})
+
+describe('simultaneous changes to one item', () => {
+  // D1 has no transactions: each change is read, checked, then written only if
+  // nobody saved in between. Publishing fills publishedAt, so a stale reschedule
+  // that overwrote it would break the "published needs a date" rule.
+  it('keeps both changes when two people save at once', async () => {
+    const when = new Date('2026-08-05T09:00:00Z')
+    for (let round = 0; round < 5; round += 1) {
+      const item = await create({ title: `R${round}`, channel: 'x', format: 'post' })
+      const [published, rescheduled] = await Promise.all([
+        changeContentItemStatus(db, item.id, 'published'),
+        rescheduleContentItem(db, item.id, when),
+      ])
+      expect(published?.status).toBe('published')
+      expect(rescheduled?.scheduledAt).toEqual(when)
+      const saved = await getContentItem(db, item.id)
+      expect(saved).toMatchObject({ status: 'published', scheduledAt: when })
+      expect(saved?.publishedAt).toBeInstanceOf(Date)
+    }
+  })
+
+  it('moves updatedAt forward on every change, even within a millisecond', async () => {
+    const item = await create({ title: 'T', channel: 'x', format: 'post' })
+    const frozen = new Date('2000-01-01T00:00:00Z')
+    const first = await changeContentItemStatus(db, item.id, 'draft', frozen)
+    const second = await changeContentItemStatus(db, item.id, 'ready', frozen)
+    expect(first!.updatedAt.getTime()).toBeGreaterThan(item.updatedAt.getTime())
+    expect(second!.updatedAt.getTime()).toBeGreaterThan(first!.updatedAt.getTime())
   })
 })
 

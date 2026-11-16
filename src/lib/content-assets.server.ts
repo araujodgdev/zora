@@ -90,12 +90,7 @@ export async function createContentAsset(
   const problem = assetUploadError(file)
   if (problem) throw new AssetUploadError(problem)
 
-  const [item] = await db
-    .select({ id: contentItem.id })
-    .from(contentItem)
-    .where(eq(contentItem.id, input.contentItemId))
-    .limit(1)
-  if (!item) return null
+  if (!(await itemExists(db, input.contentItemId))) return null
 
   const id = crypto.randomUUID()
   const key = assetObjectKey(input.contentItemId, id)
@@ -114,16 +109,21 @@ export async function createContentAsset(
       .returning()
     return asset!
   } catch (error) {
-    // The item may have been deleted meanwhile: do not leave the bytes behind.
+    // Do not leave the bytes behind. If the item was deleted meanwhile (the
+    // foreign key refuses the row), that is a "not found", not a failure.
     await bucket.delete(key).catch(() => {})
-    if (isForeignKeyViolation(error)) return null
+    if (!(await itemExists(db, input.contentItemId))) return null
     throw error
   }
 }
 
-function isForeignKeyViolation(error: unknown): boolean {
-  const cause = (error as { cause?: { code?: string } } | null)?.cause
-  return (error as { code?: string } | null)?.code === '23503' || cause?.code === '23503'
+async function itemExists(db: Database, id: string): Promise<boolean> {
+  const [item] = await db
+    .select({ id: contentItem.id })
+    .from(contentItem)
+    .where(eq(contentItem.id, id))
+    .limit(1)
+  return item !== undefined
 }
 
 /** Deletes the row and then the object. `false` when the asset does not exist. */

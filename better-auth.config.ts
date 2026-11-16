@@ -5,10 +5,11 @@
  * Regenerate the auth tables after changing the auth config:
  *   pnpm auth:generate && pnpm db:generate
  */
-import { drizzle } from 'drizzle-orm/node-postgres'
+import { createDb } from './src/db/client.server'
 import { createAuth } from './src/lib/auth.server'
 
-export const auth = createAuth(drizzle.mock(), {
+// The CLI only reads the config; the empty binding is never queried.
+export const auth = createAuth(createDb({} as never), {
   BETTER_AUTH_SECRET: 'cli-only-placeholder-secret-not-used-at-runtime',
   BETTER_AUTH_URL: 'http://localhost:3000',
   ALLOWED_SIGNUP_EMAILS: '',
