@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { AppShell } from '@/components/app-shell'
+import { readSidebarOpen } from '@/lib/sidebar-state'
 
 /**
  * Pathless layout for every signed-in page. Put protected pages in
@@ -14,7 +15,7 @@ export const Route = createFileRoute('/_app')({
         search: { redirect: location.href },
       })
     }
-    return { user: context.user }
+    return { user: context.user, sidebarOpen: readSidebarOpen() }
   },
   component: AppShell,
 })

@@ -60,7 +60,8 @@ pnpm auth:generate # regenerate src/db/auth-schema.ts after changing auth config
 
 No Docker and no Cloudflare account are needed locally: D1 and R2 are
 simulated under `.wrangler/state` (delete it to start empty, then
-`pnpm db:migrate`). `pnpm test` needs nothing running: each DB test file gets
+`pnpm db:migrate`). The local D1 copy is keyed by the `database_id` in
+`wrangler.jsonc`; changing that id starts an empty local database. `pnpm test` needs nothing running: each DB test file gets
 its own in-memory D1 database (`test/db.ts`) with the committed migrations
 applied.
 
@@ -359,7 +360,10 @@ function Column({ status, children }) {
 Create `src/routes/_app/<name>.tsx` with `createFileRoute('/_app/<name>')`.
 The `_app` layout redirects signed-out users to `/sign-in?redirect=<url>` and
 renders the shell. `Route.useRouteContext().user` is the signed-in
-`{ id, name, email }`. Add a nav entry in `src/components/app-shell.tsx`.
+`{ id, name, email }`. Add a nav entry (path, label, lucide icon) to `navItems`
+in `src/components/app-shell.tsx`. The shell is a shadcn `Sidebar` that
+collapses to icons (Ctrl/Cmd+B); its state is a cookie read during SSR
+(`@/lib/sidebar-state`), so pages get the full height and width.
 The route tree regenerates while `pnpm dev` (or `pnpm build`) runs.
 
 ### Add a protected server function
