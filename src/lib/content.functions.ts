@@ -21,6 +21,8 @@ import {
 } from './content'
 import type { ContentItem } from './content'
 import * as contentService from './content.server'
+import { deleteContentItemWithAssets } from './content-assets.server'
+import { getMediaBucket } from './media-bucket.server'
 
 /** Maps service errors to HTTP statuses; rule violations become 422. */
 async function withRuleErrors<T>(run: () => Promise<T>): Promise<T> {
@@ -113,7 +115,11 @@ export const deleteContentItem = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator(contentItemIdSchema)
   .handler(async ({ context, data }): Promise<{ id: string }> => {
-    const deleted = await contentService.deleteContentItem(context.db, data.id)
+    const deleted = await deleteContentItemWithAssets(
+      context.db,
+      getMediaBucket(),
+      data.id,
+    )
     if (!deleted) throw notFound()
     return { id: data.id }
   })

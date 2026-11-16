@@ -20,6 +20,8 @@ export const contentKeys = {
     [...contentKeys.lists(), filters] as const,
   details: () => [...contentKeys.all, 'detail'] as const,
   detail: (id: string) => [...contentKeys.details(), id] as const,
+  /** The uploaded media of one item. */
+  assets: (id: string) => [...contentKeys.all, 'assets', id] as const,
 }
 
 /** Fields a drag-and-drop move can change. */

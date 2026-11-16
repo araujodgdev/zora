@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  bigint,
   check,
   index,
   jsonb,
@@ -62,4 +63,28 @@ export const contentItem = pgTable(
       sql`${table.status} <> 'published' OR ${table.publishedAt} IS NOT NULL`,
     ),
   ],
+)
+
+/**
+ * A file uploaded to a content item. The bytes are in the R2 bucket under
+ * `content/<contentItemId>/<id>` (see `src/lib/content-assets.server.ts`).
+ */
+export const contentAsset = pgTable(
+  'content_asset',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contentItemId: uuid('content_item_id')
+      .notNull()
+      .references(() => contentItem.id, { onDelete: 'cascade' }),
+    filename: text('filename').notNull(),
+    contentType: text('content_type').notNull(),
+    size: bigint('size', { mode: 'number' }).notNull(),
+    createdById: text('created_by_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index('content_asset_content_item_id_idx').on(table.contentItemId)],
 )

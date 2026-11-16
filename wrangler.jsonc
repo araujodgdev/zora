@@ -7,6 +7,9 @@
   // Default since 2026-08-04, kept explicit for clarity.
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
+  // Uploaded media. Create the bucket once with
+  // `wrangler r2 bucket create zora-media`.
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "zora-media" }],
   "observability": {
     "enabled": true
   }

@@ -32,7 +32,8 @@ what you remember, the docs win. Do not substitute stack choices.
 - Better Auth 1.7 (email + password), tables in the same database through
   `@better-auth/drizzle-adapter/relations-v2`.
 - Cloudflare Workers via `@cloudflare/vite-plugin`; local dev runs server code
-  in `workerd`.
+  in `workerd`. Uploaded media is stored in R2 (binding `MEDIA`, simulated
+  locally under `.wrangler/state`).
 - Drag and drop: `@dnd-kit/react` (see "Drag and drop"). Date maths:
   `date-fns`. Toasts: `sonner` (through `src/components/ui/sonner.tsx`).
 - Vitest, ESLint (typescript-eslint), pnpm.
@@ -73,6 +74,8 @@ src/
     _app/content/new.tsx     /content/new: editor form, presets from the search
     _app/content/$itemId.tsx /content/$itemId: editor form (loader + not-found state)
     api/auth/$.ts            Better Auth HTTP handler
+    api/content/$itemId/assets.ts  POST: upload a file of an item (raw body)
+    api/assets/$assetId.ts   GET: serve an uploaded file (session required, range support)
   lib/
     content.ts               SHARED content module (enums, labels, schemas, rules, types)
     content.functions.ts     content server functions (RPC contract)
@@ -80,6 +83,11 @@ src/
     content.queries.ts       queryOptions factories, query keys, mutation hooks
     content-cache.ts         contentKeys + optimistic cache apply/rollback (no React; unit-tested)
     content-filters.ts       filter search-param schema + toContentListFilters
+    content-assets.ts        SHARED media module (allowed types, size limit, URLs, ContentAsset)
+    content-assets.functions.ts  listContentAssets, deleteContentAsset server functions
+    content-assets.server.ts DB + R2 service functions (server-only, unit-tested)
+    content-assets.upload.ts browser upload with progress (XMLHttpRequest)
+    media-bucket.server.ts   getMediaBucket(): the R2 binding `MEDIA`
     editor-search.ts         search schemas of the editor routes, `from` origins
     calendar.ts              calendar maths + search schema (local days; browser only; unit-tested)
     dnd.ts                   contentDragSensors for DragDropProvider
@@ -279,6 +287,29 @@ If the page has other search params, keep them:
   fields, server errors in an alert), saves, deletes (with confirmation) and
   returns to `editorReturnPath(from)`. The routes use `ssr: 'data-only'`: the
   form reads local times, so it renders in the browser.
+
+### Media: `@/lib/content-assets`
+
+An item can have uploaded files (images, videos, PDFs), shown and managed in
+`ContentAssets` (`@/components/content/content-assets`) on `/content/$itemId`.
+The `assetLinks` field still holds external URLs; uploads are separate.
+
+- `@/lib/content-assets` is the one place that lists the allowed types
+  (`MEDIA_TYPES`), the 100 MB limit (`MAX_ASSET_BYTES`, the Workers request
+  body limit) and the URLs (`assetFileUrl`, `assetUploadUrl`). SVG is not
+  allowed on purpose.
+- Bytes are in R2 under `content/<itemId>/<assetId>`; the `content_asset` table
+  holds name, type and size and cascades with the item. Deleting an item goes
+  through `deleteContentItemWithAssets`, which also removes the objects.
+- Upload is `POST /api/content/<itemId>/assets?filename=...` with the file as
+  the raw body (not multipart), so it streams into R2 without being buffered.
+  R2 needs the length up front: the browser sends `Content-Length` for a
+  `File`. Use `useUploadContentAsset(itemId)` (progress callback).
+- Files are served by `GET /api/assets/<assetId>` for `<img>`/`<video>`, with
+  range requests (video seeking). Reads need a session; responses are
+  `private`, `nosniff`, and `inline`.
+- List and delete are server functions: `contentAssetsQueryOptions(itemId)`,
+  `useDeleteContentAsset(itemId)`.
 
 ### Drag and drop: `@dnd-kit/react`
 

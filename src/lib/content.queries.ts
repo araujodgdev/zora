@@ -45,6 +45,11 @@ import {
   rescheduleContentItem,
   updateContentItem,
 } from './content.functions'
+import {
+  deleteContentAsset,
+  listContentAssets,
+} from './content-assets.functions'
+import { uploadContentAsset } from './content-assets.upload'
 import { listTeamMembers } from './team.functions'
 
 // The key scheme lives next to the cache-update logic; import it from here.
@@ -66,6 +71,13 @@ export function contentItemQueryOptions(id: string) {
   return queryOptions({
     queryKey: contentKeys.detail(id),
     queryFn: () => getContentItem({ data: { id } }),
+  })
+}
+
+export function contentAssetsQueryOptions(itemId: string) {
+  return queryOptions({
+    queryKey: contentKeys.assets(itemId),
+    queryFn: () => listContentAssets({ data: { id: itemId } }),
   })
 }
 
@@ -185,5 +197,25 @@ export function useDeleteContentItem() {
       queryClient.removeQueries({ queryKey: contentKeys.detail(id) })
       return queryClient.invalidateQueries({ queryKey: contentKeys.lists() })
     },
+  })
+}
+
+/** Uploads one file to an item, reporting progress (0 to 1). Forms show the error. */
+export function useUploadContentAsset(itemId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { file: File; onProgress?: (fraction: number) => void }) =>
+      uploadContentAsset(itemId, input.file, input.onProgress),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: contentKeys.assets(itemId) }),
+  })
+}
+
+export function useDeleteContentAsset(itemId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (assetId: string) => deleteContentAsset({ data: { id: assetId } }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: contentKeys.assets(itemId) }),
   })
 }

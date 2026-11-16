@@ -18,7 +18,9 @@ import { Route as AppPipelineRouteImport } from './routes/_app/pipeline'
 import { Route as AppContentIndexRouteImport } from './routes/_app/content/index'
 import { Route as AppContentItemIdRouteImport } from './routes/_app/content/$itemId'
 import { Route as AppContentNewRouteImport } from './routes/_app/content/new'
+import { Route as ApiAssetsAssetIdRouteImport } from './routes/api/assets/$assetId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiContentItemIdAssetsRouteImport } from './routes/api/content/$itemId/assets'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,9 +66,19 @@ const AppContentNewRoute = AppContentNewRouteImport.update({
   path: '/content/new',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiAssetsAssetIdRoute = ApiAssetsAssetIdRouteImport.update({
+  id: '/api/assets/$assetId',
+  path: '/api/assets/$assetId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiContentItemIdAssetsRoute = ApiContentItemIdAssetsRouteImport.update({
+  id: '/api/content/$itemId/assets',
+  path: '/api/content/$itemId/assets',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -78,8 +90,10 @@ export interface FileRoutesByFullPath {
   '/pipeline': typeof AppPipelineRoute
   '/content/$itemId': typeof AppContentItemIdRoute
   '/content/new': typeof AppContentNewRoute
+  '/api/assets/$assetId': typeof ApiAssetsAssetIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/content/': typeof AppContentIndexRoute
+  '/api/content/$itemId/assets': typeof ApiContentItemIdAssetsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -89,8 +103,10 @@ export interface FileRoutesByTo {
   '/pipeline': typeof AppPipelineRoute
   '/content/$itemId': typeof AppContentItemIdRoute
   '/content/new': typeof AppContentNewRoute
+  '/api/assets/$assetId': typeof ApiAssetsAssetIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/content': typeof AppContentIndexRoute
+  '/api/content/$itemId/assets': typeof ApiContentItemIdAssetsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -102,8 +118,10 @@ export interface FileRoutesById {
   '/_app/pipeline': typeof AppPipelineRoute
   '/_app/content/$itemId': typeof AppContentItemIdRoute
   '/_app/content/new': typeof AppContentNewRoute
+  '/api/assets/$assetId': typeof ApiAssetsAssetIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_app/content/': typeof AppContentIndexRoute
+  '/api/content/$itemId/assets': typeof ApiContentItemIdAssetsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -115,8 +133,10 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/content/$itemId'
     | '/content/new'
+    | '/api/assets/$assetId'
     | '/api/auth/$'
     | '/content/'
+    | '/api/content/$itemId/assets'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -126,8 +146,10 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/content/$itemId'
     | '/content/new'
+    | '/api/assets/$assetId'
     | '/api/auth/$'
     | '/content'
+    | '/api/content/$itemId/assets'
   id:
     | '__root__'
     | '/'
@@ -138,8 +160,10 @@ export interface FileRouteTypes {
     | '/_app/pipeline'
     | '/_app/content/$itemId'
     | '/_app/content/new'
+    | '/api/assets/$assetId'
     | '/api/auth/$'
     | '/_app/content/'
+    | '/api/content/$itemId/assets'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -147,7 +171,9 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  ApiAssetsAssetIdRoute: typeof ApiAssetsAssetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiContentItemIdAssetsRoute: typeof ApiContentItemIdAssetsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -215,11 +241,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContentNewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/assets/$assetId': {
+      id: '/api/assets/$assetId'
+      path: '/api/assets/$assetId'
+      fullPath: '/api/assets/$assetId'
+      preLoaderRoute: typeof ApiAssetsAssetIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/content/$itemId/assets': {
+      id: '/api/content/$itemId/assets'
+      path: '/api/content/$itemId/assets'
+      fullPath: '/api/content/$itemId/assets'
+      preLoaderRoute: typeof ApiContentItemIdAssetsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -248,7 +288,9 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  ApiAssetsAssetIdRoute: ApiAssetsAssetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiContentItemIdAssetsRoute: ApiContentItemIdAssetsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

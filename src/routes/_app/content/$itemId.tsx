@@ -1,9 +1,11 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { PageHeader } from '@/components/app-shell'
+import { ContentAssets } from '@/components/content/content-assets'
 import { ContentItemForm } from '@/components/content/content-item-form'
 import { contentItemIdSchema } from '@/lib/content'
 import {
+  contentAssetsQueryOptions,
   contentItemQueryOptions,
   teamMembersQueryOptions,
 } from '@/lib/content.queries'
@@ -22,6 +24,7 @@ export const Route = createFileRoute('/_app/content/$itemId')({
     await Promise.all([
       context.queryClient.query(contentItemQueryOptions(params.itemId)),
       context.queryClient.query(teamMembersQueryOptions()),
+      context.queryClient.query(contentAssetsQueryOptions(params.itemId)),
     ])
   },
   head: () => ({ meta: [{ title: 'Edit item · Zora' }] }),
@@ -44,6 +47,9 @@ function EditContentItemPage() {
         members={members}
         from={search.from}
       />
+      <div className="mt-10 border-t pt-8">
+        <ContentAssets itemId={item.id} />
+      </div>
     </>
   )
 }

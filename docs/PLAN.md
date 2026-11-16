@@ -94,6 +94,16 @@ commands and the contracts that the steps below build on; read it first.
   opens a dialog that asks for a date and saves status and date together.
   Cancelling leaves the item where it was.
 
+### 8. Media on the item page
+
+- `/content/$itemId` has a Media section: upload by button or drag and drop
+  (several files, progress per file), previews in place (images and videos open
+  in a viewer, PDFs in a new tab), delete with confirmation.
+- Allowed: PNG, JPEG, GIF, WebP, AVIF, MP4, WebM, MOV, PDF, up to 100 MB each.
+  Files are in Cloudflare R2 (binding `MEDIA`, bucket `zora-media`); metadata
+  in the new `content_asset` table (migration committed).
+- Not on `/content/new`: the item has to exist first.
+
 ### How steps 4 to 6 were checked
 
 - `pnpm typecheck`, `pnpm lint` and `pnpm test` (91 tests) pass.
@@ -113,6 +123,8 @@ commands and the contracts that the steps below build on; read it first.
 
 ## Before launch
 
+- Create the R2 bucket: `wrangler r2 bucket create zora-media` (the name in
+  `wrangler.jsonc`), then deploy. Run the new migration on Neon.
 - Push `main`. The work is committed locally; `origin/main` is still at the
   bootstrap commit.
 - Add the other two partners' emails to `ALLOWED_SIGNUP_EMAILS`.
