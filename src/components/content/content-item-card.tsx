@@ -49,17 +49,18 @@ export function ContentItemCard({
       search={{ from }}
       // dnd-kit gives a draggable without a role `role="button"`; this is a link.
       role="link"
-      data-slot="content-item-card"
-      data-variant={variant}
       className={cn(
         // Sits on a panel (calendar cell, board column): one step up, "raised".
-        'bg-muted text-foreground focus-visible:ring-ring/60 outline-none transition-colors hover:bg-[color-mix(in_oklab,var(--muted),white_6%)] focus-visible:ring-3',
+        'bg-muted text-foreground focus-visible:ring-ring/60 outline-none transition-colors hover:bg-[color-mix(in_oklab,var(--muted),var(--foreground)_6%)] focus-visible:ring-3',
         variant === 'compact'
           ? 'flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-xs'
           : 'flex flex-col gap-2.5 rounded-lg p-3 text-sm',
         className,
       )}
       {...props}
+      // After the props: a wrapping trigger (e.g. a hover card) must not rename it.
+      data-slot="content-item-card"
+      data-variant={variant}
     >
       {variant === 'compact' ? (
         <>

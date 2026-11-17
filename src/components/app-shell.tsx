@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/sidebar'
 import { WebMcpTools } from '@/components/webmcp-tools'
 import { authClient } from '@/lib/auth-client'
+import { cn } from '@/lib/utils'
 import { setTheme, useTheme } from '@/lib/theme'
 
 const appRoute = getRouteApi('/_app')
@@ -37,9 +38,16 @@ const navItems = [
 ] as const
 
 /**
- * Signed-in layout: a sidebar that collapses to icons (toggle with its button,
- * the rail, or Ctrl/Cmd+B), so pages get the full height. On small screens the
- * sidebar is a sheet opened from the button at the top left.
+ * Signed-in layout.
+ *
+ * - `lg` and up (desktops, iPad landscape): a sidebar that collapses to icons
+ *   (its button, the rail, or Ctrl/Cmd+B), so pages get the full height.
+ * - Below `lg` (phones, iPad portrait): a top bar with the menu button; the
+ *   sidebar opens as a sheet.
+ *
+ * `--page-h` is the height a page can use without scrolling the window (the
+ * window minus the top bar and the padding). Full-height pages (calendar,
+ * item editor) size themselves with `h-(--page-h)`.
  */
 export function AppShell() {
   const { sidebarOpen } = appRoute.useRouteContext()
@@ -48,12 +56,27 @@ export function AppShell() {
       <WebMcpTools />
       <AppSidebar />
       <SidebarInset>
-        <SidebarTrigger className="m-2 md:hidden" />
-        <main className="w-full px-6 py-8 md:px-10">
+        <MobileTopBar />
+        <div className="w-full px-4 py-6 [--page-h:calc(100svh-3.5rem-3rem)] md:px-6 lg:px-10 lg:py-8 lg:[--page-h:calc(100svh-4rem)]">
           <Outlet />
-        </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+/** Below `lg`: the menu button and the wordmark, pinned to the top. */
+function MobileTopBar() {
+  return (
+    <header className="bg-background/85 sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-2 backdrop-blur-md lg:hidden">
+      <SidebarTrigger className="size-10" />
+      <Link
+        to="/calendar"
+        className="font-display wonk text-2xl leading-none font-semibold tracking-tight italic"
+      >
+        Zora
+      </Link>
+    </header>
   )
 }
 
@@ -160,12 +183,14 @@ function ThemeSwitcher() {
 export function PageHeader({
   title,
   description,
+  className,
 }: {
   title: string
   description?: string
+  className?: string
 }) {
   return (
-    <div className="mb-8">
+    <div className={cn('mb-8', className)}>
       <h1 className="font-display text-4xl leading-[1.05] font-semibold tracking-[-0.02em] md:text-5xl">
         {title}
       </h1>

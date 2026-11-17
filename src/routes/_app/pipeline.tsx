@@ -104,8 +104,11 @@ function PipelinePage() {
             if (status) moveItem(String(source.id), status)
           }}
         >
-          <div className="overflow-x-auto pb-2">
-            <div className="grid min-w-[62rem] grid-cols-5 gap-3">
+          {/* Below xl the columns scroll sideways and snap (about one column on
+              phones, two on small tablets, three on iPads); xl and up show all
+              five side by side. */}
+          <div className="-mx-4 scroll-px-4 overflow-x-auto px-4 pb-2 md:mx-0 md:scroll-px-0 md:px-0">
+            <div className="flex snap-x snap-mandatory gap-3 xl:grid xl:min-w-[62rem] xl:grid-cols-5">
               {STATUSES.map((status) => (
                 <StatusColumn
                   key={status}
@@ -143,7 +146,7 @@ function StatusColumn({
       ref={ref}
       aria-label={STATUS_LABELS[status]}
       className={cn(
-        'bg-card flex min-h-96 flex-col gap-2 rounded-xl p-2 ring-1 ring-transparent transition-colors',
+        'bg-card flex min-h-96 shrink-0 basis-[85%] snap-start flex-col gap-2 rounded-xl p-2 ring-1 ring-transparent transition-colors sm:basis-[46%] md:basis-[31%] xl:basis-auto',
         isDropTarget && 'bg-lime/10 ring-lime/60',
       )}
     >

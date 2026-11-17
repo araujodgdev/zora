@@ -83,6 +83,43 @@ function ContentPage() {
                   : 'Nenhum conteúdo ainda. Crie o primeiro em Novo item.'}
               </p>
             ) : (
+              <>
+              {/* Phones: one stacked row per item; the table does not fit. */}
+              <ul className="divide-y md:hidden">
+                {items.map((item) => (
+                  <li key={item.id}>
+                    <Link
+                      to="/content/$itemId"
+                      params={{ itemId: item.id }}
+                      search={{ from: 'content' }}
+                      className="focus-visible:ring-ring/50 grid gap-2 rounded-md py-3 outline-none focus-visible:ring-3"
+                    >
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="font-medium">{item.title}</span>
+                        <AssigneeAvatar
+                          member={
+                            item.assigneeId
+                              ? (membersById.get(item.assigneeId) ?? null)
+                              : null
+                          }
+                          size="sm"
+                        />
+                      </span>
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <ChannelBadge channel={item.channel} />
+                        <StatusBadge status={item.status} />
+                        <span className="text-muted-foreground text-xs">
+                          {FORMAT_LABELS[item.format]}
+                        </span>
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        <LocalDateTime value={item.scheduledAt} fallback="Sem data" />
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden md:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -131,6 +168,8 @@ function ContentPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
+              </>
             )}
           </CardContent>
         </Card>

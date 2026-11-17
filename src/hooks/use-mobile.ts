@@ -1,6 +1,7 @@
 import * as React from 'react'
 
-const MOBILE_BREAKPOINT = 768
+// The sidebar becomes a sheet below `lg`, so iPads in portrait get the full width.
+const MOBILE_BREAKPOINT = 1024
 const MOBILE_QUERY = `(max-width: ${MOBILE_BREAKPOINT - 1}px)`
 
 function subscribe(onChange: () => void) {
@@ -9,7 +10,7 @@ function subscribe(onChange: () => void) {
   return () => mql.removeEventListener('change', onChange)
 }
 
-/** Whether the viewport is below the `md` breakpoint (false during SSR). */
+/** Whether the viewport is below the `lg` breakpoint (false during SSR). */
 export function useIsMobile() {
   return React.useSyncExternalStore(
     subscribe,

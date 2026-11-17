@@ -291,14 +291,16 @@ export function ContentItemForm({
     <form
       method="post"
       noValidate
-      className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-12"
+      // On large screens the editor is exactly the window's height: the main
+      // column scrolls on its own and the panel never moves.
+      className="grid gap-8 pb-28 lg:h-(--page-h) lg:pb-0 lg:grid-cols-[minmax(0,1fr)_20rem] lg:grid-rows-[minmax(0,1fr)] lg:items-start xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-12"
       onSubmit={(event) => {
         event.preventDefault()
         void form.handleSubmit()
       }}
     >
       {/* Main column: what the item says. */}
-      <div className="grid min-w-0 content-start gap-8">
+      <div className="grid min-w-0 content-start gap-8 lg:-mx-3 lg:h-full lg:overflow-y-auto lg:px-3 lg:pt-1 lg:pb-8">
         <header className="grid gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <Link
@@ -417,13 +419,15 @@ export function ContentItemForm({
       {/* Inspector: actions first, then the properties. */}
       <aside
         aria-label="Propriedades do item"
-        className="bg-card grid gap-5 rounded-xl p-5 lg:sticky lg:top-6"
+        className="bg-card grid gap-5 rounded-xl p-5 lg:max-h-full lg:overflow-y-auto"
       >
         <form.Subscribe
           selector={(state) => [state.isSubmitting, state.isDirty] as const}
         >
           {([isSubmitting, isDirty]) => (
-            <div className="grid gap-2">
+            // Below `lg` this block is a bar pinned to the bottom of the screen,
+            // so saving never needs a scroll; on `lg` it heads the panel.
+            <div className="bg-card/95 fixed inset-x-0 bottom-0 z-30 grid gap-2 border-t px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:static lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
               <div className="flex gap-2">
                 <Button type="submit" className="flex-1" disabled={isSubmitting}>
                   {isSubmitting
@@ -455,7 +459,7 @@ export function ContentItemForm({
           )}
         </form.Subscribe>
 
-        <Separator />
+        <Separator className="hidden lg:block" />
 
         <div className="grid grid-cols-2 gap-4">
           <form.Field name="status">

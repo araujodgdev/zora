@@ -472,6 +472,30 @@ collapses to icons (Ctrl/Cmd+B); its state is a cookie read during SSR
 (`@/lib/sidebar-state`), so pages get the full height and width.
 The route tree regenerates while `pnpm dev` (or `pnpm build`) runs.
 
+### Responsive layout (phones, iPads, desktop)
+
+Every page must work from a 390px phone up. Check new pages at 390×844,
+820×1180 (iPad portrait) and 1180×820 (iPad landscape): no sideways page
+scroll, primary actions reachable without hunting.
+
+- **`lg` (1024px) is the shell breakpoint.** Below it (phones, iPad portrait)
+  the sidebar is a sheet opened from `MobileTopBar`; `useIsMobile` and the
+  sidebar's `lg:` classes follow this. `lg` and up: the fixed sidebar.
+- **`--page-h`** (set in `AppShell`) is the height a page can use without the
+  window scrolling. Full-height pages use `h-(--page-h)`: the calendar from
+  `md`, the item editor from `lg`.
+- **Different component per breakpoint** where a layout cannot shrink:
+  `CalendarAgenda` (list of days) replaces the month/week grid below `md`
+  (chosen with `useMediaQuery` from `@/hooks/use-media-query`); the content
+  list renders stacked rows below `md` and the table from `md`; pipeline
+  columns scroll sideways with snapping below `xl` (about 1/2/3 per screen)
+  and sit side by side from `xl`.
+- **Item editor below `lg`:** one column, and the save/close block becomes a
+  bar fixed to the bottom of the screen (safe-area aware; the root viewport
+  has `viewport-fit=cover`).
+- A flex child that holds wide content needs `min-w-0` (the sidebar inset has
+  it), or it pushes the page wider than the screen.
+
 ### Add a protected server function
 
 ```ts
