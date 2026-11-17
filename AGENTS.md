@@ -194,8 +194,9 @@ both palettes.
     never flash it.
 - **Auth pages** (`sign-in`, `sign-up`, `consent`, invitations, first
   workspace) render inside `AuthLayout` (`@/components/auth-layout`): the
-  logo, the form, and the clay diorama (a banner above the form below `lg`,
-  the right-hand column with the headline from `lg`). This is the one
+  clay Z alone in the top-left corner, the "zora" wordmark (`ZoraWordmark`)
+  above the form, and the clay diorama with no text on it (a banner above
+  the form below `lg`, the right-hand column from `lg`). This is the one
   decorative moment; keep the app itself quiet.
 - **App icon and PWA.** `scripts/app-icon.html` frames the clay icon master
   (`scripts/brand/app-icon.png`) per variant; `node scripts/generate-icons.mjs` (needs Chrome or Edge)

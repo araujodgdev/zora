@@ -45,6 +45,18 @@ export function ZoraLogo({ className, ...props }: ComponentProps<'span'>) {
   )
 }
 
+/** The lowercase "zora" in heavy Figtree, without the mark. */
+export function ZoraWordmark({ className, ...props }: ComponentProps<'span'>) {
+  return (
+    <span
+      className={cn('font-sans leading-none font-extrabold tracking-[-0.05em]', className)}
+      {...props}
+    >
+      zora
+    </span>
+  )
+}
+
 /**
  * A muted, looping claymation clip. The server renders its poster (the first
  * frame). After hydration the clip loads and plays only while it is on screen

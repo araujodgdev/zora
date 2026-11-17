@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -82,7 +81,6 @@ function SignInPage() {
       <Card className="w-full max-w-sm shadow-2xl shadow-black/15 dark:shadow-black">
         <CardHeader>
           <CardTitle>Entrar</CardTitle>
-          <CardDescription>Planeje e acompanhe o conteúdo do lançamento.</CardDescription>
         </CardHeader>
         <form
           method="post"
