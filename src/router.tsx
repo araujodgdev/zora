@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
+import { CatLoader } from './components/zora-cat'
 import { routeTree } from './routeTree.gen'
 
 // Start creates a router per SSR request, so the QueryClient is created here,
@@ -15,6 +16,8 @@ export function getRouter() {
     scrollRestoration: true,
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 0,
+    // Shown only when a navigation takes longer than `defaultPendingMs` (1s).
+    defaultPendingComponent: () => <CatLoader className="min-h-[50svh]" />,
   })
 
   setupRouterSsrQueryIntegration({ router, queryClient })

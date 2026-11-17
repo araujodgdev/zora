@@ -381,6 +381,7 @@ export function ContentItemForm({
                     labelId="item-body-label"
                     channel={channel}
                     value={field.state.value}
+                    dirty={field.state.meta.isDirty}
                     onBlur={field.handleBlur}
                     onChange={field.handleChange}
                   />

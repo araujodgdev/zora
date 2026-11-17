@@ -125,7 +125,7 @@ src/
     content-schema.ts        content_item table + enums
     schema.ts                re-exports both (used by drizzle-kit)
     client.server.ts         createDb(binding): Drizzle over the D1 binding
-  components/                app-shell, form-field, local-date-time, ui/ (shadcn)
+  components/                app-shell, form-field, local-date-time, zora-cat, ui/ (shadcn)
     content/                 shared content UI kit: channel-badge, status-badge,
                              assignee-avatar, content-item-card, content-filters
 test/                        in-memory D1 for tests (db.ts, wrangler.jsonc)
@@ -178,6 +178,21 @@ both palettes.
 - **Auth pages** (`sign-in`, `sign-up`, `consent`) render inside
   `AuthLayout` (`@/components/auth-layout`): the big wordmark and coloured
   tiles. This is the one decorative moment; keep the app itself quiet.
+- **The cat** (`@/components/zora-cat`): a lime (`text-brand`) silhouette
+  that lives on the wordmark. Render the wordmark with
+  `<ZoraWordmark cat="walk" | "lounge" />` (size it with a font size): it
+  walks over the letters on the auth pages and lies on the Z in the app
+  shell. `CatLoader` (the cat playing with yarn) is the router's
+  `defaultPendingComponent`. Motion is CSS in `app.css` (`.zora-cat-*`,
+  positions in `em` of the wordmark) and stops under reduced motion.
+- **App icon and PWA.** `scripts/app-icon.html` draws the icon (the collage
+  Z with the cat); `node scripts/generate-icons.mjs` (needs Chrome or Edge)
+  writes `public/icons/*`, `public/apple-touch-icon.png` and
+  `public/favicon.ico`. `public/manifest.webmanifest` makes Zora installable;
+  `public/sw.js` (registered by `@/lib/pwa` in production builds only) only
+  shows `public/offline.html` when a page load fails and caches nothing
+  private. Installed on iOS the page runs under the status bar, so the
+  mobile top bar adds `env(safe-area-inset-top)`.
 - Fonts come from `@fontsource-variable/figtree` and
   `@fontsource-variable/fraunces` (the `full` files carry the SOFT/WONK axes).
 
@@ -361,9 +376,14 @@ If the page has other search params, keep them:
 `body` is always stored as a string; what it holds depends on the channel.
 
 - **Blog: Markdown.** Edited with Tiptap (`@tiptap/react`, StarterKit with
-  h2/h3, no underline, plus `@tiptap/markdown`), which loads and writes
-  Markdown (`contentType: 'markdown'`, `editor.getMarkdown()`). Formatted
-  display uses the `.zora-prose` styles in `app.css`.
+  h1-h3 (the toolbar offers h2/h3), no underline, `TableKit` from
+  `@tiptap/extension-table`, plus `@tiptap/markdown`), which loads and writes
+  Markdown (`contentType: 'markdown'`, `editor.getMarkdown()`). Every node
+  Markdown can hold must be in the schema, or a save rewrites it as plain
+  paragraphs. Formatted display uses the `.zora-prose` styles in `app.css`.
+  Saved text opens formatted and read-only ("Editar", or a click in the
+  text, edits it there; "Visualizar" goes back); a save returns to that view
+  (the form passes the field's `isDirty` as `dirty`).
 - **X, LinkedIn, Instagram: plain text.** They do not render Markdown, so
   `**` would be posted literally. The editor shows a character count against
   `CHANNEL_TEXT_LIMITS` (280 / 3000 / 2200; graphemes via `countCharacters`),

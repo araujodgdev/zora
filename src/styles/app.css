@@ -215,6 +215,15 @@
     body {
         @apply bg-background text-foreground;
     }
+    /* Native <select> popups: Chrome on Windows paints the list with the
+       select's background, and a translucent one (bg-input/30) falls back to
+       white while the options inherit the theme's text colour. Give the
+       options solid theme colours so the list is readable in both themes. */
+    option,
+    optgroup {
+        background-color: var(--popover);
+        color: var(--popover-foreground);
+    }
     ::selection {
         background: var(--lime);
         color: #0e1318;
@@ -225,6 +234,13 @@
 @layer components {
     .zora-prose > * + * {
         margin-top: 0.75em;
+    }
+    .zora-prose h1 {
+        font-family: var(--font-display);
+        font-variation-settings: "SOFT" 100, "WONK" 0;
+        font-size: 1.875rem;
+        line-height: 1.15;
+        font-weight: 600;
     }
     .zora-prose h2 {
         font-family: var(--font-display);
@@ -273,6 +289,41 @@
     .zora-prose hr {
         border-color: var(--border);
     }
+    .zora-prose pre {
+        background: var(--raised);
+        border-radius: 0.5rem;
+        padding: 0.75em 1em;
+        overflow-x: auto;
+        font-size: 0.875em;
+    }
+    .zora-prose pre code {
+        background: none;
+        padding: 0;
+    }
+    /* Tables scroll inside the column instead of widening the page. */
+    .zora-prose .tableWrapper {
+        overflow-x: auto;
+    }
+    .zora-prose table {
+        border-collapse: collapse;
+        font-size: 0.875em;
+        min-width: 100%;
+    }
+    .zora-prose th,
+    .zora-prose td {
+        border: 1px solid var(--border);
+        padding: 0.4em 0.65em;
+        text-align: left;
+        vertical-align: top;
+    }
+    .zora-prose th {
+        background: var(--raised);
+        font-weight: 600;
+    }
+    .zora-prose th > p,
+    .zora-prose td > p {
+        margin: 0;
+    }
     .zora-prose p.is-editor-empty:first-child::before {
         content: attr(data-placeholder);
         color: var(--muted-foreground);
@@ -281,4 +332,160 @@
         height: 0;
         pointer-events: none;
     }
+}
+
+/*
+ * Zora's cat (`@/components/zora-cat`). Sizes and paths are in `em` of the
+ * wordmark, set for its line-height of 0.85: the Z's top bar is 0.09em
+ * below the top of the line, the top of "ora" (x-height) 0.34em. Every
+ * animation stops under prefers-reduced-motion.
+ */
+@layer components {
+    .zora-cat-walker {
+        position: absolute;
+        left: 0;
+        top: -0.108em;
+        width: 0.36em;
+        transform: translate(0.1em, 0);
+        animation: zora-cat-walk 22s linear infinite;
+        pointer-events: none;
+    }
+    .zora-cat-walker-figure {
+        display: block;
+        width: 100%;
+        overflow: visible;
+        animation: zora-cat-face 22s steps(1, end) infinite;
+    }
+    .zora-cat-walker :is(.zora-cat-leg-a, .zora-cat-leg-b) {
+        transform-box: fill-box;
+        transform-origin: 50% 0;
+        animation: zora-cat-step 0.32s ease-in-out infinite alternate;
+    }
+    .zora-cat-walker .zora-cat-leg-b {
+        animation-delay: -0.32s;
+    }
+    .zora-cat-walker .zora-cat-tail {
+        transform-box: fill-box;
+        transform-origin: 100% 100%;
+        animation: zora-cat-sway 1.3s ease-in-out infinite alternate;
+    }
+
+    .zora-cat-lounger {
+        position: absolute;
+        left: 0.16em;
+        top: -0.139em;
+        width: 0.5em;
+        overflow: visible;
+        pointer-events: none;
+    }
+    .zora-cat-lounger .zora-cat-body {
+        transform-box: fill-box;
+        transform-origin: 0 100%;
+        animation: zora-cat-stretch-body 15s ease-in-out infinite;
+    }
+    .zora-cat-lounger .zora-cat-front {
+        animation: zora-cat-stretch-front 15s ease-in-out infinite;
+    }
+    .zora-cat-lounger .zora-cat-head {
+        transform-box: fill-box;
+        transform-origin: 30% 100%;
+        animation: zora-cat-stretch-head 15s ease-in-out infinite;
+    }
+    .zora-cat-lounger .zora-cat-hanging-tail {
+        transform-box: fill-box;
+        transform-origin: 100% 0;
+        animation: zora-cat-sway 3.2s ease-in-out infinite alternate;
+    }
+
+    .zora-cat-player {
+        overflow: visible;
+    }
+    .zora-cat-player .zora-cat-yarn-ball {
+        transform-box: fill-box;
+        transform-origin: 50% 50%;
+        animation: zora-cat-roll 0.9s ease-in-out infinite alternate;
+    }
+    .zora-cat-player .zora-cat-bat {
+        transform-box: fill-box;
+        transform-origin: 0 100%;
+        animation: zora-cat-bat 0.9s ease-in-out infinite alternate;
+    }
+    .zora-cat-player .zora-cat-rump {
+        animation: zora-cat-wiggle 0.3s ease-in-out infinite alternate;
+    }
+    .zora-cat-player .zora-cat-play-tail {
+        transform-box: fill-box;
+        transform-origin: 100% 100%;
+        animation: zora-cat-sway 0.8s ease-in-out infinite alternate;
+    }
+    .zora-cat-player .zora-cat-paper {
+        transform-box: fill-box;
+        transform-origin: 50% 50%;
+        animation: zora-cat-flutter 2.4s ease-in-out infinite alternate;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .zora-cat-walker,
+        .zora-cat-walker *,
+        .zora-cat-lounger *,
+        .zora-cat-player * {
+            animation: none;
+        }
+    }
+}
+
+/* Along the Z's bar, a hop down onto "ora", to the end, and back. */
+@keyframes zora-cat-walk {
+    0% { transform: translate(0.1em, 0); }
+    14% { transform: translate(0.34em, 0); }
+    16% { transform: translate(0.46em, -0.07em); }
+    18.5% { transform: translate(0.58em, 0.25em); }
+    44% { transform: translate(1.46em, 0.25em); }
+    47% { transform: translate(1.46em, 0.25em); }
+    72.5% { transform: translate(0.58em, 0.25em); }
+    75% { transform: translate(0.46em, -0.07em); }
+    77% { transform: translate(0.34em, 0); }
+    96%, 100% { transform: translate(0.1em, 0); }
+}
+@keyframes zora-cat-face {
+    0% { transform: scaleX(1); }
+    45.5% { transform: scaleX(-1); }
+    96%, 100% { transform: scaleX(1); }
+}
+@keyframes zora-cat-step {
+    from { transform: rotate(-16deg); }
+    to { transform: rotate(16deg); }
+}
+@keyframes zora-cat-sway {
+    from { transform: rotate(-7deg); }
+    to { transform: rotate(7deg); }
+}
+/* The lounging cat rests, then once per cycle reaches forward and looks up. */
+@keyframes zora-cat-stretch-body {
+    0%, 76%, 100% { transform: none; }
+    84%, 90% { transform: scale(1.07, 0.94); }
+}
+@keyframes zora-cat-stretch-front {
+    0%, 76%, 100% { transform: none; }
+    84%, 90% { transform: translateX(4px); }
+}
+@keyframes zora-cat-stretch-head {
+    0%, 76%, 100% { transform: none; }
+    84%, 90% { transform: rotate(-10deg) translateY(-1px); }
+}
+@keyframes zora-cat-roll {
+    from { transform: translateX(-1px) rotate(0deg); }
+    to { transform: translateX(5px) rotate(150deg); }
+}
+@keyframes zora-cat-bat {
+    from { transform: rotate(-22deg); }
+    to { transform: rotate(10deg); }
+}
+@keyframes zora-cat-wiggle {
+    from { transform: translateX(-0.5px); }
+    to { transform: translateX(0.5px); }
+}
+@keyframes zora-cat-flutter {
+    from { transform: translate(0, 0) rotate(-10deg); }
+    to { transform: translate(-7px, 8px) rotate(28deg); }
 }

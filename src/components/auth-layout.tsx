@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { ZoraWordmark } from '@/components/zora-cat'
 import { cn } from '@/lib/utils'
 
 /**
@@ -61,11 +62,8 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           </div>
         ))}
       </div>
-      <p
-        aria-hidden="true"
-        className="font-display wonk mb-8 text-[clamp(4.5rem,14vw,9rem)] leading-[0.85] font-semibold tracking-[-0.03em] italic"
-      >
-        Zora
+      <p aria-hidden="true" className="mb-8 text-[clamp(4.5rem,14vw,9rem)] leading-[0.85]">
+        <ZoraWordmark cat="walk" />
       </p>
       {children}
     </main>

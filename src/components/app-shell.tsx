@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { WebMcpTools } from '@/components/webmcp-tools'
+import { ZoraWordmark } from '@/components/zora-cat'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
 import { setTheme, useTheme } from '@/lib/theme'
@@ -79,7 +80,7 @@ export function AppShell() {
       <AppSidebar />
       <SidebarInset>
         <MobileTopBar />
-        <div className="w-full px-4 py-6 [--page-h:calc(100svh-3.5rem-3rem)] md:px-6 lg:px-10 lg:py-8 lg:[--page-h:calc(100svh-4rem)]">
+        <div className="w-full px-4 py-6 [--page-h:calc(100svh-3.5rem-env(safe-area-inset-top)-3rem)] md:px-6 lg:px-10 lg:py-8 lg:[--page-h:calc(100svh-4rem)]">
           <Outlet />
         </div>
       </SidebarInset>
@@ -87,16 +88,17 @@ export function AppShell() {
   )
 }
 
-/** Below `lg`: the menu button and the wordmark, pinned to the top. */
+/**
+ * Below `lg`: the menu button and the wordmark, pinned to the top. Installed
+ * on iOS the page runs under the status bar (`black-translucent`), so the bar
+ * grows by the safe-area inset (0 in a browser tab).
+ */
 function MobileTopBar() {
   return (
-    <header className="bg-background/85 sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-2 backdrop-blur-md lg:hidden">
+    <header className="bg-background/85 sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center pt-[env(safe-area-inset-top)] gap-2 border-b px-2 backdrop-blur-md lg:hidden">
       <SidebarTrigger className="size-10" />
-      <Link
-        to="/calendar"
-        className="font-display wonk text-2xl leading-none font-semibold tracking-tight italic"
-      >
-        Zora
+      <Link to="/calendar" className="text-[1.875rem]">
+        <ZoraWordmark cat="lounge" />
       </Link>
     </header>
   )
@@ -128,9 +130,9 @@ function AppSidebar() {
       <SidebarHeader className="flex-row items-center justify-between group-data-[collapsible=icon]:justify-center">
         <Link
           to="/calendar"
-          className="font-display wonk px-2 text-2xl leading-none font-semibold tracking-tight italic group-data-[collapsible=icon]:hidden"
+          className="px-2 text-[1.875rem] group-data-[collapsible=icon]:hidden"
         >
-          Zora
+          <ZoraWordmark cat="lounge" />
         </Link>
         <SidebarTrigger />
       </SidebarHeader>

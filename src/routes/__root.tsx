@@ -7,10 +7,12 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { getSessionState } from '@/lib/auth.functions'
+import { registerServiceWorker } from '@/lib/pwa'
 import { readTheme, useTheme } from '@/lib/theme'
 import appCss from '@/styles/app.css?url'
 
@@ -34,8 +36,21 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
       { title: 'Zora' },
+      // Installed app (PWA): `public/manifest.webmanifest`, icons from
+      // `scripts/generate-icons.mjs`. The theme colour is in RootDocument.
+      { name: 'application-name', content: 'Zora' },
+      { name: 'apple-mobile-web-app-title', content: 'Zora' },
+      { name: 'mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-capable', content: 'yes' },
+      { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
     ],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'manifest', href: '/manifest.webmanifest' },
+      { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
+      { rel: 'icon', href: '/icons/icon-192.png', type: 'image/png' },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+    ],
   }),
   component: Outlet,
   shellComponent: RootDocument,
@@ -56,10 +71,13 @@ function NotFound() {
 function RootDocument({ children }: { children: ReactNode }) {
   const initialTheme = Route.useRouteContext({ select: (context) => context.theme })
   const theme = useTheme(initialTheme)
+  useEffect(registerServiceWorker, [])
   return (
     <html lang="pt-BR" className={theme === 'dark' ? 'dark' : undefined}>
       <head>
         <HeadContent />
+        {/* The browser and installed-app chrome follow the theme's canvas. */}
+        <meta name="theme-color" content={theme === 'dark' ? '#000000' : '#f4f4f4'} />
       </head>
       <body>
         <TooltipProvider>{children}</TooltipProvider>

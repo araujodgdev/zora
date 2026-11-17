@@ -1,3 +1,4 @@
+import { TableKit } from '@tiptap/extension-table'
 import { Markdown } from '@tiptap/markdown'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
@@ -6,16 +7,18 @@ import { Placeholder } from '@tiptap/extensions'
 import {
   Bold,
   Copy,
+  Eye,
   Heading2,
   Heading3,
   Italic,
   Link2,
   List,
   ListOrdered,
+  PencilLine,
   Quote,
   RemoveFormatting,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ComponentType, SVGProps } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -41,11 +44,17 @@ type ContentBodyEditorProps = {
   value: string
   onChange: (value: string) => void
   onBlur?: () => void
+  /**
+   * Whether the text differs from the saved item. The blog editor shows the
+   * formatted text once it is saved and goes back to that view after a save.
+   */
+  dirty?: boolean
 }
 
 /**
  * The item's text, edited the way its channel publishes it (`@/lib/post-text`):
- * a rich-text editor that writes Markdown for the blog; plain text with a
+ * a rich-text editor that writes Markdown for the blog (showing the saved
+ * text formatted until "Editar"); plain text with a
  * character count, a Markdown warning and a copy button for social networks.
  * Switching channel keeps the text; a social channel then offers to strip
  * the formatting.
@@ -139,15 +148,34 @@ async function copyText(text: string) {
   }
 }
 
-function MarkdownEditor({ labelId, value, onChange, onBlur }: ContentBodyEditorProps) {
+function MarkdownEditor({
+  labelId,
+  value,
+  onChange,
+  onBlur,
+  dirty = true,
+}: ContentBodyEditorProps) {
+  // Saved text opens formatted (read-only); empty or unsaved text opens for
+  // editing. A save (dirty -> clean) goes back to the formatted view.
+  const [editing, setEditing] = useState(() => dirty || !value.trim())
+  const [wasDirty, setWasDirty] = useState(dirty)
+  if (dirty !== wasDirty) {
+    setWasDirty(dirty)
+    if (!dirty && value.trim()) setEditing(false)
+  }
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [2, 3] },
+        // The toolbar offers h2/h3; h1 is kept so pasted or agent-written
+        // Markdown keeps its headings when saved again.
+        heading: { levels: [1, 2, 3] },
         // Markdown has no underline.
         underline: false,
         link: { openOnClick: false, autolink: true, defaultProtocol: 'https' },
       }),
+      // Markdown tables would otherwise be flattened into paragraphs.
+      TableKit,
       Markdown,
       Placeholder.configure({ placeholder: 'Escreva o post do blog…' }),
     ],
@@ -168,17 +196,69 @@ function MarkdownEditor({ labelId, value, onChange, onBlur }: ContentBodyEditorP
     onBlur: () => onBlur?.(),
   })
 
+  // Where to put the caret when the person asks to edit: the clicked point
+  // of the formatted text, or the start for the "Editar" button.
+  const caretOnEdit = useRef<number | 'start' | null>(null)
+  function startEditing(position: number | 'start') {
+    caretOnEdit.current = position
+    setEditing(true)
+  }
+
+  useEffect(() => {
+    if (!editor) return
+    // No update event: switching views must not mark the text as changed.
+    editor.setEditable(editing, false)
+    const position = caretOnEdit.current
+    if (editing && position !== null) {
+      caretOnEdit.current = null
+      editor.commands.focus(position, { scrollIntoView: false })
+    }
+  }, [editor, editing])
+
+  // One tree for both views, so the editor's DOM is never remounted.
   return (
-    <div className="border-input bg-card dark:bg-input/30 focus-within:border-ring focus-within:ring-ring/50 overflow-hidden rounded-lg border transition-colors focus-within:ring-3">
-      {editor ? <Toolbar editor={editor} /> : <div className="h-10 border-b" />}
-      <EditorContent editor={editor} />
+    <div
+      className={cn(
+        'bg-card relative overflow-hidden rounded-lg border transition-colors',
+        editing
+          ? 'border-input dark:bg-input/30 focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-3'
+          : 'border-transparent [&_.tiptap]:pr-28',
+      )}
+    >
+      {!editing ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="absolute top-2 right-2 z-10"
+          onClick={() => startEditing('start')}
+        >
+          <PencilLine data-icon="inline-start" />
+          Editar
+        </Button>
+      ) : editor ? (
+        <Toolbar editor={editor} onPreview={() => setEditing(false)} />
+      ) : (
+        <div className="h-10 border-b" />
+      )}
+      {/* In the formatted view a click in the text (not on a link) edits
+          there; links open as usual. */}
+      <div
+        onClick={(event) => {
+          if (editing || !editor || (event.target as HTMLElement).closest('a')) return
+          const hit = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })
+          startEditing(hit?.pos ?? 'start')
+        }}
+      >
+        <EditorContent editor={editor} />
+      </div>
     </div>
   )
 }
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>
 
-function Toolbar({ editor }: { editor: Editor }) {
+function Toolbar({ editor, onPreview }: { editor: Editor; onPreview: () => void }) {
   const state = useEditorState({
     editor,
     selector: ({ editor: current }) => ({
@@ -264,6 +344,16 @@ function Toolbar({ editor }: { editor: Editor }) {
         </Toggle>
       ))}
       <LinkButton editor={editor} active={state.link} />
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="ml-auto"
+        onClick={onPreview}
+      >
+        <Eye data-icon="inline-start" />
+        Visualizar
+      </Button>
     </div>
   )
 }
