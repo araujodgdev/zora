@@ -80,7 +80,7 @@ export function ContentItemCard({
           </span>
           <span className="flex items-center justify-between gap-2">
             <span className="text-muted-foreground text-xs">
-              <LocalDateTime value={item.scheduledAt} fallback="Unscheduled" />
+              <LocalDateTime value={item.scheduledAt} fallback="Sem data" />
             </span>
             <AssigneeAvatar member={assignee} size="sm" />
           </span>

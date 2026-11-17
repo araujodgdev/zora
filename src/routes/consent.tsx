@@ -15,10 +15,10 @@ import { authClient } from '@/lib/auth-client'
 import { getConsentRequest } from '@/lib/oauth-consent.functions'
 
 const SCOPE_LABELS: Record<string, string> = {
-  openid: 'Know who you are',
-  profile: 'See your name',
-  email: 'See your email address',
-  offline_access: 'Stay connected without asking you again',
+  openid: 'Saber quem você é',
+  profile: 'Ver o seu nome',
+  email: 'Ver o seu e-mail',
+  offline_access: 'Continuar conectado sem pedir de novo',
 }
 
 // Where Better Auth sends you when an MCP client (Claude, ChatGPT, an editor)
@@ -26,7 +26,7 @@ const SCOPE_LABELS: Record<string, string> = {
 // exactly as it appears in the address bar.
 export const Route = createFileRoute('/consent')({
   ssr: false,
-  head: () => ({ meta: [{ title: 'Allow access · Zora' }] }),
+  head: () => ({ meta: [{ title: 'Permitir acesso · Zora' }] }),
   loader: () =>
     getConsentRequest({ data: { search: window.location.search } }).catch(
       () => null,
@@ -46,7 +46,7 @@ function ConsentPage() {
     // On success the auth client follows the redirect back to the app.
     const { error: failure } = await authClient.oauth2.consent({ accept })
     if (failure) {
-      setError(failure.message ?? 'Something went wrong. Start again from the app.')
+      setError(failure.message ?? 'Algo deu errado. Comece de novo pelo app.')
       setPending(null)
     }
   }
@@ -56,10 +56,10 @@ function ConsentPage() {
       <Card className="w-full max-w-md shadow-2xl shadow-black">
         {!request ? (
           <CardHeader>
-            <CardTitle>This link is no longer valid</CardTitle>
+            <CardTitle>Este link não é mais válido</CardTitle>
             <CardDescription>
-              It expired or was changed. Go back to the app that sent you here
-              and connect to Zora again.
+              Ele expirou ou foi alterado. Volte ao app que trouxe você até aqui
+              e conecte ao Zora de novo.
             </CardDescription>
           </CardHeader>
         ) : (
@@ -68,21 +68,21 @@ function ConsentPage() {
               {request.logoUri ? (
                 <img src={request.logoUri} alt="" className="mb-2 size-10 rounded-md" />
               ) : null}
-              <CardTitle>Allow {request.clientName} to use Zora?</CardTitle>
+              <CardTitle>Permitir que {request.clientName} use o Zora?</CardTitle>
               <CardDescription>
-                It will act as {user?.name ?? 'you'}: it can read, create, change
-                and delete content and media in the team workspace.
+                Ele vai agir como {user?.name ?? 'você'}: pode ler, criar, alterar
+                e excluir conteúdos e mídias do espaço da equipe.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 text-sm">
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
                 {request.clientHost ? (
                   <>
-                    <dt className="text-muted-foreground">App from</dt>
+                    <dt className="text-muted-foreground">App de</dt>
                     <dd className="font-medium">{request.clientHost}</dd>
                   </>
                 ) : null}
-                <dt className="text-muted-foreground">Returns to</dt>
+                <dt className="text-muted-foreground">Volta para</dt>
                 <dd className="font-medium">{request.redirectHost}</dd>
               </dl>
               {request.scopes.length > 0 ? (
@@ -93,7 +93,7 @@ function ConsentPage() {
                 </ul>
               ) : null}
               <p className="text-muted-foreground">
-                Only allow apps you started connecting yourself.
+                Só permita apps que você mesmo começou a conectar.
               </p>
               {error ? (
                 <Alert variant="destructive">
@@ -107,10 +107,10 @@ function ConsentPage() {
                 disabled={pending !== null}
                 onClick={() => void decide(false)}
               >
-                {pending === 'deny' ? 'Denying…' : 'Deny'}
+                {pending === 'deny' ? 'Recusando…' : 'Recusar'}
               </Button>
               <Button disabled={pending !== null} onClick={() => void decide(true)}>
-                {pending === 'allow' ? 'Allowing…' : 'Allow'}
+                {pending === 'allow' ? 'Permitindo…' : 'Permitir'}
               </Button>
             </CardFooter>
           </>

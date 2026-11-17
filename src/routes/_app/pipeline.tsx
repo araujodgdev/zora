@@ -83,12 +83,12 @@ function PipelinePage() {
       <div className="flex items-start justify-between gap-4">
         <PageHeader
           title="Pipeline"
-          description="Drag a card to another column to change its status."
+          description="Arraste um card para outra coluna para mudar o status."
         />
         <Button asChild>
           <Link to="/content/new" search={{ from: 'pipeline' }}>
             <Plus data-icon="inline-start" />
-            New item
+            Novo item
           </Link>
         </Button>
       </div>
@@ -158,7 +158,7 @@ function StatusColumn({
           <Link
             to="/content/new"
             search={{ from: 'pipeline', status }}
-            aria-label={`New ${STATUS_LABELS[status].toLowerCase()} item`}
+            aria-label={`Novo item em ${STATUS_LABELS[status]}`}
           >
             <Plus />
           </Link>
@@ -217,7 +217,7 @@ function ScheduleDialog({
     if (!item) return
     const scheduledAt = fromDateTimeLocalValue(value)
     if (!scheduledAt) {
-      setError('Pick a date and time.')
+      setError('Escolha data e hora.')
       return
     }
     try {
@@ -227,7 +227,7 @@ function ScheduleDialog({
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Could not schedule the item.',
+          : 'Não foi possível agendar o item.',
       )
     }
   }
@@ -236,12 +236,12 @@ function ScheduleDialog({
     <Dialog open={item !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Schedule this item</DialogTitle>
+          <DialogTitle>Agendar este item</DialogTitle>
           <DialogDescription>
-            “{item?.title}” has no date yet. A scheduled item needs one.
+            “{item?.title}” ainda não tem data. Um item agendado precisa de uma.
           </DialogDescription>
         </DialogHeader>
-        <FormField id="schedule-at" label="Scheduled (local time)">
+        <FormField id="schedule-at" label="Agendado para">
           <Input
             id="schedule-at"
             type="datetime-local"
@@ -256,14 +256,14 @@ function ScheduleDialog({
         ) : null}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            Cancelar
           </Button>
           <Button
             type="button"
             disabled={updateItem.isPending}
             onClick={() => void schedule()}
           >
-            {updateItem.isPending ? 'Scheduling…' : 'Schedule'}
+            {updateItem.isPending ? 'Agendando…' : 'Agendar'}
           </Button>
         </DialogFooter>
       </DialogContent>

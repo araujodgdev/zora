@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth-client'
+import { authErrorMessage } from '@/lib/auth-errors'
 import {
   authPageSearchSchema,
   isOAuthContinuation,
@@ -29,8 +30,8 @@ import {
 } from '@/lib/redirect'
 
 const signInSchema = z.object({
-  email: z.email({ message: 'Enter a valid email address.' }),
-  password: z.string().min(1, { message: 'Enter your password.' }),
+  email: z.email({ message: 'Informe um e-mail válido.' }),
+  password: z.string().min(1, { message: 'Informe sua senha.' }),
 })
 
 export const Route = createFileRoute('/sign-in')({
@@ -40,7 +41,7 @@ export const Route = createFileRoute('/sign-in')({
       throw redirect({ href: safeRedirectPath(search.redirect) })
     }
   },
-  head: () => ({ meta: [{ title: 'Sign in · Zora' }] }),
+  head: () => ({ meta: [{ title: 'Entrar · Zora' }] }),
   component: SignInPage,
 })
 
@@ -62,7 +63,7 @@ function SignInPage() {
       setFormError(null)
       const { data, error } = await authClient.signIn.email(value)
       if (error) {
-        setFormError(error.message ?? 'Sign-in failed. Please try again.')
+        setFormError(authErrorMessage(error, 'Não foi possível entrar. Tente de novo.'))
         return
       }
       // Signing in for an MCP client: the auth client follows the redirect.
@@ -76,8 +77,8 @@ function SignInPage() {
     <AuthLayout>
       <Card className="w-full max-w-sm shadow-2xl shadow-black">
         <CardHeader>
-          <CardTitle>Sign in</CardTitle>
-          <CardDescription>Plan and manage the launch content.</CardDescription>
+          <CardTitle>Entrar</CardTitle>
+          <CardDescription>Planeje e acompanhe o conteúdo do lançamento.</CardDescription>
         </CardHeader>
         <form
           method="post"
@@ -98,7 +99,7 @@ function SignInPage() {
                 {(field) => (
                   <FormField
                     id={field.name}
-                    label="Email"
+                    label="E-mail"
                     error={firstErrorMessage(field.state.meta.errors)}
                   >
                     <Input
@@ -117,7 +118,7 @@ function SignInPage() {
                 {(field) => (
                   <FormField
                     id={field.name}
-                    label="Password"
+                    label="Senha"
                     error={firstErrorMessage(field.state.meta.errors)}
                   >
                     <Input
@@ -142,15 +143,15 @@ function SignInPage() {
                   className="w-full"
                   disabled={!hydrated || isSubmitting}
                 >
-                  {isSubmitting ? 'Signing in…' : 'Sign in'}
+                  {isSubmitting ? 'Entrando…' : 'Entrar'}
                 </Button>
               )}
             </form.Subscribe>
             <p className="text-muted-foreground text-sm">
-              New to the team?{' '}
+              Chegou agora na equipe?{' '}
               {oauthSearch ? (
                 <a href={`/sign-up${oauthSearch}`} className="text-foreground underline underline-offset-4">
-                  Create an account
+                  Criar conta
                 </a>
               ) : (
                 <Link
@@ -158,7 +159,7 @@ function SignInPage() {
                   search={{ redirect: search.redirect }}
                   className="text-foreground underline underline-offset-4"
                 >
-                  Create an account
+                  Criar conta
                 </Link>
               )}
             </p>

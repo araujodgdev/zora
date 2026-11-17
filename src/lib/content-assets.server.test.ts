@@ -101,10 +101,10 @@ describe('createContentAsset', () => {
     await expect(
       upload({ name: 'x.svg', type: 'image/svg+xml', size: 4 }),
     ).rejects.toBeInstanceOf(AssetUploadError)
-    await expect(upload({ ...png, size: 0 })).rejects.toThrow(/empty/)
+    await expect(upload({ ...png, size: 0 })).rejects.toThrow(/vazio/)
     await expect(
       upload({ ...png, size: MAX_ASSET_BYTES + 1 }),
-    ).rejects.toThrow(/at most/)
+    ).rejects.toThrow(/no máximo/)
     expect(objects.size).toBe(0)
   })
 

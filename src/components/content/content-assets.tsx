@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
+  MAX_ASSET_BYTES,
   MEDIA_ACCEPT,
   assetFileUrl,
   assetKind,
@@ -68,7 +69,7 @@ export function ContentAssets({ itemId }: { itemId: string }) {
         })
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : `${file.name}: the upload failed.`
+          error instanceof Error ? error.message : `${file.name}: o envio falhou.`
         setErrors((current) => [...current, message])
       } finally {
         setUploads((current) => current.filter((entry) => entry.key !== key))
@@ -77,19 +78,24 @@ export function ContentAssets({ itemId }: { itemId: string }) {
   }
 
   return (
-    <section aria-labelledby="media-heading" className="grid max-w-3xl gap-4">
+    <section aria-labelledby="media-heading" className="grid gap-2">
       <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 id="media-heading" className="font-display text-2xl font-medium">
-            Media
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Images, videos and PDFs for this item.
-          </p>
-        </div>
-        <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
+        <h2 id="media-heading" className="text-sm font-medium">
+          Mídia
+          {assets.length > 0 ? (
+            <span className="text-muted-foreground ml-2 font-normal tabular-nums">
+              {assets.length}
+            </span>
+          ) : null}
+        </h2>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => inputRef.current?.click()}
+        >
           <Upload data-icon="inline-start" />
-          Upload media
+          Enviar arquivos
         </Button>
         <input
           ref={inputRef}
@@ -97,7 +103,7 @@ export function ContentAssets({ itemId }: { itemId: string }) {
           multiple
           hidden
           accept={MEDIA_ACCEPT}
-          aria-label="Upload media"
+          aria-label="Enviar arquivos"
           onChange={(event) => {
             const files = Array.from(event.target.files ?? [])
             event.target.value = ''
@@ -118,8 +124,8 @@ export function ContentAssets({ itemId }: { itemId: string }) {
 
       <div
         className={cn(
-          'rounded-lg border border-dashed p-3 transition-colors',
-          dragging && 'bg-accent border-ring',
+          'bg-card rounded-xl border border-dashed border-white/15 p-3 transition-colors',
+          dragging && 'bg-lime/10 border-lime/60',
         )}
         onDragOver={(event) => {
           if (!event.dataTransfer.types.includes('Files')) return
@@ -138,9 +144,15 @@ export function ContentAssets({ itemId }: { itemId: string }) {
         }}
       >
         {assets.length === 0 && uploads.length === 0 ? (
-          <p className="text-muted-foreground py-6 text-center text-sm">
-            No media yet. Drop files here or use Upload media.
-          </p>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex w-full flex-col items-center gap-1 rounded-lg py-8 text-sm transition-colors outline-none focus-visible:ring-3"
+          >
+            <Upload className="mb-1 size-5" />
+            <span>Arraste arquivos para cá ou clique para escolher.</span>
+            <span className="text-xs">Imagens, vídeos e PDFs, até {formatBytes(MAX_ASSET_BYTES)}.</span>
+          </button>
         ) : (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {assets.map((asset) => (
@@ -155,14 +167,14 @@ export function ContentAssets({ itemId }: { itemId: string }) {
             {uploads.map((entry) => (
               <li
                 key={entry.key}
-                className="bg-muted/40 flex aspect-video flex-col justify-end gap-2 rounded-md border p-3 text-xs"
+                className="bg-muted flex aspect-video flex-col justify-end gap-2 rounded-lg p-3 text-xs"
               >
                 <span className="truncate">{entry.name}</span>
                 <progress
                   className="w-full"
                   value={entry.progress}
                   max={1}
-                  aria-label={`Uploading ${entry.name}`}
+                  aria-label={`Enviando ${entry.name}`}
                 />
               </li>
             ))}
@@ -237,10 +249,10 @@ function AssetTile({
     </>
   )
   const tileClass =
-    'block w-full overflow-hidden rounded-md border text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+    'bg-muted block w-full overflow-hidden rounded-lg text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
   return (
-    <div className="bg-card relative">
+    <div className="relative">
       {kind === 'document' ? (
         <a href={url} target="_blank" rel="noreferrer" className={tileClass}>
           {preview}
@@ -255,7 +267,7 @@ function AssetTile({
         variant="ghost"
         size="icon-sm"
         className="absolute right-1 bottom-1"
-        aria-label={`Delete ${asset.filename}`}
+        aria-label={`Excluir ${asset.filename}`}
         onClick={onDelete}
       >
         <Trash2 />
@@ -299,13 +311,13 @@ function DeleteAssetDialog({
     if (!asset) return
     try {
       await deleteAsset.mutateAsync(asset.id)
-      toast.success('File deleted.')
+      toast.success('Arquivo excluído.')
       onClose()
     } catch (caught) {
       setError(
         caught instanceof Error && caught.message
           ? caught.message
-          : 'Could not delete the file.',
+          : 'Não foi possível excluir o arquivo.',
       )
     }
   }
@@ -322,10 +334,9 @@ function DeleteAssetDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete this file?</DialogTitle>
+          <DialogTitle>Excluir este arquivo?</DialogTitle>
           <DialogDescription>
-            “{asset?.filename}” will be removed for everyone on the team. This
-            cannot be undone.
+            “{asset?.filename}” some para toda a equipe. Não dá para desfazer.
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -335,7 +346,7 @@ function DeleteAssetDialog({
         ) : null}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
-            Keep it
+            Manter
           </Button>
           <Button
             type="button"
@@ -343,7 +354,7 @@ function DeleteAssetDialog({
             disabled={deleteAsset.isPending}
             onClick={() => void confirm()}
           >
-            {deleteAsset.isPending ? 'Deleting…' : 'Delete file'}
+            {deleteAsset.isPending ? 'Excluindo…' : 'Excluir arquivo'}
           </Button>
         </DialogFooter>
       </DialogContent>

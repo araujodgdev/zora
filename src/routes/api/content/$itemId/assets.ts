@@ -29,16 +29,16 @@ export const Route = createFileRoute('/api/content/$itemId/assets')({
       POST: async ({ request, params }) => {
         const { auth, db } = getRequestServices()
         const user = await findSessionUser(auth, request.headers)
-        if (!user) return problem(401, 'Unauthorized: sign in to continue.')
+        if (!user) return problem(401, 'Não autorizado: entre para continuar.')
 
         const id = contentItemIdSchema.safeParse({ id: params.itemId })
-        if (!id.success) return problem(404, 'Content item not found.')
+        if (!id.success) return problem(404, 'Item de conteúdo não encontrado.')
 
         const size = Number(request.headers.get('content-length'))
         if (!request.body || !Number.isInteger(size)) {
-          return problem(411, 'Send the file as the request body.')
+          return problem(411, 'Envie o arquivo no corpo da requisição.')
         }
-        if (size > MAX_ASSET_BYTES) return problem(413, 'The file is too large.')
+        if (size > MAX_ASSET_BYTES) return problem(413, 'O arquivo é grande demais.')
 
         try {
           const asset = await createContentAsset(db, getMediaBucket(), {
@@ -54,7 +54,7 @@ export const Route = createFileRoute('/api/content/$itemId/assets')({
             },
             body: request.body,
           })
-          if (!asset) return problem(404, 'Content item not found.')
+          if (!asset) return problem(404, 'Item de conteúdo não encontrado.')
           return Response.json({ asset }, { status: 201 })
         } catch (error) {
           if (error instanceof AssetUploadError) {

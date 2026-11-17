@@ -167,7 +167,7 @@ describe('updateContentItem', () => {
     const item = await create({ title: 'T', channel: 'x', format: 'post' })
     await expect(
       updateContentItem(db, { id: item.id, status: 'scheduled' }),
-    ).rejects.toThrow('A scheduled item needs a scheduled date and time.')
+    ).rejects.toThrow('Um item agendado precisa de data e hora de agendamento.')
 
     const ok = await updateContentItem(db, {
       id: item.id,

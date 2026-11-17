@@ -33,7 +33,7 @@ export function AssigneeAvatar({
   size = 'default',
   className,
 }: AssigneeAvatarProps) {
-  const label = member ? member.name : 'Unassigned'
+  const label = member ? member.name : 'Sem responsável'
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -55,7 +55,7 @@ export function AssigneeAvatar({
             {member ? initialsOf(member) : <UserRound className="size-3.5" />}
           </AvatarFallback>
           <span className="sr-only">
-            {member ? `Assigned to ${label}` : label}
+            {member ? `Responsável: ${label}` : label}
           </span>
         </Avatar>
       </TooltipTrigger>

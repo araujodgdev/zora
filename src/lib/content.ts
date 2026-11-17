@@ -33,10 +33,10 @@ export type ContentFormat = (typeof FORMATS)[number]
 export const FORMAT_LABELS: Record<ContentFormat, string> = {
   post: 'Post',
   thread: 'Thread',
-  carousel: 'Carousel',
+  carousel: 'Carrossel',
   reel: 'Reel',
   story: 'Story',
-  article: 'Article',
+  article: 'Artigo',
 }
 
 /** Ordered as the content pipeline flows. */
@@ -49,11 +49,11 @@ export const STATUSES = [
 ] as const
 export type ContentStatus = (typeof STATUSES)[number]
 export const STATUS_LABELS: Record<ContentStatus, string> = {
-  idea: 'Idea',
-  draft: 'Draft',
-  ready: 'Ready',
-  scheduled: 'Scheduled',
-  published: 'Published',
+  idea: 'Ideia',
+  draft: 'Rascunho',
+  ready: 'Pronto',
+  scheduled: 'Agendado',
+  published: 'Publicado',
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +97,7 @@ export type ScheduleState = {
 }
 
 export const SCHEDULED_REQUIRES_DATE_MESSAGE =
-  'A scheduled item needs a scheduled date and time.'
+  'Um item agendado precisa de data e hora de agendamento.'
 
 /**
  * Fills derived values: a published item without `publishedAt` gets `now`.
@@ -119,7 +119,7 @@ export function scheduleStateError(item: ScheduleState): string | null {
     return SCHEDULED_REQUIRES_DATE_MESSAGE
   }
   if (item.status === 'published' && item.publishedAt === null) {
-    return 'A published item needs a published date.'
+    return 'Um item publicado precisa de data de publicação.'
   }
   return null
 }
@@ -140,7 +140,7 @@ export function isHttpUrl(value: string): boolean {
 export const httpUrlSchema = z
   .string()
   .trim()
-  .refine(isHttpUrl, { message: 'Must be a valid http or https URL.' })
+  .refine(isHttpUrl, { message: 'Informe uma URL http ou https válida.' })
 
 /**
  * Accepts a `Date` or an ISO 8601 string with an offset (e.g.
@@ -162,8 +162,8 @@ const contentFieldsSchema = z.object({
   title: z
     .string()
     .trim()
-    .min(1, { message: 'Title is required.' })
-    .max(300, { message: 'Title must be at most 300 characters.' }),
+    .min(1, { message: 'Informe um título.' })
+    .max(300, { message: 'O título pode ter no máximo 300 caracteres.' }),
   body: z.string(),
   channel: z.enum(CHANNELS),
   format: z.enum(FORMATS),
@@ -252,7 +252,7 @@ export const contentListFiltersSchema = z
       !filters.scheduledTo ||
       filters.scheduledFrom < filters.scheduledTo,
     {
-      message: 'scheduledFrom must be before scheduledTo.',
+      message: 'scheduledFrom deve ser anterior a scheduledTo.',
       path: ['scheduledTo'],
     },
   )

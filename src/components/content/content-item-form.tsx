@@ -1,7 +1,11 @@
 import { useForm } from '@tanstack/react-form'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { ArrowLeft, ImageUp, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { toast } from 'sonner'
+import { ChannelBadge } from '@/components/content/channel-badge'
+import { StatusBadge } from '@/components/content/status-badge'
 import { FormField } from '@/components/form-field'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -14,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import {
   CHANNELS,
@@ -43,7 +48,19 @@ import { editorReturnPath } from '@/lib/editor-search'
 import type { EditorOrigin } from '@/lib/editor-search'
 
 const selectClassName =
-  'border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+  'border-input bg-input/30 hover:bg-input/50 h-9 w-full rounded-lg border px-2.5 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+
+// The form renders in the browser only (`ssr: 'data-only'`), so `navigator` is there.
+const SAVE_SHORTCUT =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+    ? '⌘ S'
+    : 'Ctrl S'
+
+const RETURN_LABELS: Record<EditorOrigin, string> = {
+  calendar: 'Calendário',
+  pipeline: 'Pipeline',
+  content: 'Conteúdos',
+}
 
 /** The form's fields. Everything is text; `toInput` converts on submit. */
 type FormValues = {
@@ -139,7 +156,7 @@ function validate(
           ? `Link ${index + 1}: ${issue.message}`
           : issue.message
     }
-    return { ok: false, errors, message: 'Check the highlighted fields.' }
+    return { ok: false, errors, message: 'Confira os campos destacados.' }
   }
   // A published item without a date gets "now" on the server, so it is fine.
   const scheduleError = scheduleStateError(normalizeScheduleState(parsed.data))
@@ -159,20 +176,32 @@ type ContentItemFormProps = {
   /** Presets for a new item. */
   defaults?: NewItemDefaults
   members: ReadonlyArray<TeamMember>
-  /** Where to go after saving, cancelling or deleting. */
+  /** The page the editor was opened from: the back link and "Cancelar" go there. */
   from: EditorOrigin | undefined
+  /** The media section of an existing item, shown in the main column. */
+  media?: ReactNode
 }
 
 /**
- * The editor form for every field of a content item: creates a new item, or
- * edits `item`. Local-time fields are read in the browser's zone, so render it
- * on the client only (the editor routes use `ssr: 'data-only'`).
+ * The item editor, laid out like a document with an inspector:
+ *
+ * - main column: the title (edited in place, as the page heading), the copy,
+ *   the media and the notes;
+ * - a panel on the right (below on small screens, sticky on large ones) with
+ *   the actions and every property: status, channel, format, assignee,
+ *   dates and links.
+ *
+ * Saving an existing item stays on the page; creating one opens the new
+ * item, so media can be added right away. Ctrl/Cmd+S saves. Local-time fields
+ * are read in the browser's zone, so render it on the client only (the editor
+ * routes use `ssr: 'data-only'`).
  */
 export function ContentItemForm({
   item,
   defaults = {},
   members,
   from,
+  media,
 }: ContentItemFormProps) {
   const navigate = useNavigate()
   const createItem = useCreateContentItem()
@@ -197,21 +226,40 @@ export function ContentItemForm({
       try {
         if (item) {
           await updateItem.mutateAsync({ id: item.id, ...result.data })
+          // The saved values are the new baseline: nothing is unsaved now.
+          form.reset(value)
+          toast.success('Alterações salvas.')
         } else {
-          await createItem.mutateAsync(result.data)
+          const created = await createItem.mutateAsync(result.data)
+          toast.success('Item criado.')
+          await navigate({
+            to: '/content/$itemId',
+            params: { itemId: created.id },
+            search: { from },
+            replace: true,
+          })
         }
       } catch (error) {
         setFormError(
           error instanceof Error && error.message
             ? error.message
-            : 'Could not save the item.',
+            : 'Não foi possível salvar o item.',
         )
-        return
       }
-      toast.success(item ? 'Item saved.' : 'Item created.')
-      await navigate({ to: returnPath })
     },
   })
+
+  // Ctrl/Cmd+S saves from anywhere on the page.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        void form.handleSubmit()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [form])
 
   async function confirmDelete() {
     if (!item) return
@@ -222,11 +270,11 @@ export function ContentItemForm({
       setFormError(
         error instanceof Error && error.message
           ? error.message
-          : 'Could not delete the item.',
+          : 'Não foi possível excluir o item.',
       )
       return
     }
-    toast.success('Item deleted.')
+    toast.success('Item excluído.')
     await navigate({ to: returnPath })
   }
 
@@ -241,254 +289,344 @@ export function ContentItemForm({
     <form
       method="post"
       noValidate
-      className="grid max-w-3xl gap-6"
+      className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-12"
       onSubmit={(event) => {
         event.preventDefault()
         void form.handleSubmit()
       }}
     >
-      {formError ? (
-        <Alert variant="destructive" role="alert">
-          <AlertDescription>{formError}</AlertDescription>
-        </Alert>
-      ) : null}
+      {/* Main column: what the item says. */}
+      <div className="grid min-w-0 content-start gap-8">
+        <header className="grid gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to={returnPath}
+              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -ml-1 inline-flex items-center gap-1.5 rounded-md px-1 text-sm transition-colors outline-none focus-visible:ring-3"
+            >
+              <ArrowLeft className="size-4" />
+              {RETURN_LABELS[from ?? 'content']}
+            </Link>
+            {/* The item at a glance, following the panel as it is edited. */}
+            <form.Subscribe
+              selector={(state) => [state.values.channel, state.values.status] as const}
+            >
+              {([channel, status]) => (
+                <span className="ml-auto flex items-center gap-1.5">
+                  <ChannelBadge channel={channel} />
+                  <StatusBadge status={status} />
+                </span>
+              )}
+            </form.Subscribe>
+          </div>
 
-      <form.Field name="title">
-        {(field) => (
-          <FormField id="item-title" label="Title" error={fieldErrors.title}>
-            <Input
-              id="item-title"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-              {...errorProps('item-title', 'title')}
-            />
-          </FormField>
+          <form.Field name="title">
+            {(field) => (
+              <div className="grid gap-2">
+                <label htmlFor="item-title" className="sr-only">
+                  Título
+                </label>
+                <Textarea
+                  id="item-title"
+                  rows={1}
+                  placeholder="Título do item"
+                  autoFocus={!item}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) =>
+                    // A title is one line: pasted line breaks become spaces.
+                    field.handleChange(event.target.value.replace(/\s*\n\s*/g, ' '))
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') event.preventDefault()
+                  }}
+                  className="font-display placeholder:text-muted-foreground/60 min-h-0 resize-none rounded-lg border-transparent bg-transparent px-2 py-1 -mx-2 text-4xl leading-[1.1] font-semibold tracking-[-0.02em] shadow-none hover:bg-white/[0.03] focus-visible:bg-white/[0.03] md:text-5xl dark:bg-transparent"
+                  {...errorProps('item-title', 'title')}
+                />
+                {fieldErrors.title ? (
+                  <p id="item-title-error" className="text-destructive text-sm">
+                    {fieldErrors.title}
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </form.Field>
+        </header>
+
+        {formError ? (
+          <Alert variant="destructive" role="alert">
+            <AlertDescription>{formError}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <form.Field name="body">
+          {(field) => (
+            <FormField id="item-body" label="Texto" error={fieldErrors.body}>
+              <Textarea
+                id="item-body"
+                placeholder="O texto que vai ser publicado."
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+                className="min-h-56 text-[0.9375rem] leading-relaxed"
+              />
+            </FormField>
+          )}
+        </form.Field>
+
+        {media ?? (
+          <section className="bg-card text-muted-foreground flex items-center gap-3 rounded-xl border border-dashed p-5 text-sm">
+            <ImageUp className="size-5 shrink-0" />
+            Crie o item para enviar imagens, vídeos e PDFs.
+          </section>
         )}
-      </form.Field>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <form.Field name="channel">
+        <form.Field name="notes">
           {(field) => (
-            <FormField id="item-channel" label="Channel">
-              <select
-                id="item-channel"
-                className={selectClassName}
+            <FormField id="item-notes" label="Notas internas" error={fieldErrors.notes}>
+              <Textarea
+                id="item-notes"
+                placeholder="Contexto, referências, combinados da equipe…"
                 value={field.state.value}
-                onChange={(event) =>
-                  field.handleChange(event.target.value as Channel)
-                }
-              >
-                {CHANNELS.map((channel) => (
-                  <option key={channel} value={channel}>
-                    {CHANNEL_LABELS[channel]}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-          )}
-        </form.Field>
-        <form.Field name="format">
-          {(field) => (
-            <FormField id="item-format" label="Format">
-              <select
-                id="item-format"
-                className={selectClassName}
-                value={field.state.value}
-                onChange={(event) =>
-                  field.handleChange(event.target.value as ContentFormat)
-                }
-              >
-                {FORMATS.map((format) => (
-                  <option key={format} value={format}>
-                    {FORMAT_LABELS[format]}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-          )}
-        </form.Field>
-        <form.Field name="status">
-          {(field) => (
-            <FormField id="item-status" label="Status">
-              <select
-                id="item-status"
-                className={selectClassName}
-                value={field.state.value}
-                onChange={(event) =>
-                  field.handleChange(event.target.value as ContentStatus)
-                }
-              >
-                {STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {STATUS_LABELS[status]}
-                  </option>
-                ))}
-              </select>
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+                className="min-h-24"
+              />
             </FormField>
           )}
         </form.Field>
       </div>
 
-      <form.Field name="body">
-        {(field) => (
-          <FormField id="item-body" label="Copy" error={fieldErrors.body}>
-            <Textarea
-              id="item-body"
-              rows={8}
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-            />
-          </FormField>
-        )}
-      </form.Field>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <form.Field name="scheduledAt">
-          {(field) => (
-            <FormField
-              id="item-scheduled-at"
-              label="Scheduled (local time)"
-              error={fieldErrors.scheduledAt}
-            >
-              <Input
-                id="item-scheduled-at"
-                type="datetime-local"
-                value={field.state.value}
-                onChange={(event) => field.handleChange(event.target.value)}
-                {...errorProps('item-scheduled-at', 'scheduledAt')}
-              />
-            </FormField>
-          )}
-        </form.Field>
-        <form.Field name="publishedAt">
-          {(field) => (
-            <FormField
-              id="item-published-at"
-              label="Published (local time)"
-              error={fieldErrors.publishedAt}
-            >
-              <Input
-                id="item-published-at"
-                type="datetime-local"
-                value={field.state.value}
-                onChange={(event) => field.handleChange(event.target.value)}
-                {...errorProps('item-published-at', 'publishedAt')}
-              />
-              <p className="text-muted-foreground text-xs">
-                Left empty on a published item, it is set to now.
+      {/* Inspector: actions first, then the properties. */}
+      <aside
+        aria-label="Propriedades do item"
+        className="bg-card grid gap-5 rounded-xl p-5 lg:sticky lg:top-6"
+      >
+        <form.Subscribe
+          selector={(state) => [state.isSubmitting, state.isDirty] as const}
+        >
+          {([isSubmitting, isDirty]) => (
+            <div className="grid gap-2">
+              <div className="flex gap-2">
+                <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                  {isSubmitting
+                    ? 'Salvando…'
+                    : item
+                      ? 'Salvar alterações'
+                      : 'Criar item'}
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to={returnPath}>{item ? 'Fechar' : 'Cancelar'}</Link>
+                </Button>
+              </div>
+              <p className="text-muted-foreground flex items-center gap-2 text-xs">
+                {item && isDirty ? (
+                  <>
+                    <span aria-hidden="true" className="bg-status-draft size-1.5 rounded-full" />
+                    Alterações não salvas
+                  </>
+                ) : item ? (
+                  'Tudo salvo'
+                ) : (
+                  'Novo item'
+                )}
+                <kbd className="border-border ml-auto hidden rounded border px-1.5 font-sans text-[0.6875rem] lg:inline">
+                  {SAVE_SHORTCUT}
+                </kbd>
               </p>
-            </FormField>
-          )}
-        </form.Field>
-      </div>
-
-      <form.Field name="publishedUrl">
-        {(field) => (
-          <FormField
-            id="item-published-url"
-            label="Published URL"
-            error={fieldErrors.publishedUrl}
-          >
-            <Input
-              id="item-published-url"
-              type="url"
-              placeholder="https://"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-              {...errorProps('item-published-url', 'publishedUrl')}
-            />
-          </FormField>
-        )}
-      </form.Field>
-
-      <form.Field name="assetLinks">
-        {(field) => (
-          <FormField
-            id="item-asset-links"
-            label="Asset links (one URL per line)"
-            error={fieldErrors.assetLinks}
-          >
-            <Textarea
-              id="item-asset-links"
-              rows={3}
-              placeholder="https://"
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-              {...errorProps('item-asset-links', 'assetLinks')}
-            />
-          </FormField>
-        )}
-      </form.Field>
-
-      <form.Field name="notes">
-        {(field) => (
-          <FormField id="item-notes" label="Notes" error={fieldErrors.notes}>
-            <Textarea
-              id="item-notes"
-              rows={3}
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-            />
-          </FormField>
-        )}
-      </form.Field>
-
-      <form.Field name="assigneeId">
-        {(field) => (
-          <FormField id="item-assignee" label="Assignee">
-            <select
-              id="item-assignee"
-              className={selectClassName}
-              value={field.state.value}
-              onChange={(event) => field.handleChange(event.target.value)}
-            >
-              <option value="">Unassigned</option>
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name}
-                </option>
-              ))}
-            </select>
-          </FormField>
-        )}
-      </form.Field>
-
-      <div className="flex items-center gap-2">
-        <form.Subscribe selector={(state) => state.isSubmitting}>
-          {(isSubmitting) => (
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : item ? 'Save' : 'Create item'}
-            </Button>
+            </div>
           )}
         </form.Subscribe>
-        <Button variant="outline" asChild>
-          <Link to={returnPath}>Cancel</Link>
-        </Button>
+
+        <Separator />
+
+        <div className="grid grid-cols-2 gap-4">
+          <form.Field name="status">
+            {(field) => (
+              <FormField id="item-status" label="Status">
+                <select
+                  id="item-status"
+                  className={selectClassName}
+                  value={field.state.value}
+                  onChange={(event) =>
+                    field.handleChange(event.target.value as ContentStatus)
+                  }
+                >
+                  {STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {STATUS_LABELS[status]}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            )}
+          </form.Field>
+          <form.Field name="channel">
+            {(field) => (
+              <FormField id="item-channel" label="Canal">
+                <select
+                  id="item-channel"
+                  className={selectClassName}
+                  value={field.state.value}
+                  onChange={(event) =>
+                    field.handleChange(event.target.value as Channel)
+                  }
+                >
+                  {CHANNELS.map((channel) => (
+                    <option key={channel} value={channel}>
+                      {CHANNEL_LABELS[channel]}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            )}
+          </form.Field>
+          <form.Field name="format">
+            {(field) => (
+              <FormField id="item-format" label="Formato">
+                <select
+                  id="item-format"
+                  className={selectClassName}
+                  value={field.state.value}
+                  onChange={(event) =>
+                    field.handleChange(event.target.value as ContentFormat)
+                  }
+                >
+                  {FORMATS.map((format) => (
+                    <option key={format} value={format}>
+                      {FORMAT_LABELS[format]}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            )}
+          </form.Field>
+          <form.Field name="assigneeId">
+            {(field) => (
+              <FormField id="item-assignee" label="Responsável">
+                <select
+                  id="item-assignee"
+                  className={selectClassName}
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                >
+                  <option value="">Ninguém</option>
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            )}
+          </form.Field>
+        </div>
+
+        <Separator />
+
+        <div className="grid gap-4">
+          <form.Field name="scheduledAt">
+            {(field) => (
+              <FormField
+                id="item-scheduled-at"
+                label="Agendado para"
+                error={fieldErrors.scheduledAt}
+              >
+                <Input
+                  id="item-scheduled-at"
+                  type="datetime-local"
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  {...errorProps('item-scheduled-at', 'scheduledAt')}
+                />
+              </FormField>
+            )}
+          </form.Field>
+          <form.Field name="publishedAt">
+            {(field) => (
+              <FormField
+                id="item-published-at"
+                label="Publicado em"
+                error={fieldErrors.publishedAt}
+              >
+                <Input
+                  id="item-published-at"
+                  type="datetime-local"
+                  aria-describedby="item-published-at-hint"
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  {...errorProps('item-published-at', 'publishedAt')}
+                />
+                <p id="item-published-at-hint" className="text-muted-foreground text-xs">
+                  Em branco num item publicado, vira o horário atual.
+                </p>
+              </FormField>
+            )}
+          </form.Field>
+          <form.Field name="publishedUrl">
+            {(field) => (
+              <FormField
+                id="item-published-url"
+                label="Link da publicação"
+                error={fieldErrors.publishedUrl}
+              >
+                <Input
+                  id="item-published-url"
+                  type="url"
+                  placeholder="https://"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  {...errorProps('item-published-url', 'publishedUrl')}
+                />
+              </FormField>
+            )}
+          </form.Field>
+          <form.Field name="assetLinks">
+            {(field) => (
+              <FormField
+                id="item-asset-links"
+                label="Links de arquivos (um por linha)"
+                error={fieldErrors.assetLinks}
+              >
+                <Textarea
+                  id="item-asset-links"
+                  rows={2}
+                  placeholder="https://"
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  className="min-h-16"
+                  {...errorProps('item-asset-links', 'assetLinks')}
+                />
+              </FormField>
+            )}
+          </form.Field>
+        </div>
+
         {item ? (
-          <Button
-            type="button"
-            variant="destructive"
-            className="ml-auto"
-            onClick={() => setConfirmingDelete(true)}
-          >
-            Delete
-          </Button>
+          <>
+            <Separator />
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive justify-start"
+              onClick={() => setConfirmingDelete(true)}
+            >
+              <Trash2 data-icon="inline-start" />
+              Excluir item
+            </Button>
+          </>
         ) : null}
-      </div>
+      </aside>
 
       {item ? (
         <Dialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Delete this item?</DialogTitle>
+              <DialogTitle>Excluir este item?</DialogTitle>
               <DialogDescription>
-                “{item.title}” will be removed for everyone on the team. This
-                cannot be undone.
+                “{item.title}” e as mídias dele somem para toda a equipe. Não dá
+                para desfazer.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -497,7 +635,7 @@ export function ContentItemForm({
                 variant="outline"
                 onClick={() => setConfirmingDelete(false)}
               >
-                Keep it
+                Manter
               </Button>
               <Button
                 type="button"
@@ -505,7 +643,7 @@ export function ContentItemForm({
                 disabled={deleteItem.isPending}
                 onClick={() => void confirmDelete()}
               >
-                {deleteItem.isPending ? 'Deleting…' : 'Delete item'}
+                {deleteItem.isPending ? 'Excluindo…' : 'Excluir item'}
               </Button>
             </DialogFooter>
           </DialogContent>

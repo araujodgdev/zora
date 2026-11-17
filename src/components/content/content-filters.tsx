@@ -53,11 +53,11 @@ export function ContentFilters({
   return (
     <div
       role="group"
-      aria-label="Filters"
+      aria-label="Filtros"
       className={cn('flex flex-wrap items-center gap-2', className)}
     >
       <MultiSelectFilter
-        label="Channel"
+        label="Canal"
         options={CHANNELS}
         labels={CHANNEL_LABELS}
         selected={value.channels ?? []}
@@ -79,12 +79,12 @@ export function ContentFilters({
           })
         }
       >
-        <SelectTrigger size="sm" aria-label="Assignee" className="min-w-36">
+        <SelectTrigger size="sm" aria-label="Responsável" className="min-w-36">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectItem value={ANY_ASSIGNEE}>Any assignee</SelectItem>
+            <SelectItem value={ANY_ASSIGNEE}>Qualquer responsável</SelectItem>
             {members.map((member) => (
               <SelectItem key={member.id} value={member.id}>
                 {member.name}
@@ -96,7 +96,7 @@ export function ContentFilters({
       {hasContentFilters(value) ? (
         <Button variant="ghost" size="sm" onClick={() => onChange({})}>
           <X data-icon="inline-start" />
-          Clear filters
+          Limpar filtros
         </Button>
       ) : null}
     </div>

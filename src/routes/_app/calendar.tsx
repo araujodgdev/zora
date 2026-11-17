@@ -2,6 +2,7 @@ import { useDraggable, useDroppable, DragDropProvider } from '@dnd-kit/react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { addDays, format, isSameMonth, isToday } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/app-shell'
 import { ContentFilters } from '@/components/content/content-filters'
@@ -65,7 +66,7 @@ export const Route = createFileRoute('/_app/calendar')({
       context.queryClient.query(teamMembersQueryOptions()),
     ])
   },
-  head: () => ({ meta: [{ title: 'Calendar · Zora' }] }),
+  head: () => ({ meta: [{ title: 'Calendário · Zora' }] }),
   pendingComponent: CalendarSkeleton,
   component: CalendarPage,
 })
@@ -106,13 +107,13 @@ function CalendarPage() {
     <>
       <div className="flex items-start justify-between gap-4">
         <PageHeader
-          title="Calendar"
-          description="Drag an item to another day to reschedule it."
+          title="Calendário"
+          description="Arraste um item para outro dia para reagendar."
         />
         <Button asChild>
           <Link to="/content/new" search={{ from: 'calendar' }}>
             <Plus data-icon="inline-start" />
-            New item
+            Novo item
           </Link>
         </Button>
       </div>
@@ -138,7 +139,7 @@ function CalendarPage() {
               <div className="text-muted-foreground mx-px grid grid-cols-7 gap-px pb-1 text-xs font-medium">
                 {range.days.slice(0, 7).map((day) => (
                   <div key={formatDay(day)} className="px-1.5">
-                    {format(day, 'EEE')}
+                    {capitalize(format(day, 'EEE', { locale: ptBR }))}
                   </div>
                 ))}
               </div>
@@ -164,11 +165,17 @@ function CalendarPage() {
   )
 }
 
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 function periodTitle(range: CalendarRange): string {
-  if (range.view === 'month') return format(range.anchor, 'MMMM yyyy')
+  if (range.view === 'month') {
+    return capitalize(format(range.anchor, "MMMM 'de' yyyy", { locale: ptBR }))
+  }
   const first = range.days[0]!
   const last = addDays(range.end, -1)
-  return `${format(first, 'MMM d')} – ${format(last, 'MMM d, yyyy')}`
+  return `${format(first, "d 'de' MMM", { locale: ptBR })} – ${format(last, "d 'de' MMM 'de' yyyy", { locale: ptBR })}`
 }
 
 function PeriodNavigation({ range }: { range: CalendarRange }) {
@@ -182,14 +189,14 @@ function PeriodNavigation({ range }: { range: CalendarRange }) {
             ...prev,
             date: formatDay(shiftAnchor(unit, range.anchor, -1)),
           })}
-          aria-label={`Previous ${unit}`}
+          aria-label={unit === 'month' ? 'Mês anterior' : 'Semana anterior'}
         >
           <ChevronLeft />
         </Link>
       </Button>
       <Button variant="outline" size="sm" asChild>
         <Link to="/calendar" search={(prev) => ({ ...prev, date: undefined })}>
-          Today
+          Hoje
         </Link>
       </Button>
       <Button variant="outline" size="icon-sm" asChild>
@@ -199,7 +206,7 @@ function PeriodNavigation({ range }: { range: CalendarRange }) {
             ...prev,
             date: formatDay(shiftAnchor(unit, range.anchor, 1)),
           })}
-          aria-label={`Next ${unit}`}
+          aria-label={unit === 'month' ? 'Próximo mês' : 'Próxima semana'}
         >
           <ChevronRight />
         </Link>
@@ -217,7 +224,7 @@ function ViewToggle({ view }: { view: CalendarView }) {
       size="sm"
       spacing={0}
       value={view}
-      aria-label="View"
+      aria-label="Visualização"
       onValueChange={(next) => {
         // Clicking the active item reports an empty value; keep the view.
         const nextView = CALENDAR_VIEWS.find((candidate) => candidate === next)
@@ -226,8 +233,8 @@ function ViewToggle({ view }: { view: CalendarView }) {
         }
       }}
     >
-      <ToggleGroupItem value="month">Month</ToggleGroupItem>
-      <ToggleGroupItem value="week">Week</ToggleGroupItem>
+      <ToggleGroupItem value="month">Mês</ToggleGroupItem>
+      <ToggleGroupItem value="week">Semana</ToggleGroupItem>
     </ToggleGroup>
   )
 }
@@ -256,7 +263,7 @@ function DayCell({
     <div
       ref={ref}
       role="gridcell"
-      aria-label={format(day, 'EEEE, MMMM d')}
+      aria-label={format(day, "EEEE, d 'de' MMMM", { locale: ptBR })}
       className={cn(
         'bg-card group flex flex-col gap-1 p-1.5 transition-colors',
         monthView ? 'min-h-28' : 'min-h-64',
@@ -288,7 +295,7 @@ function DayCell({
           <Link
             to="/content/new"
             search={newItemSearch}
-            aria-label={`New item on ${format(day, 'MMMM d')}`}
+            aria-label={`Novo item em ${format(day, "d 'de' MMMM", { locale: ptBR })}`}
           >
             <Plus />
           </Link>
@@ -303,7 +310,7 @@ function DayCell({
           search={(prev) => ({ ...prev, view: 'week', date: dayKey })}
           className="text-muted-foreground hover:text-foreground px-1 text-xs"
         >
-          +{hidden} more
+          +{hidden} {hidden === 1 ? 'outro' : 'outros'}
         </Link>
       ) : null}
     </div>
@@ -326,7 +333,7 @@ function DraggableItem({ item }: { item: ContentItem }) {
 function CalendarSkeleton() {
   return (
     <>
-      <PageHeader title="Calendar" />
+      <PageHeader title="Calendário" />
       <Skeleton className="h-[32rem] w-full" />
     </>
   )

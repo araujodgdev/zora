@@ -39,9 +39,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function NotFound() {
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-2 p-6">
-      <h1 className="font-display text-4xl font-semibold">Page not found</h1>
+      <h1 className="font-display text-4xl font-semibold">Página não encontrada</h1>
       <Link to="/" className="text-sm underline underline-offset-4">
-        Go to the calendar
+        Ir para o calendário
       </Link>
     </main>
   )
@@ -49,7 +49,7 @@ function NotFound() {
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="pt-BR" className="dark">
       <head>
         <HeadContent />
       </head>

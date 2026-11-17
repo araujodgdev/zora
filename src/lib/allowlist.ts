@@ -4,7 +4,7 @@
  */
 
 export const SIGNUP_NOT_ALLOWED_MESSAGE =
-  'Sign-up is restricted to the Zora team. Ask an admin to add your email to the allowlist.'
+  'O cadastro é restrito à equipe do Zora. Peça a um administrador para liberar o seu e-mail.'
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()

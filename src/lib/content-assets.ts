@@ -50,11 +50,11 @@ export function assetUploadError(file: {
   size: number
 }): string | null {
   if (!assetKind(file.type)) {
-    return `${file.name}: only images (PNG, JPEG, GIF, WebP, AVIF), videos (MP4, WebM, MOV) and PDFs can be uploaded.`
+    return `${file.name}: só é possível enviar imagens (PNG, JPEG, GIF, WebP, AVIF), vídeos (MP4, WebM, MOV) e PDFs.`
   }
-  if (file.size === 0) return `${file.name}: the file is empty.`
+  if (file.size === 0) return `${file.name}: o arquivo está vazio.`
   if (file.size > MAX_ASSET_BYTES) {
-    return `${file.name}: files can be at most ${formatBytes(MAX_ASSET_BYTES)}.`
+    return `${file.name}: os arquivos podem ter no máximo ${formatBytes(MAX_ASSET_BYTES)}.`
   }
   return null
 }

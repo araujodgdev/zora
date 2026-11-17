@@ -129,6 +129,16 @@ protection denies it in the client build), `*.functions.ts` holds
 `createServerFn` wrappers that are safe to import anywhere, plain `.ts` is
 client-safe.
 
+## Language
+
+The UI is in Brazilian Portuguese: every label, message and error a person
+reads (including server rule errors, which surface in the UI and in MCP tool
+results). `<html lang="pt-BR">`; dates use `Intl` with `pt-BR` (`@/lib/dates`)
+and `date-fns` with the `ptBR` locale. Better Auth's English errors are mapped
+in `@/lib/auth-errors`. Code, comments, docs and the MCP/WebMCP tool names and
+descriptions (read by agents) stay in English. Enum values (`idea`, `x`, ...)
+are stored in English; only `*_LABELS` are translated.
+
 ## Design system
 
 A dark studio look after Affinity (affinity.studio). Tokens live in
@@ -320,9 +330,15 @@ If the page has other search params, keep them:
   renders its `notFoundComponent` for a missing or malformed id.
 - Both pages render `ContentItemForm` (`@/components/content/content-item-form`),
   which validates with `createContentItemSchema` (field errors next to the
-  fields, server errors in an alert), saves, deletes (with confirmation) and
-  returns to `editorReturnPath(from)`. The routes use `ssr: 'data-only'`: the
-  form reads local times, so it renders in the browser.
+  fields, server errors in an alert). Layout: the title is edited in place as
+  the page heading; the main column holds copy, media (`media` prop, the
+  `ContentAssets` of an existing item) and notes; a panel on the right
+  (sticky on large screens, below on small ones) holds Save/Close, every
+  property and Delete. Saving an existing item stays on the page and resets
+  the "unsaved changes" state; creating one opens the new item's page (so
+  media can be added). Ctrl/Cmd+S saves. The back link, Close/Cancel and
+  Delete go to `editorReturnPath(from)`. The routes use `ssr: 'data-only'`:
+  the form reads local times, so it renders in the browser.
 
 ### Media: `@/lib/content-assets`
 
@@ -377,8 +393,10 @@ function Column({ status, children }) {
 
 - Always pass `sensors={contentDragSensors}`: the card is a link, so Enter
   must open it. Space picks up and drops, arrows move, Escape cancels. Mouse
-  drags start after 5px, touch after a 250ms hold (dnd-kit defaults); a plain
-  click or tap still follows the link.
+  and pen drags start only after 5px of movement, touch after a 250ms hold; a
+  plain click or tap still follows the link. (dnd-kit's default also starts a
+  mouse drag after holding still for 200ms, which swallowed slow clicks; do
+  not go back to the default sensors.)
 - It renders under SSR in `workerd` (verified); no client-only wrapper needed.
 - `DragOverlay` (`@dnd-kit/react`) and `useSortable` (`@dnd-kit/react/sortable`)
   are available if needed; ordering within a column is not persisted.

@@ -21,13 +21,16 @@ export const Route = createFileRoute('/_app/content/$itemId')({
       throw notFound()
     }
     // `getContentItem` throws `notFound()` for a missing item.
-    await Promise.all([
+    const [item] = await Promise.all([
       context.queryClient.query(contentItemQueryOptions(params.itemId)),
       context.queryClient.query(teamMembersQueryOptions()),
       context.queryClient.query(contentAssetsQueryOptions(params.itemId)),
     ])
+    return { title: item.title }
   },
-  head: () => ({ meta: [{ title: 'Edit item · Zora' }] }),
+  head: ({ loaderData }) => ({
+    meta: [{ title: `${loaderData?.title ?? 'Item'} · Zora` }],
+  }),
   component: EditContentItemPage,
   notFoundComponent: ContentItemNotFound,
 })
@@ -38,19 +41,14 @@ function EditContentItemPage() {
   const { data: item } = useSuspenseQuery(contentItemQueryOptions(itemId))
   const { data: members } = useSuspenseQuery(teamMembersQueryOptions())
   return (
-    <>
-      <PageHeader title={item.title} description="Edit this content item." />
-      {/* The form starts from the item as loaded; a refetch must not wipe edits in progress. */}
-      <ContentItemForm
-        key={item.id}
-        item={item}
-        members={members}
-        from={search.from}
-      />
-      <div className="mt-10 border-t pt-8">
-        <ContentAssets itemId={item.id} />
-      </div>
-    </>
+    // The form starts from the item as loaded; a refetch must not wipe edits in progress.
+    <ContentItemForm
+      key={item.id}
+      item={item}
+      members={members}
+      from={search.from}
+      media={<ContentAssets itemId={item.id} />}
+    />
   )
 }
 
@@ -58,8 +56,8 @@ function ContentItemNotFound() {
   return (
     <>
       <PageHeader
-        title="Content item not found"
-        description="It may have been deleted, or the link is wrong."
+        title="Item não encontrado"
+        description="Ele pode ter sido excluído, ou o link está errado."
       />
       <BackLink />
     </>
@@ -73,7 +71,7 @@ function BackLink() {
       to={editorReturnPath(from)}
       className="mt-4 inline-block text-sm underline underline-offset-4"
     >
-      Back
+      Voltar
     </Link>
   )
 }

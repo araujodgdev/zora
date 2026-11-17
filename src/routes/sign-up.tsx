@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth-client'
+import { authErrorMessage } from '@/lib/auth-errors'
 import {
   authPageSearchSchema,
   isOAuthContinuation,
@@ -31,12 +32,12 @@ import {
 // Client-side checks are for feedback only. The server enforces the email
 // allowlist and Better Auth's password rules (8–128 characters by default).
 const signUpSchema = z.object({
-  name: z.string().trim().min(1, { message: 'Enter your name.' }),
-  email: z.email({ message: 'Enter a valid email address.' }),
+  name: z.string().trim().min(1, { message: 'Informe seu nome.' }),
+  email: z.email({ message: 'Informe um e-mail válido.' }),
   password: z
     .string()
-    .min(8, { message: 'Use at least 8 characters.' })
-    .max(128, { message: 'Use at most 128 characters.' }),
+    .min(8, { message: 'Use pelo menos 8 caracteres.' })
+    .max(128, { message: 'Use no máximo 128 caracteres.' }),
 })
 
 export const Route = createFileRoute('/sign-up')({
@@ -46,16 +47,16 @@ export const Route = createFileRoute('/sign-up')({
       throw redirect({ href: safeRedirectPath(search.redirect) })
     }
   },
-  head: () => ({ meta: [{ title: 'Create account · Zora' }] }),
+  head: () => ({ meta: [{ title: 'Criar conta · Zora' }] }),
   component: SignUpPage,
 })
 
 const fields = [
-  { name: 'name', label: 'Name', type: 'text', autoComplete: 'name' },
-  { name: 'email', label: 'Email', type: 'email', autoComplete: 'username' },
+  { name: 'name', label: 'Nome', type: 'text', autoComplete: 'name' },
+  { name: 'email', label: 'E-mail', type: 'email', autoComplete: 'username' },
   {
     name: 'password',
-    label: 'Password',
+    label: 'Senha',
     type: 'password',
     autoComplete: 'new-password',
   },
@@ -83,7 +84,9 @@ function SignUpPage() {
         password: value.password,
       })
       if (error) {
-        setFormError(error.message ?? 'Sign-up failed. Please try again.')
+        setFormError(
+          authErrorMessage(error, 'Não foi possível criar a conta. Tente de novo.'),
+        )
         return
       }
       // Signing up for an MCP client: the auth client follows the redirect.
@@ -98,9 +101,9 @@ function SignUpPage() {
     <AuthLayout>
       <Card className="w-full max-w-sm shadow-2xl shadow-black">
         <CardHeader>
-          <CardTitle>Create your account</CardTitle>
+          <CardTitle>Criar sua conta</CardTitle>
           <CardDescription>
-            Sign-up is limited to invited team emails.
+            O cadastro é liberado só para e-mails convidados da equipe.
           </CardDescription>
         </CardHeader>
         <form
@@ -151,7 +154,7 @@ function SignUpPage() {
                   className="w-full"
                   disabled={!hydrated || isSubmitting}
                 >
-                  {isSubmitting ? 'Creating account…' : 'Create account'}
+                  {isSubmitting ? 'Criando conta…' : 'Criar conta'}
                 </Button>
               )}
             </form.Subscribe>
@@ -159,7 +162,7 @@ function SignUpPage() {
               Already have an account?{' '}
               {oauthSearch ? (
                 <a href={`/sign-in${oauthSearch}`} className="text-foreground underline underline-offset-4">
-                  Sign in
+                  Entrar
                 </a>
               ) : (
                 <Link
@@ -167,7 +170,7 @@ function SignUpPage() {
                   search={{ redirect: search.redirect }}
                   className="text-foreground underline underline-offset-4"
                 >
-                  Sign in
+                  Entrar
                 </Link>
               )}
             </p>

@@ -30,9 +30,9 @@ import { authClient } from '@/lib/auth-client'
 const appRoute = getRouteApi('/_app')
 
 const navItems = [
-  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
+  { to: '/calendar', label: 'Calendário', icon: CalendarDays },
   { to: '/pipeline', label: 'Pipeline', icon: SquareKanban },
-  { to: '/content', label: 'Content', icon: List },
+  { to: '/content', label: 'Conteúdos', icon: List },
 ] as const
 
 /**
@@ -91,7 +91,7 @@ function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu aria-label="Main">
+            <SidebarMenu aria-label="Principal">
               {navItems.map(({ to, label, icon: Icon }) => (
                 <SidebarMenuItem key={to}>
                   <SidebarMenuButton
@@ -123,12 +123,12 @@ function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="Sign out"
+              tooltip="Sair"
               onClick={() => void signOut()}
               disabled={signingOut}
             >
               <LogOut />
-              <span>{signingOut ? 'Signing out…' : 'Sign out'}</span>
+              <span>{signingOut ? 'Saindo…' : 'Sair'}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

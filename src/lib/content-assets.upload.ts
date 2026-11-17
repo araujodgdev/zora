@@ -18,7 +18,7 @@ export function uploadContentAsset(
       if (event.lengthComputable) onProgress?.(event.loaded / event.total)
     }
     request.onerror = () =>
-      reject(new Error(`${file.name}: the upload failed. Check your connection.`))
+      reject(new Error(`${file.name}: o envio falhou. Verifique sua conexão.`))
     request.onload = () => {
       if (request.status >= 200 && request.status < 300) return resolve()
       let message = ''
@@ -27,7 +27,7 @@ export function uploadContentAsset(
       } catch {
         // Not JSON: fall through to the generic message.
       }
-      reject(new Error(message || `${file.name}: the upload failed (${request.status}).`))
+      reject(new Error(message || `${file.name}: o envio falhou (${request.status}).`))
     }
     request.send(file)
   })

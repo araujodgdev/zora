@@ -84,7 +84,7 @@ describe('tools', () => {
       title: 'T', channel: 'x', format: 'post', status: 'scheduled',
     })
     expect(noDate.result.isError).toBe(true)
-    expect(noDate.text).toMatch(/scheduled date/i)
+    expect(noDate.text).toMatch(/data e hora de agendamento/i)
 
     const badChannel = await call('create_content_item', { title: 'T', channel: 'tiktok', format: 'post' })
     expect(badChannel.result.isError).toBe(true)

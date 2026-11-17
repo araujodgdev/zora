@@ -5,20 +5,20 @@
  * disagree.
  */
 
-// English formatting to match the UI; the time zone is the browser's own.
-const dateTimeFormat = new Intl.DateTimeFormat('en-US', {
+// Brazilian Portuguese, like the UI; the time zone is the browser's own.
+const dateTimeFormat = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'medium',
   timeStyle: 'short',
 })
 
-/** e.g. "Jan 31, 2026, 9:00 AM" in the runtime's local time zone. */
+/** e.g. "31 de jan. de 2026, 09:00" in the runtime's local time zone. */
 export function formatLocalDateTime(value: Date): string {
   return dateTimeFormat.format(value)
 }
 
-const timeFormat = new Intl.DateTimeFormat('en-US', { timeStyle: 'short' })
+const timeFormat = new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' })
 
-/** e.g. "9:00 AM" in the runtime's local time zone. */
+/** e.g. "09:00" in the runtime's local time zone. */
 export function formatLocalTime(value: Date): string {
   return timeFormat.format(value)
 }

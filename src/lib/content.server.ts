@@ -45,7 +45,7 @@ async function assertAssigneeExists(
     .from(user)
     .where(eq(user.id, assigneeId))
     .limit(1)
-  if (!found) throw new ContentRuleError('The assignee is not a team member.')
+  if (!found) throw new ContentRuleError('O responsável não faz parte da equipe.')
 }
 
 /**
@@ -164,7 +164,7 @@ async function patchContentItem(
     if (updated) return updated
   }
   throw new ContentRuleError(
-    'This item was changed by someone else at the same time. Reload it and try again.',
+    'Outra pessoa alterou este item ao mesmo tempo. Recarregue e tente de novo.',
   )
 }
 

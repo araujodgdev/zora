@@ -6,7 +6,7 @@ export type SessionUser = TeamMember
 
 export class UnauthorizedError extends Error {
   constructor() {
-    super('Unauthorized: sign in to continue.')
+    super('Não autorizado: entre para continuar.')
     this.name = 'UnauthorizedError'
   }
 }

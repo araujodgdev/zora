@@ -40,7 +40,7 @@ export const Route = createFileRoute('/_app/content/')({
       context.queryClient.query(teamMembersQueryOptions()),
     ])
   },
-  head: () => ({ meta: [{ title: 'Content · Zora' }] }),
+  head: () => ({ meta: [{ title: 'Conteúdos · Zora' }] }),
   component: ContentPage,
 })
 
@@ -62,13 +62,13 @@ function ContentPage() {
     <>
       <div className="flex items-start justify-between gap-4">
         <PageHeader
-          title="Content"
-          description="Every content item across channels."
+          title="Conteúdos"
+          description="Todos os itens de conteúdo, de todos os canais."
         />
         <Button asChild>
           <Link to="/content/new" search={{ from: 'content' }}>
             <Plus data-icon="inline-start" />
-            New item
+            Novo item
           </Link>
         </Button>
       </div>
@@ -79,19 +79,19 @@ function ContentPage() {
             {items.length === 0 ? (
               <p className="text-muted-foreground py-6 text-center text-sm">
                 {filtered
-                  ? 'No content matches these filters.'
-                  : 'No content yet. Create the first item with New item.'}
+                  ? 'Nenhum conteúdo corresponde a estes filtros.'
+                  : 'Nenhum conteúdo ainda. Crie o primeiro em Novo item.'}
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Channel</TableHead>
-                    <TableHead>Format</TableHead>
+                    <TableHead>Título</TableHead>
+                    <TableHead>Canal</TableHead>
+                    <TableHead>Formato</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Scheduled</TableHead>
-                    <TableHead>Assignee</TableHead>
+                    <TableHead>Agendado para</TableHead>
+                    <TableHead>Responsável</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

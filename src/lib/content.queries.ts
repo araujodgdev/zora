@@ -117,9 +117,9 @@ export function useUpdateContentItem() {
 const optimisticItemMutationKey = [...contentKeys.all, 'optimistic'] as const
 
 function mutationErrorMessage(error: unknown): string {
-  if (isNotFound(error)) return 'This item no longer exists.'
+  if (isNotFound(error)) return 'Este item não existe mais.'
   if (error instanceof Error && error.message) return error.message
-  return 'Could not save the change.'
+  return 'Não foi possível salvar a alteração.'
 }
 
 /**
