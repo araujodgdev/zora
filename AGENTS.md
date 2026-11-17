@@ -152,8 +152,8 @@ both palettes.
   it (the toaster and the sidebar's "Tema claro/escuro" switch use it). No
   "system" option on purpose: it would flash on load. In components use
   tokens (or `foreground/<alpha>` for hairlines), never `white/`/`black/`.
-- **Surfaces:** pages sit on the canvas (`bg-background`: black, or bone in
-  light); the sidebar, board columns, calendar cells and cards are one step
+- **Surfaces:** pages sit on the canvas (`bg-background`: black, or a
+  neutral light grey in light; the light theme has no cream/warm tint); the sidebar, board columns, calendar cells and cards are one step
   up (`bg-card`); things on those (item cards, hover) are one more
   (`bg-muted`). Do not separate surfaces with borders and shadows where a
   step in tone works.

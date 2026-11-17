@@ -169,7 +169,7 @@ function MarkdownEditor({ labelId, value, onChange, onBlur }: ContentBodyEditorP
   })
 
   return (
-    <div className="border-input bg-input/30 focus-within:border-ring focus-within:ring-ring/50 overflow-hidden rounded-lg border transition-colors focus-within:ring-3">
+    <div className="border-input bg-card dark:bg-input/30 focus-within:border-ring focus-within:ring-ring/50 overflow-hidden rounded-lg border transition-colors focus-within:ring-3">
       {editor ? <Toolbar editor={editor} /> : <div className="h-10 border-b" />}
       <EditorContent editor={editor} />
     </div>

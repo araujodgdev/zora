@@ -9,10 +9,10 @@
 /*
  * Zora's design system, after Affinity. Two themes on the same brand:
  *
- *              dark       light
- *   canvas     #000000    #EFE9DE  (bone)   pages
- *   panel      #141414    #FAF7F1  (paper)  sidebar, cards, popovers
- *   raised     #222120    #E4DDD0           hover, muted fills, cards on panels
+ *              dark       light (neutral greys, no warm tint)
+ *   canvas     #000000    #F4F4F4  pages
+ *   panel      #141414    #FFFFFF  sidebar, cards, popovers
+ *   raised     #222120    #EBEBEB  hover, muted fills, cards on panels
  *   ink text   #FFFFFF    #0E1318
  *   lime       #A7F175 in both: the one action colour (primary buttons, today,
  *              drop targets); lime as text is `text-brand` (deep green on light)
@@ -101,39 +101,39 @@
     --lime: #a7f175;
     --violet: #6b3fe0;
     --coral: #c8303f;
-    --panel: #faf7f1;
-    --raised: #e4ddd0;
+    --panel: #ffffff;
+    --raised: #ebebeb;
     --brand-text: #3e7a14;
 
     --channel-x: #0e1318;
-    --channel-x-foreground: var(--bone);
+    --channel-x-foreground: #ffffff;
     --channel-linkedin: #5cc8ff;
     --channel-instagram: #ff8ad8;
     --channel-blog: #f5c04a;
 
-    --status-idea: #8c877f;
+    --status-idea: #8a8d91;
     --status-draft: #f08a3e;
     --status-ready: #8a5cf6;
     --status-scheduled: #5b7cfa;
     --status-published: #4e9a1f;
 
-    --background: var(--bone);
+    --background: #f4f4f4;
     --foreground: #0e1318;
     --card: var(--panel);
     --card-foreground: #0e1318;
-    --popover: #fffdf9;
+    --popover: #ffffff;
     --popover-foreground: #0e1318;
     --primary: var(--lime);
     --primary-foreground: #0e1318;
     --secondary: #0e1318;
-    --secondary-foreground: var(--bone);
+    --secondary-foreground: #ffffff;
     --muted: var(--raised);
-    --muted-foreground: #5f5a52;
+    --muted-foreground: #5c5f63;
     --accent: var(--raised);
     --accent-foreground: #0e1318;
     --destructive: var(--coral);
-    --border: rgb(14 19 24 / 0.12);
-    --input: rgb(14 19 24 / 0.18);
+    --border: rgb(14 19 24 / 0.1);
+    --input: rgb(14 19 24 / 0.16);
     --ring: var(--violet);
     --chart-1: var(--lime);
     --chart-2: var(--violet);
@@ -163,6 +163,7 @@
 
     --channel-x: var(--bone);
     --channel-x-foreground: #000000;
+    --status-idea: #8c877f;
 
     --status-draft: #ff9f5a;
     --status-ready: var(--violet);
