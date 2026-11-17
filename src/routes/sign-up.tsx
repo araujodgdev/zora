@@ -9,6 +9,7 @@ import {
 import { useState } from 'react'
 import { z } from 'zod'
 import { FormField, firstErrorMessage } from '@/components/form-field'
+import { AuthLayout } from '@/components/auth-layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -94,10 +95,10 @@ function SignUpPage() {
   })
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
+    <AuthLayout>
+      <Card className="w-full max-w-sm shadow-2xl shadow-black">
         <CardHeader>
-          <CardTitle>Create your Zora account</CardTitle>
+          <CardTitle>Create your account</CardTitle>
           <CardDescription>
             Sign-up is limited to invited team emails.
           </CardDescription>
@@ -173,6 +174,6 @@ function SignUpPage() {
           </CardFooter>
         </form>
       </Card>
-    </main>
+    </AuthLayout>
   )
 }

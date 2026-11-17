@@ -48,7 +48,7 @@ export function AppShell() {
       <AppSidebar />
       <SidebarInset>
         <SidebarTrigger className="m-2 md:hidden" />
-        <main className="w-full px-6 py-6">
+        <main className="w-full px-6 py-8 md:px-10">
           <Outlet />
         </main>
       </SidebarInset>
@@ -82,7 +82,7 @@ function AppSidebar() {
       <SidebarHeader className="flex-row items-center justify-between group-data-[collapsible=icon]:justify-center">
         <Link
           to="/calendar"
-          className="px-2 font-semibold tracking-tight group-data-[collapsible=icon]:hidden"
+          className="font-display wonk px-2 text-2xl leading-none font-semibold tracking-tight italic group-data-[collapsible=icon]:hidden"
         >
           Zora
         </Link>
@@ -98,6 +98,7 @@ function AppSidebar() {
                     asChild
                     isActive={Boolean(matchRoute({ to, fuzzy: true }))}
                     tooltip={label}
+                    className="data-[active=true]:text-lime"
                   >
                     <Link to={to} onClick={() => setOpenMobile(false)}>
                       <Icon />
@@ -136,6 +137,7 @@ function AppSidebar() {
     </Sidebar>
   )
 }
+
 /** Standard page heading for pages inside the app shell. */
 export function PageHeader({
   title,
@@ -145,10 +147,14 @@ export function PageHeader({
   description?: string
 }) {
   return (
-    <div className="mb-6">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+    <div className="mb-8">
+      <h1 className="font-display text-4xl leading-[1.05] font-semibold tracking-[-0.02em] md:text-5xl">
+        {title}
+      </h1>
       {description ? (
-        <p className="text-muted-foreground mt-1 text-sm">{description}</p>
+        <p className="text-muted-foreground mt-2 max-w-prose text-[0.9375rem]">
+          {description}
+        </p>
       ) : null}
     </div>
   )

@@ -80,7 +80,7 @@ export function ContentAssets({ itemId }: { itemId: string }) {
     <section aria-labelledby="media-heading" className="grid max-w-3xl gap-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 id="media-heading" className="text-lg font-semibold tracking-tight">
+          <h2 id="media-heading" className="font-display text-2xl font-medium">
             Media
           </h2>
           <p className="text-muted-foreground text-sm">

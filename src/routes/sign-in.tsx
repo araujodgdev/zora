@@ -9,6 +9,7 @@ import {
 import { useState } from 'react'
 import { z } from 'zod'
 import { FormField, firstErrorMessage } from '@/components/form-field'
+import { AuthLayout } from '@/components/auth-layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -72,10 +73,10 @@ function SignInPage() {
   })
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
+    <AuthLayout>
+      <Card className="w-full max-w-sm shadow-2xl shadow-black">
         <CardHeader>
-          <CardTitle>Sign in to Zora</CardTitle>
+          <CardTitle>Sign in</CardTitle>
           <CardDescription>Plan and manage the launch content.</CardDescription>
         </CardHeader>
         <form
@@ -164,6 +165,6 @@ function SignInPage() {
           </CardFooter>
         </form>
       </Card>
-    </main>
+    </AuthLayout>
   )
 }

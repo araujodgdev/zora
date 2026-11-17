@@ -119,7 +119,7 @@ function CalendarPage() {
       <div className="grid gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <PeriodNavigation range={range} />
-          <h2 className="mr-auto text-lg font-semibold tracking-tight">
+          <h2 className="font-display mr-auto text-2xl font-medium tracking-[-0.01em]">
             {periodTitle(range)}
           </h2>
           <ViewToggle view={range.view} />
@@ -145,7 +145,7 @@ function CalendarPage() {
               <div
                 role="grid"
                 aria-label={periodTitle(range)}
-                className="bg-border grid grid-cols-7 gap-px overflow-hidden rounded-lg border"
+                className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border bg-white/[0.07]"
               >
                 {range.days.map((day) => (
                   <DayCell
@@ -258,10 +258,10 @@ function DayCell({
       role="gridcell"
       aria-label={format(day, 'EEEE, MMMM d')}
       className={cn(
-        'bg-background group flex flex-col gap-1 p-1.5',
+        'bg-card group flex flex-col gap-1 p-1.5 transition-colors',
         monthView ? 'min-h-28' : 'min-h-64',
-        monthView && !isSameMonth(day, range.anchor) && 'bg-muted/40',
-        isDropTarget && 'bg-accent',
+        monthView && !isSameMonth(day, range.anchor) && 'bg-background',
+        isDropTarget && 'bg-lime/10 ring-lime/60 ring-1 ring-inset',
       )}
       // A click on the empty part of the cell starts a new item on this day.
       onClick={(event) => {

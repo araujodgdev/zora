@@ -52,10 +52,11 @@ export function ContentItemCard({
       data-slot="content-item-card"
       data-variant={variant}
       className={cn(
-        'bg-card text-card-foreground hover:bg-muted/60 focus-visible:ring-ring/50 border outline-none transition-colors focus-visible:ring-3',
+        // Sits on a panel (calendar cell, board column): one step up, "raised".
+        'bg-muted text-foreground focus-visible:ring-ring/60 outline-none transition-colors hover:bg-[color-mix(in_oklab,var(--muted),white_6%)] focus-visible:ring-3',
         variant === 'compact'
-          ? 'flex w-full min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs'
-          : 'flex flex-col gap-2 rounded-lg p-3 text-sm shadow-xs',
+          ? 'flex w-full min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-xs'
+          : 'flex flex-col gap-2.5 rounded-lg p-3 text-sm',
         className,
       )}
       {...props}

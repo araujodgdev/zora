@@ -143,8 +143,8 @@ function StatusColumn({
       ref={ref}
       aria-label={STATUS_LABELS[status]}
       className={cn(
-        'bg-muted/40 flex min-h-96 flex-col gap-2 rounded-lg border p-2 transition-colors',
-        isDropTarget && 'bg-accent border-ring',
+        'bg-card flex min-h-96 flex-col gap-2 rounded-xl p-2 ring-1 ring-transparent transition-colors',
+        isDropTarget && 'bg-lime/10 ring-lime/60',
       )}
     >
       <header className="flex items-center justify-between px-1 py-0.5">

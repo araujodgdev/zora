@@ -4,12 +4,13 @@ import { CHANNEL_LABELS } from '@/lib/content'
 import type { Channel } from '@/lib/content'
 import { cn } from '@/lib/utils'
 
-// The one place that decides how each channel looks.
+// The one place that decides how each channel looks: a solid fill in the
+// channel's hue (tokens in app.css) with ink text, like a swatch.
 const CHANNEL_CLASS_NAMES: Record<Channel, string> = {
-  x: 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900',
-  linkedin: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200',
-  instagram: 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-200',
-  blog: 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200',
+  x: 'bg-channel-x text-ink',
+  linkedin: 'bg-channel-linkedin text-ink',
+  instagram: 'bg-channel-instagram text-ink',
+  blog: 'bg-channel-blog text-ink',
 }
 
 type ChannelBadgeProps = Omit<ComponentProps<'span'>, 'children'> & {
@@ -37,7 +38,7 @@ export function ChannelBadge({
         data-channel={channel}
         title={label}
         className={cn(
-          'inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-[0.5625rem] leading-none font-semibold',
+          'inline-flex size-4 shrink-0 items-center justify-center rounded-[5px] text-[0.5625rem] leading-none font-bold',
           CHANNEL_CLASS_NAMES[channel],
           className,
         )}
@@ -52,7 +53,7 @@ export function ChannelBadge({
   return (
     <Badge
       data-channel={channel}
-      className={cn(CHANNEL_CLASS_NAMES[channel], className)}
+      className={cn('rounded-md font-semibold', CHANNEL_CLASS_NAMES[channel], className)}
       {...props}
     >
       {label}

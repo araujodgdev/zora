@@ -27,6 +27,7 @@ what you remember, the docs win. Do not substitute stack choices.
   TanStack Form.
 - Tailwind CSS v4 + shadcn/ui (style `radix-nova`, components in
   `src/components/ui`, added with `pnpm dlx shadcn@latest add <name>`).
+  Design system in `src/styles/app.css` (see "Design system").
 - Cloudflare D1 (SQLite) via Drizzle ORM **1.0 RC** (`drizzle-orm@rc`, as the
   current Drizzle docs install, driver `drizzle-orm/d1`), binding `DB`.
   drizzle-kit generates the migrations committed in `./drizzle`; Wrangler
@@ -127,6 +128,32 @@ File suffixes follow the Start docs: `*.server.ts` is server-only (import
 protection denies it in the client build), `*.functions.ts` holds
 `createServerFn` wrappers that are safe to import anywhere, plain `.ts` is
 client-safe.
+
+## Design system
+
+A dark studio look after Affinity (affinity.studio). Tokens live in
+`src/styles/app.css`; the header comment lists the palette.
+
+- **Dark only.** `<html class="dark">` in `__root.tsx`; the tokens are defined
+  once in `:root`, and the toaster is fixed to `theme="dark"`. Do not add a
+  light theme or `next-themes` switching without redoing the palette.
+- **Surfaces:** pages sit on true black (`bg-background`); the sidebar, board
+  columns, calendar cells and cards are one step up (`bg-card`); things on
+  those (item cards, inputs, hover) are one more (`bg-muted`). Do not
+  separate surfaces with borders and shadows where a step in tone works.
+- **Colour roles:** lime (`primary`, also `text-lime`/`bg-lime`) is the only
+  action colour: primary buttons, the active nav item, today, drop targets.
+  Bone (`secondary`) for secondary buttons. Violet is the focus ring. Coral
+  is `destructive`. Channel and status hues are tokens (`bg-channel-*`,
+  `bg-status-*`) used only by the two badge components.
+- **Type:** Figtree (`font-sans`) for the UI; Fraunces (`font-display`) for
+  page titles (`PageHeader`), section titles and the calendar period. The
+  `wonk` utility turns on Fraunces' swash italic: keep it for the wordmark.
+- **Auth pages** (`sign-in`, `sign-up`, `consent`) render inside
+  `AuthLayout` (`@/components/auth-layout`): the big wordmark and coloured
+  tiles. This is the one decorative moment; keep the app itself quiet.
+- Fonts come from `@fontsource-variable/figtree` and
+  `@fontsource-variable/fraunces` (the `full` files carry the SOFT/WONK axes).
 
 ## The content data layer (use this, do not re-implement it)
 

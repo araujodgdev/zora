@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
+import { AuthLayout } from '@/components/auth-layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -51,8 +52,8 @@ function ConsentPage() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <Card className="w-full max-w-md">
+    <AuthLayout>
+      <Card className="w-full max-w-md shadow-2xl shadow-black">
         {!request ? (
           <CardHeader>
             <CardTitle>This link is no longer valid</CardTitle>
@@ -115,6 +116,6 @@ function ConsentPage() {
           </>
         )}
       </Card>
-    </main>
+    </AuthLayout>
   )
 }
