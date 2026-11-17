@@ -14,6 +14,7 @@ import {
   List,
   LogOut,
   Moon,
+  Plug,
   Plus,
   SquareKanban,
   Sun,
@@ -196,6 +197,14 @@ function AppSidebar() {
             >
               {user.name}
             </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Conectar agente">
+              <Link to="/connect" onClick={() => setOpenMobile(false)}>
+                <Plug />
+                <span>Conectar agente</span>
+              </Link>
+            </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <ThemeSwitcher />

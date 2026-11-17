@@ -8,7 +8,7 @@ variant can be produced in the same style.
 | File | What it is | Used by |
 | --- | --- | --- |
 | `src/assets/brand/zora-mark.webp` | the Z and the cat, transparent, 256 px tall | `ZoraMark` / `ZoraLogo` (`@/components/brand`) |
-| `src/assets/brand/auth-hero.{webm,mp4,webp}` | the diorama loop (6 s, 960×1280) and its first frame | `AuthLayout` |
+| `src/assets/brand/auth-hero.{webm,mp4,webp}` | the diorama loop (about 16 s, 960×1280: the cat plays, climbs the Z, naps, comes down) and its first frame | `AuthLayout` |
 | `src/assets/brand/cat-yarn-alpha.mp4` | the cat with the yarn ball, cut out (4 s, 320×242): colour on top, matte below | `CatLoader` (router pending page) via `AlphaLoop` |
 | `src/assets/brand/cat-yarn-still.webp` | its first frame, with alpha | `AlphaLoop` still (before playback, reduced motion) |
 | `scripts/brand/app-icon.png` | 1024 px icon master on charcoal clay | `scripts/app-icon.html` -> `node scripts/generate-icons.mjs` |
@@ -36,15 +36,26 @@ with subtle fingerprints, fine film grain" and no text other than the Z.
    - *App icon* (1:1): the Z and the cat centred on a full-bleed slab of
      charcoal plasticine, then a second edit that zooms out (the pair at
      about 52% of the width) so it fits the maskable safe zone.
-4. **Loops** (`fal-ai/wan-3-prime/image-to-video`, from the scene and the
-   loader images): "seamless looping claymation, locked-off static camera,
-   no zoom, no pan", only small motions (the cat breathes, the tail sways,
-   the rocket bobs; in the loader the cat bats the ball), "the last frame
-   matches the first frame exactly". 6 s at 1080p for the scene, 4 s at
-   720p for the loader.
-5. **Encoding the scene** (ffmpeg): 960×1280, no audio, VP9 WebM and H.264
-   MP4 (`yuv420p`, `+faststart`); the poster is the first frame as WebP.
-6. **The loader, cut out** so the cat sits on the app's own background:
+4. **The loader loop** (`alibaba/wan-3.0-prime/image-to-video`, 4 s, 720p):
+   "seamless looping claymation, locked-off static camera, no zoom, no pan",
+   the cat bats the ball, "the last frame matches the first frame exactly".
+5. **The scene loop** (about 16 s): a little story told in two clips that
+   meet at two keyframes, so it loops without a seam.
+   - Keyframes (`nano-banana-2.1/edit` from the auth scene): *asleep*, the
+     scene with a lime yarn ball and a grey clay toy mouse added on the
+     ground in front of the Z; *ground*, the same picture with the cat moved
+     off the Z, crouched by the yarn ball with a paw on it.
+   - Clips (`alibaba/wan-3.0-prime/image-to-video`, `start_image_url` and
+     `end_image_url`, 8 s, 1080p, 3:4, no audio, locked-off camera):
+     ground → asleep (bats the yarn, nudges the heart sign, sniffs the
+     calendar, climbs the Z, curls up asleep) and asleep → ground (sleeps,
+     yawns, stretches, hops down, swats the mouse, back to the yarn). Two
+     seeds each; the pick was by contact sheets, and the seams match at
+     about 40 dB PSNR.
+   - ffmpeg drops the duplicated frame at each seam, concatenates, scales to
+     960×1280 and encodes H.264 (CRF 30, `+faststart`) and VP9 (CRF 42); the
+     poster is the ground keyframe as WebP. The loop starts on the ground.
+6. **Encoding the loader, cut out** so the cat sits on the app's own background:
    `fal-ai/birefnet/v2/video` (model `Matting`, `output_mask: true`) on the
    loader loop gives a matte video. ffmpeg crops both to the cat's bounding
    box over all frames (`cropdetect` on the matte; 740×560 at 176,230),
@@ -54,7 +65,7 @@ with subtle fingerprints, fine film grain" and no text other than the Z.
    VP9 alpha is not decoded by Safari, and an animated WebP of the same clip
    was about 800 KB, ten times the stacked MP4.
 
-Keep the files small: they are bundled assets (the scene is under 300 KB,
+Keep the files small: they are bundled assets (the scene is under 400 KB,
 the loader under 90 KB).
 
 ## Rules

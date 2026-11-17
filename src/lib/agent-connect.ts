@@ -1,0 +1,89 @@
+import { z } from 'zod'
+
+/*
+ * How each agent connects to Zora's MCP server, for the `/connect` page.
+ * Checked against each vendor's docs (November 2026); these flows change,
+ * so re-check them when you edit this file:
+ * - Claude Code: https://code.claude.com/docs/en/mcp
+ * - Codex: https://developers.openai.com/codex/mcp
+ * - Claude apps: https://support.claude.com/en/articles/11175166
+ * - ChatGPT: https://developers.openai.com/api/docs/guides/custom-mcp-server
+ */
+
+export const AGENT_IDS = ['claude', 'chatgpt', 'claude-code', 'codex'] as const
+export type AgentId = (typeof AGENT_IDS)[number]
+
+/** `?agent=` on `/connect`; anything else falls back to Claude. */
+export const connectSearchSchema = z.object({
+  agent: z.enum(AGENT_IDS).optional().catch(undefined),
+})
+
+export type AgentGuide = {
+  id: AgentId
+  name: string
+  /** Where it runs, shown under the name. */
+  surface: string
+  /** Terminal commands, copied together (one per line). */
+  command?: string
+  steps: Array<string>
+  note?: string
+  /** Where to start in the app, for app-based agents. */
+  link?: { href: string; label: string }
+}
+
+/** The step every flow ends with: Zora's own sign-in and consent page. */
+const APPROVE = 'Entre no Zora (se pedir) e clique em Permitir.'
+
+export function agentGuides(serverUrl: string): Array<AgentGuide> {
+  return [
+    {
+      id: 'claude',
+      name: 'Claude',
+      surface: 'claude.ai, app para desktop e celular',
+      link: { href: 'https://claude.ai/customize/connectors', label: 'Abrir Connectors no Claude' },
+      steps: [
+        'Abra Customize → Connectors.',
+        'Adicione um conector personalizado (custom connector) com o nome Zora e a URL do servidor acima. Clique em Continue.',
+        'Clique em Connect. ' + APPROVE,
+      ],
+      note: 'Nos planos Team e Enterprise, quem administra a organização adiciona o conector em Organization settings → Connectors; depois cada pessoa clica em Connect.',
+    },
+    {
+      id: 'chatgpt',
+      name: 'ChatGPT',
+      surface: 'chatgpt.com e apps',
+      link: { href: 'https://chatgpt.com/plugins', label: 'Abrir Plugins no ChatGPT' },
+      steps: [
+        'Abra Plugins, clique em + e escolha Add custom MCP server.',
+        'Nome: Zora. Em Server URL, cole a URL do servidor acima; a autenticação é OAuth.',
+        'Leia o aviso, confirme e clique em Create as a plugin.',
+        APPROVE,
+      ],
+    },
+    {
+      id: 'claude-code',
+      name: 'Claude Code',
+      surface: 'terminal',
+      command: [
+        `claude mcp add --transport http zora ${serverUrl}`,
+        'claude mcp login zora',
+      ].join('\n'),
+      steps: ['Cole os comandos no terminal.', 'O navegador abre. ' + APPROVE],
+    },
+    {
+      id: 'codex',
+      name: 'Codex',
+      surface: 'terminal, editor e app para desktop',
+      command: [`codex mcp add zora --url ${serverUrl}`, 'codex mcp login zora'].join('\n'),
+      steps: ['Cole os comandos no terminal.', 'O navegador abre. ' + APPROVE],
+      note: 'A configuração vale para o Codex no terminal, na extensão do editor e no app do ChatGPT para desktop.',
+    },
+  ]
+}
+
+/** What to ask once connected, shown at the end of the page. */
+export const EXAMPLE_PROMPTS = [
+  'Quais posts estão agendados para esta semana no Zora?',
+  'Crie um rascunho de thread no X sobre o lançamento para sexta às 10h.',
+  'Mova os posts prontos do LinkedIn para agendado e atribua a mim.',
+] as const

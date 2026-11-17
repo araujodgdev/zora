@@ -85,6 +85,7 @@ src/
     api/auth/$.ts            Better Auth HTTP handler
     mcp.ts                   POST /mcp: MCP server behind OAuth (see "Agents")
     consent.tsx              OAuth consent page for MCP clients
+    connect.tsx              /connect: public docs, connect an agent to the MCP server
     [.]well-known/$.ts       OAuth discovery documents (served by Better Auth)
     api/content/$itemId/assets.ts  POST: upload a file of an item (raw body)
     api/assets/$assetId.ts   GET: serve an uploaded file (session required, range support)
@@ -92,6 +93,7 @@ src/
     content.ts               SHARED content module (enums, labels, schemas, rules, types)
     content.functions.ts     content server functions (RPC contract)
     team.functions.ts        listTeamMembers server function (members of the current workspace)
+    agent-connect.ts         per-agent setup steps for /connect (+ .functions.ts: getMcpServerUrl)
     workspace.ts             SHARED workspace module (roles, types, canManageMembers, schemas)
     workspace.server.ts      workspace lookups (resolve, members, invitations; unit-tested)
     workspace.functions.ts   workspace server functions (lists, invite, invitation preview)
@@ -128,7 +130,8 @@ src/
     schema.ts                re-exports both (used by drizzle-kit)
     client.server.ts         createDb(binding): Drizzle over the D1 binding
   components/                app-shell, auth-layout, brand (logo, clay loops, loader),
-                             form-field, local-date-time, ui/ (shadcn)
+                             connect-agent-link, copy-field, form-field,
+                             local-date-time, ui/ (shadcn)
   assets/brand/              generated clay artwork (see scripts/brand/README.md)
     content/                 shared content UI kit: channel-badge, status-badge,
                              assignee-avatar, content-item-card, content-filters
@@ -554,6 +557,12 @@ handlers re-validate with the shared `@/lib/content` schemas).
   (`oauthProviderClient`) follows Better Auth's `{ redirect, url }` itself.
   `/consent` (`ssr: false`) verifies the signed query on the server before
   showing the client and its redirect host.
+- **`/connect`** (public; linked under the sign-in and sign-up cards, hidden
+  during an OAuth continuation, and from the sidebar): how to connect
+  Claude, ChatGPT, Claude Code and Codex, with copyable commands. The URL
+  comes from `getMcpServerUrl` (`mcpResourceUrl(BETTER_AUTH_URL)`); the
+  per-agent steps live in `@/lib/agent-connect`, which lists the vendor docs
+  they were checked against. Re-check them when you edit it.
 - **WebMCP** (`src/components/webmcp-tools.tsx`, typings in
   `src/webmcp.d.ts`): registered with `document.modelContext.registerTool`
   while the app shell is mounted, through the Query hooks so changes show on

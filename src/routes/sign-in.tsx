@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { z } from 'zod'
 import { FormField, firstErrorMessage } from '@/components/form-field'
 import { AuthLayout } from '@/components/auth-layout'
+import { ConnectAgentLink } from '@/components/connect-agent-link'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -168,6 +169,8 @@ function SignInPage() {
           </CardFooter>
         </form>
       </Card>
+      {/* Not while an MCP client's sign-in is in progress: leaving drops it. */}
+      {oauthSearch ? null : <ConnectAgentLink />}
     </AuthLayout>
   )
 }
