@@ -1,71 +1,45 @@
-import type { CSSProperties, ReactNode } from 'react'
-import { ZoraWordmark } from '@/components/zora-cat'
-import { cn } from '@/lib/utils'
+import type { ReactNode } from 'react'
+import heroMp4 from '@/assets/brand/auth-hero.mp4'
+import heroWebm from '@/assets/brand/auth-hero.webm'
+import heroPoster from '@/assets/brand/auth-hero.webp'
+import { ClayLoop, ZoraLogo } from '@/components/brand'
 
 /**
- * The tiles around the auth pages: flat swatches in the channel hues, each
- * with one shape in another colour from the palette. Placed off the edges
- * like pinned artwork; hidden on small screens.
- */
-const TILES: Array<{
-  className: string
-  shape: string
-  delay: number
-}> = [
-  {
-    // Top right, cut by the top edge.
-    className: 'bg-channel-blog -top-10 right-[12%] h-56 w-44',
-    shape: 'bg-violet absolute bottom-6 left-6 size-24 rotate-12 rounded-[28%]',
-    delay: 0,
-  },
-  {
-    // Left, cut by the left edge.
-    className: 'bg-channel-linkedin top-[22%] -left-12 h-80 w-56',
-    shape: 'bg-ink absolute top-10 right-8 size-28 rounded-full',
-    delay: 120,
-  },
-  {
-    // Bottom left, cut by the bottom edge.
-    className: 'bg-coral -bottom-16 left-[22%] h-64 w-52',
-    shape:
-      'bg-channel-instagram absolute top-8 left-1/2 h-24 w-40 -translate-x-1/2 rounded-t-full',
-    delay: 240,
-  },
-  {
-    // Right, cut by the right edge.
-    className: 'bg-channel-instagram top-[55%] -right-10 h-72 w-52',
-    shape:
-      'bg-lime absolute bottom-10 left-8 h-28 w-28 rounded-br-full rounded-tl-full',
-    delay: 360,
-  },
-]
-
-/**
- * The page around sign-in, sign-up and consent: the Zora wordmark set large
- * on the black canvas, the form below it, coloured tiles at the edges. The
- * tiles settle in once on load (skipped with reduced motion).
+ * The page around sign-in, sign-up, consent, invitations and the first
+ * workspace: the logo, a rounded card with the claymation scene (a looping
+ * clip; its poster under reduced motion) and the form. Below `lg` the card is
+ * a short banner just above the form (the two centred together below the
+ * logo, as wide as the form card), framed on the Z and the cat; from `lg` it fills the right column, with the headline over its sky. Grid
+ * areas move the one card, so the clip is never loaded twice. The scene is the
+ * same in both themes, so the text on it uses fixed ink.
  */
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="relative isolate flex min-h-svh flex-col items-center justify-center overflow-hidden px-6 py-12">
-      <div aria-hidden="true" className="absolute inset-0 -z-10 hidden md:block">
-        {TILES.map((tile) => (
-          <div
-            key={tile.className}
-            style={{ animationDelay: `${tile.delay}ms` } as CSSProperties}
-            className={cn(
-              'animate-in fade-in slide-in-from-bottom-6 fill-mode-backwards absolute overflow-hidden duration-700 ease-out motion-reduce:animate-none',
-              tile.className,
-            )}
-          >
-            <div className={tile.shape} />
-          </div>
-        ))}
-      </div>
-      <p aria-hidden="true" className="mb-8 text-[clamp(4.5rem,14vw,9rem)] leading-[0.85]">
-        <ZoraWordmark cat="walk" />
+    <main className="grid min-h-svh grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr_auto_auto_1fr] [grid-template-areas:'logo'_'.'_'art'_'form'_'.'] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:grid-rows-[auto_1fr] lg:[grid-template-areas:'logo_art'_'form_art']">
+      <p className="px-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-[1.625rem] [grid-area:logo] sm:px-10">
+        <ZoraLogo aria-label="Zora" />
       </p>
-      {children}
+      <aside aria-hidden="true" className="min-w-0 px-6 pt-6 [grid-area:art] sm:px-10 lg:p-3">
+        <div className="relative mx-auto aspect-[4/3] max-h-[34svh] max-w-sm overflow-hidden rounded-[1.75rem] bg-[#a8d8e8] lg:sticky lg:top-3 lg:aspect-auto lg:h-[calc(100svh-1.5rem)] lg:max-h-none lg:max-w-none lg:rounded-[2rem]">
+          <ClayLoop
+            webm={heroWebm}
+            mp4={heroMp4}
+            poster={heroPoster}
+            className="absolute inset-0 size-full object-[50%_58%] lg:object-[50%_0%]"
+          />
+          <div className="relative hidden px-10 pt-12 text-center text-neutral-950 lg:block xl:pt-16">
+            <p className="mx-auto max-w-[14ch] text-[clamp(2rem,3.2vw,3.25rem)] leading-[1.02] font-extrabold tracking-[-0.045em] text-balance">
+              Do rascunho ao post publicado.
+            </p>
+            <p className="mt-3 hidden text-lg font-medium text-neutral-950/70 xl:block">
+              Calendário, pipeline e textos do lançamento.
+            </p>
+          </div>
+        </div>
+      </aside>
+      <div className="animate-in fade-in slide-in-from-bottom-3 flex min-w-0 flex-col items-center justify-center px-6 pt-6 pb-10 duration-500 ease-out [grid-area:form] motion-reduce:animate-none sm:px-10">
+        {children}
+      </div>
     </main>
   )
 }

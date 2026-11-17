@@ -1,186 +1,58 @@
 <!doctype html>
 <!--
   Source of the app icons in public/ (PWA manifest, apple-touch-icon,
-  favicon): the Fraunces swash-italic "Z" of the wordmark, filled with the
-  colours of the auth page tiles, on black, with the app's cat lying on its
-  top bar. Regenerate with
-  `node scripts/generate-icons.mjs` (needs Chrome or Edge and `pnpm install`).
+  favicon): the clay artwork in scripts/brand/app-icon.png (see
+  scripts/brand/README.md), framed per variant. Regenerate with
+  `node scripts/generate-icons.mjs` (needs Chrome or Edge).
 
   The variant is the URL hash:
-    #any       rounded black square on transparent (manifest "any", favicon)
-    #maskable  full-bleed black, glyph inside the 80% safe zone (Android)
-    #apple     full-bleed black (iOS rounds the corners itself)
+    #any       rounded tile on transparent (manifest "any")
+    #favicon   rounded tile, artwork zoomed in so the Z reads at 16-48 px
+    #maskable  full-bleed; the artwork already keeps the Z and the cat
+               inside the 80% safe zone (Android)
+    #apple     full-bleed (iOS rounds the corners itself)
   The page is 512 CSS px; the script scales it to each icon size.
 -->
 <html>
   <head>
     <meta charset="utf-8" />
     <style>
-      @font-face {
-        font-family: 'Fraunces Icon';
-        font-style: italic;
-        font-weight: 100 900;
-        src: url('../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-full-italic.woff2')
-          format('woff2-variations');
-      }
       html,
       body {
         margin: 0;
-        width: 100vw;
-        height: 100vh;
         overflow: hidden;
         background: transparent;
       }
-      svg {
-        display: block;
-        width: 100vw;
-        height: 100vh;
-      }
-      .letter {
-        font-family: 'Fraunces Icon';
-        font-style: italic;
-        font-weight: 640;
-        font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
-        font-size: 470px;
-      }
-      /* Rounded tile only for the "any" icon; the others are full-bleed. */
+      /* Fixed CSS px, not vw: at small scale factors headless Chrome keeps
+         a minimum window size and captures only its top-left corner. */
       .tile {
-        rx: 0;
+        width: 512px;
+        height: 512px;
+        overflow: hidden;
       }
-      .any .tile {
-        rx: 112px;
+      .tile img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        transform: scale(var(--zoom, 1));
       }
-      /* Maskable: keep everything inside the central 80% safe zone. */
-      .maskable #art {
-        transform: scale(0.8);
-        transform-origin: 256px 256px;
+      .any .tile,
+      .favicon .tile {
+        border-radius: 22%;
+      }
+      .any,
+      .apple {
+        --zoom: 1.25;
+      }
+      .favicon {
+        --zoom: 1.7;
       }
     </style>
   </head>
   <body>
-    <!--
-      A paper collage: the Z is a cut-out glued on black, made of torn scraps
-      in the auth tile colours (lime, blog yellow, coral, Instagram pink,
-      violet, LinkedIn blue) plus a halftone and a newsprint scrap, with
-      white torn edges, paper grain and lime paint specks, and the lime cat
-      of the app lying on the top bar.
-    -->
-    <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <!-- Torn paper edges: displace the shape by fractal noise. -->
-        <filter id="torn" x="-10%" y="-10%" width="120%" height="120%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.09" numOctaves="3" seed="7" />
-          <feDisplacementMap in="SourceGraphic" scale="7" />
-        </filter>
-        <filter id="torn-rim" x="-10%" y="-10%" width="120%" height="120%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="4" seed="3" />
-          <feDisplacementMap in="SourceGraphic" scale="14" result="rim" />
-          <feDropShadow dx="4" dy="7" stdDeviation="6" flood-color="#000" flood-opacity="0.55" />
-        </filter>
-        <filter id="grain" x="0" y="0" width="100%" height="100%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="11" />
-          <feColorMatrix type="saturate" values="0" />
-        </filter>
-        <pattern id="halftone" width="11" height="11" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
-          <rect width="11" height="11" fill="#f4efe4" />
-          <circle cx="5.5" cy="5.5" r="3.4" fill="#0e1318" />
-        </pattern>
-        <pattern id="newsprint" width="60" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)">
-          <rect width="60" height="9" fill="#ece6d8" />
-          <rect x="2" y="3" width="23" height="2.4" fill="#5c5f63" />
-          <rect x="28" y="3" width="12" height="2.4" fill="#5c5f63" />
-          <rect x="43" y="3" width="15" height="2.4" fill="#5c5f63" />
-        </pattern>
-        <!-- The cat is cut from lime paper too, with a finer tear. -->
-        <filter id="torn-cat" x="-10%" y="-10%" width="120%" height="120%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="2" seed="5" />
-          <feDisplacementMap in="SourceGraphic" scale="1.4" result="cat" />
-          <feDropShadow dx="1" dy="2" stdDeviation="1.6" flood-color="#000" flood-opacity="0.6" />
-        </filter>
-        <!-- The lounging cat of the app (src/components/zora-cat.tsx), head
-             on its paws, a paw hanging over the front of the Z's top bar. -->
-        <g id="cat-shape">
-          <path d="M13.5 34C8 34.5 6 37.5 6.5 41.5C7 45 9.5 46 10 48.5" fill="none" stroke-linecap="round" />
-          <circle cx="10" cy="48.6" r="2.2" />
-          <path d="M12 36.6C10 29.5 15 24.5 24 24C34 23.5 44 24.5 52 27C56 28.5 58 31.5 58.5 36.6Z" />
-          <path d="M54 36.6C58 34.6 66 34.8 72 35.3C74.5 35.5 74.8 36.4 73.6 36.6Z" />
-          <path d="M65.5 35C67 36.5 67.2 40 66.8 43.5C66.6 45 68.4 45.4 69.2 44.4C69.9 42 69.6 38.5 68.6 35.5Z" />
-          <path d="M56 33C55 28 57 24.5 60 23.5L60.3 19Q60.6 18 61.4 18.6L64 22.5C65 22.3 66 22.5 66.8 22.9L69.6 19.4Q70.4 18.7 70.5 19.7L69.8 24.4C71.4 25.8 72.5 28 72.2 30C71.8 32.6 69 34.4 65 34.6C61 34.8 57.5 34.6 56 33Z" />
-        </g>
-        <mask id="m-halftone" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
-          <polygon filter="url(#torn)" fill="#fff" points="300,150 420,120 300,300 200,330" />
-        </mask>
-        <mask id="m-newsprint" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
-          <polygon filter="url(#torn)" fill="#fff" points="250,190 330,176 300,236 236,252" />
-        </mask>
-        <clipPath id="z">
-          <text class="letter" x="240" y="428" text-anchor="middle">Z</text>
-        </clipPath>
-      </defs>
-
-      <rect class="tile" width="512" height="512" fill="#000" />
-      <g id="specks" fill="#a7f175"></g>
-
-      <g id="art">
-        <!-- The white paper the Z was cut from, torn around it. -->
-        <text
-          class="letter"
-          x="240"
-          y="428"
-          text-anchor="middle"
-          fill="#f4efe4"
-          stroke="#f4efe4"
-          stroke-width="16"
-          stroke-linejoin="round"
-          filter="url(#torn-rim)"
-        >Z</text>
-
-        <!-- The scraps, cut to the letter. Each is drawn twice: a white
-             paper layer a little larger, then the colour, so every torn edge
-             shows a white fibre rim. -->
-        <g clip-path="url(#z)">
-          <rect width="512" height="512" fill="#e35b67" />
-          <g filter="url(#torn)" stroke="#f4efe4" stroke-width="5" stroke-linejoin="round">
-            <!-- top bar -->
-            <polygon fill="#a370fc" points="120,40 420,30 430,150 300,170 180,190 110,150" />
-            <polygon fill="#f5c04a" points="100,60 230,52 250,120 190,200 96,180" />
-            <!-- the diagonal -->
-            <polygon fill="#f4efe4" points="300,150 420,120 300,300 200,330" />
-            <polygon fill="#ff8ad8" points="170,250 300,232 230,360 120,410 110,330" />
-            <polygon fill="#f4efe4" points="250,190 330,176 300,236 236,252" />
-            <!-- bottom bar -->
-            <polygon fill="#5cc8ff" points="90,370 250,350 300,470 80,480" />
-            <polygon fill="#a7f175" points="270,340 440,290 450,470 290,470" />
-          </g>
-          <!-- Printed scraps: the print is masked by the torn shape instead of
-               being torn itself, so the dots and lines stay straight. -->
-          <rect width="512" height="512" fill="url(#halftone)" mask="url(#m-halftone)" />
-          <rect width="512" height="512" fill="url(#newsprint)" mask="url(#m-newsprint)" />
-          <rect width="512" height="512" filter="url(#grain)" opacity="0.22" style="mix-blend-mode: multiply" />
-        </g>
-
-        <!-- The cat on the top bar: a white paper rim, then the lime. -->
-        <g id="cat" transform="translate(176 -24) scale(3)" filter="url(#torn-cat)">
-          <use href="#cat-shape" fill="#f4efe4" stroke="#f4efe4" stroke-width="5.4" stroke-linejoin="round" />
-          <use href="#cat-shape" fill="#a7f175" stroke="#a7f175" stroke-width="2.4" />
-        </g>
-      </g>
-    </svg>
+    <div class="tile"><img src="brand/app-icon.png" alt="" /></div>
     <script>
       document.body.className = location.hash.slice(1) || 'any'
-      // Lime paint specks on the black, from a fixed seed so every render of
-      // the icon is identical.
-      let seed = 20261117
-      const random = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296)
-      const specks = document.getElementById('specks')
-      for (let index = 0; index < 34; index++) {
-        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-        dot.setAttribute('cx', (24 + random() * 464).toFixed(1))
-        dot.setAttribute('cy', (24 + random() * 464).toFixed(1))
-        dot.setAttribute('r', (0.8 + random() * random() * 3.6).toFixed(1))
-        dot.setAttribute('opacity', (0.55 + random() * 0.45).toFixed(2))
-        specks.append(dot)
-      }
     </script>
   </body>
 </html>

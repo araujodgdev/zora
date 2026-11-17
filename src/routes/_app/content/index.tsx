@@ -28,6 +28,7 @@ import {
   contentListQueryOptions,
   teamMembersQueryOptions,
 } from '@/lib/content.queries'
+import { loadQuery } from '@/lib/route-query'
 
 export const Route = createFileRoute('/_app/content/')({
   validateSearch: contentFilterSearchSchema,
@@ -36,8 +37,8 @@ export const Route = createFileRoute('/_app/content/')({
   loaderDeps: ({ search }) => ({ filters: toContentListFilters(search) }),
   loader: async ({ context, deps }) => {
     await Promise.all([
-      context.queryClient.query(contentListQueryOptions(deps.filters)),
-      context.queryClient.query(teamMembersQueryOptions()),
+      loadQuery(context.queryClient, contentListQueryOptions(deps.filters)),
+      loadQuery(context.queryClient, teamMembersQueryOptions()),
     ])
   },
   head: () => ({ meta: [{ title: 'Conteúdos · Zora' }] }),

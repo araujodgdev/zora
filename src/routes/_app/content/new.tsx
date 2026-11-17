@@ -3,13 +3,14 @@ import { createFileRoute } from '@tanstack/react-router'
 import { ContentItemForm } from '@/components/content/content-item-form'
 import { teamMembersQueryOptions } from '@/lib/content.queries'
 import { newItemSearchSchema } from '@/lib/editor-search'
+import { loadQuery } from '@/lib/route-query'
 
 export const Route = createFileRoute('/_app/content/new')({
   validateSearch: newItemSearchSchema,
   // The form reads and writes local times, so it renders in the browser only.
   ssr: 'data-only',
   loader: async ({ context }) => {
-    await context.queryClient.query(teamMembersQueryOptions())
+    await loadQuery(context.queryClient, teamMembersQueryOptions())
   },
   head: () => ({ meta: [{ title: 'Novo item · Zora' }] }),
   component: NewContentItemPage,

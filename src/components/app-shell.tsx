@@ -5,6 +5,7 @@ import {
   getRouteApi,
   useMatchRoute,
   useRouter,
+  useRouterState,
 } from '@tanstack/react-router'
 import {
   CalendarDays,
@@ -44,7 +45,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { WebMcpTools } from '@/components/webmcp-tools'
-import { ZoraWordmark } from '@/components/zora-cat'
+import { ZoraLogo } from '@/components/brand'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
 import { setTheme, useTheme } from '@/lib/theme'
@@ -79,12 +80,29 @@ export function AppShell() {
       <WebMcpTools />
       <AppSidebar />
       <SidebarInset>
+        <NavigationProgress />
         <MobileTopBar />
         <div className="w-full px-4 py-6 [--page-h:calc(100svh-3.5rem-env(safe-area-inset-top)-3rem)] md:px-6 lg:px-10 lg:py-8 lg:[--page-h:calc(100svh-4rem)]">
           <Outlet />
         </div>
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+/**
+ * A thin lime bar across the top while a navigation waits on data, so a
+ * click always answers at once. It appears after a short delay (CSS), so
+ * navigations served from the cache never flash it.
+ */
+function NavigationProgress() {
+  const pending = useRouterState({ select: (state) => state.status === 'pending' })
+  return (
+    <div
+      aria-hidden="true"
+      data-pending={pending ? '' : undefined}
+      className="zora-nav-progress"
+    />
   )
 }
 
@@ -97,8 +115,8 @@ function MobileTopBar() {
   return (
     <header className="bg-background/85 sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center pt-[env(safe-area-inset-top)] gap-2 border-b px-2 backdrop-blur-md lg:hidden">
       <SidebarTrigger className="size-10" />
-      <Link to="/calendar" className="text-[1.875rem]">
-        <ZoraWordmark cat="lounge" />
+      <Link to="/calendar" className="text-[1.5rem]">
+        <ZoraLogo />
       </Link>
     </header>
   )
@@ -130,9 +148,9 @@ function AppSidebar() {
       <SidebarHeader className="flex-row items-center justify-between group-data-[collapsible=icon]:justify-center">
         <Link
           to="/calendar"
-          className="px-2 text-[1.875rem] group-data-[collapsible=icon]:hidden"
+          className="px-2 text-[1.5rem] group-data-[collapsible=icon]:hidden"
         >
-          <ZoraWordmark cat="lounge" />
+          <ZoraLogo />
         </Link>
         <SidebarTrigger />
       </SidebarHeader>

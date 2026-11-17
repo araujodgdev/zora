@@ -36,6 +36,7 @@ import {
 import { defaultTimeOnDay } from '@/lib/calendar'
 import { contentDragSensors } from '@/lib/dnd'
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '@/lib/dates'
+import { loadQuery } from '@/lib/route-query'
 import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/_app/pipeline')({
@@ -43,8 +44,8 @@ export const Route = createFileRoute('/_app/pipeline')({
   loaderDeps: ({ search }) => ({ filters: toContentListFilters(search) }),
   loader: async ({ context, deps }) => {
     await Promise.all([
-      context.queryClient.query(contentListQueryOptions(deps.filters)),
-      context.queryClient.query(teamMembersQueryOptions()),
+      loadQuery(context.queryClient, contentListQueryOptions(deps.filters)),
+      loadQuery(context.queryClient, teamMembersQueryOptions()),
     ])
   },
   head: () => ({ meta: [{ title: 'Pipeline · Zora' }] }),

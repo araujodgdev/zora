@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
-import { CatLoader } from './components/zora-cat'
+import { CatLoader } from './components/brand'
 import { routeTree } from './routeTree.gen'
 
 // Start creates a router per SSR request, so the QueryClient is created here,

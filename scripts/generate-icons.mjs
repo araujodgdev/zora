@@ -17,7 +17,7 @@ const ICONS = [
   ['icons/maskable-192.png', 'maskable', 192],
   ['icons/maskable-512.png', 'maskable', 512],
   ['apple-touch-icon.png', 'apple', 180],
-  ['icons/favicon-32.png', 'any', 32],
+  ['icons/favicon-32.png', 'favicon', 32],
 ]
 /** Sizes packed into public/favicon.ico (the path browsers ask for). */
 const FAVICON_SIZES = [16, 32, 48]
@@ -90,7 +90,7 @@ try {
     writeFileSync(join(root, 'public', path), render(variant, size))
     console.log(`public/${path}`)
   }
-  const favicons = FAVICON_SIZES.map((size) => ({ size, png: render('any', size) }))
+  const favicons = FAVICON_SIZES.map((size) => ({ size, png: render('favicon', size) }))
   writeFileSync(join(root, 'public', 'favicon.ico'), ico(favicons))
   console.log('public/favicon.ico')
 } finally {

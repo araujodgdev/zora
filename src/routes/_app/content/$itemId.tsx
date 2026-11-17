@@ -10,6 +10,7 @@ import {
   teamMembersQueryOptions,
 } from '@/lib/content.queries'
 import { editItemSearchSchema, editorReturnPath } from '@/lib/editor-search'
+import { loadQuery } from '@/lib/route-query'
 
 export const Route = createFileRoute('/_app/content/$itemId')({
   validateSearch: editItemSearchSchema,
@@ -22,9 +23,9 @@ export const Route = createFileRoute('/_app/content/$itemId')({
     }
     // `getContentItem` throws `notFound()` for a missing item.
     const [item] = await Promise.all([
-      context.queryClient.query(contentItemQueryOptions(params.itemId)),
-      context.queryClient.query(teamMembersQueryOptions()),
-      context.queryClient.query(contentAssetsQueryOptions(params.itemId)),
+      loadQuery(context.queryClient, contentItemQueryOptions(params.itemId)),
+      loadQuery(context.queryClient, teamMembersQueryOptions()),
+      loadQuery(context.queryClient, contentAssetsQueryOptions(params.itemId)),
     ])
     return { title: item.title }
   },

@@ -46,6 +46,16 @@ export function createAuth(db: Database, env: AuthEnv) {
     emailAndPassword: {
       enabled: true,
     },
+    // Every server function opens the session. Without this each one read it
+    // from D1 first, a round trip to the database's region (ENAM) on every
+    // call. The signed `session_data` cookie (including the active workspace)
+    // is trusted for 5 minutes, so a session revoked on another device stays
+    // usable there that long. Workspace membership is still read from D1 on
+    // every call (`resolveWorkspace`), so removing a member takes effect at
+    // once.
+    session: {
+      cookieCache: { enabled: true, maxAge: 5 * 60 },
+    },
     advanced: {
       // Workers do not set X-Forwarded-For; Cloudflare sends the client IP here.
       ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] },

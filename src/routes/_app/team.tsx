@@ -28,6 +28,7 @@ import {
   roleLabel,
 } from '@/lib/workspace'
 import type { PendingInvitation, WorkspaceMember } from '@/lib/workspace'
+import { loadQuery } from '@/lib/route-query'
 import {
   useCancelInvitation,
   useInviteMember,
@@ -43,8 +44,8 @@ import {
 export const Route = createFileRoute('/_app/team')({
   loader: async ({ context }) => {
     await Promise.all([
-      context.queryClient.query(workspaceMembersQueryOptions()),
-      context.queryClient.query(workspaceInvitationsQueryOptions()),
+      loadQuery(context.queryClient, workspaceMembersQueryOptions()),
+      loadQuery(context.queryClient, workspaceInvitationsQueryOptions()),
     ])
   },
   head: () => ({ meta: [{ title: 'Equipe · Zora' }] }),

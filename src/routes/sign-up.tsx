@@ -1,4 +1,5 @@
 import { useForm } from '@tanstack/react-form'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Link,
   createFileRoute,
@@ -65,6 +66,7 @@ const fields = [
 function SignUpPage() {
   const search = Route.useSearch()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const hydrated = useHydrated()
   // During an MCP client's sign-in, keep its signed request across pages.
   const oauthSearch =
@@ -92,6 +94,8 @@ function SignUpPage() {
       // Signing up for an MCP client: the auth client follows the redirect.
       if ('redirect' in data && data.redirect) return
       // Better Auth signs the user in after sign-up.
+      // The cached session state belonged to the signed-out visitor.
+      queryClient.clear()
       await router.invalidate()
       await router.navigate({ href: safeRedirectPath(search.redirect) })
     },

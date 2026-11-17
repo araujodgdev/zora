@@ -23,8 +23,12 @@
  * `--channel-*` and `--status-*`); only channel-badge.tsx and status-badge.tsx
  * use them.
  *
- * Type: Fraunces (soft, wonky display serif) for page titles and the wordmark,
- * via `font-display`; Figtree for everything else.
+ * Type: Fraunces (soft display serif) for page titles, via `font-display`;
+ * Figtree for everything else, including the heavy lowercase wordmark.
+ *
+ * Brand: claymation after clay.com (`@/components/brand`): the clay Z with
+ * the cat, the auth scene and the loader are generated artwork in
+ * `src/assets/brand`, not CSS drawings.
  *
  * Light tokens live in `:root`, dark ones in `.dark`; <html class="dark"> is
  * set from the `zora_theme` cookie (`@/lib/theme`). Use tokens, or
@@ -196,13 +200,9 @@
 
 @utility font-display {
     font-family: var(--font-display);
-    /* Fraunces' soft, round terminals; the wonky italic is opt-in (`.wonk`). */
+    /* Fraunces' soft, round terminals. */
     font-variation-settings: "SOFT" 100, "WONK" 0;
     font-optical-sizing: auto;
-}
-
-@utility wonk {
-    font-variation-settings: "SOFT" 100, "WONK" 1;
 }
 
 @layer base {
@@ -335,157 +335,61 @@
 }
 
 /*
- * Zora's cat (`@/components/zora-cat`). Sizes and paths are in `em` of the
- * wordmark, set for its line-height of 0.85: the Z's top bar is 0.09em
- * below the top of the line, the top of "ora" (x-height) 0.34em. Every
- * animation stops under prefers-reduced-motion.
+ * The logo's clay mark (`@/components/brand`): hovering the logo squishes
+ * the clay and lets it spring back, once per hover. Off under reduced motion.
  */
 @layer components {
-    .zora-cat-walker {
-        position: absolute;
-        left: 0;
-        top: -0.108em;
-        width: 0.36em;
-        transform: translate(0.1em, 0);
-        animation: zora-cat-walk 22s linear infinite;
-        pointer-events: none;
+    .zora-mark {
+        transform-origin: 50% 100%;
     }
-    .zora-cat-walker-figure {
-        display: block;
-        width: 100%;
-        overflow: visible;
-        animation: zora-cat-face 22s steps(1, end) infinite;
+    .zora-logo:hover .zora-mark {
+        animation: zora-clay-squish 700ms cubic-bezier(0.3, 0.7, 0.4, 1);
     }
-    .zora-cat-walker :is(.zora-cat-leg-a, .zora-cat-leg-b) {
-        transform-box: fill-box;
-        transform-origin: 50% 0;
-        animation: zora-cat-step 0.32s ease-in-out infinite alternate;
-    }
-    .zora-cat-walker .zora-cat-leg-b {
-        animation-delay: -0.32s;
-    }
-    .zora-cat-walker .zora-cat-tail {
-        transform-box: fill-box;
-        transform-origin: 100% 100%;
-        animation: zora-cat-sway 1.3s ease-in-out infinite alternate;
-    }
-
-    .zora-cat-lounger {
-        position: absolute;
-        left: 0.16em;
-        top: -0.139em;
-        width: 0.5em;
-        overflow: visible;
-        pointer-events: none;
-    }
-    .zora-cat-lounger .zora-cat-body {
-        transform-box: fill-box;
-        transform-origin: 0 100%;
-        animation: zora-cat-stretch-body 15s ease-in-out infinite;
-    }
-    .zora-cat-lounger .zora-cat-front {
-        animation: zora-cat-stretch-front 15s ease-in-out infinite;
-    }
-    .zora-cat-lounger .zora-cat-head {
-        transform-box: fill-box;
-        transform-origin: 30% 100%;
-        animation: zora-cat-stretch-head 15s ease-in-out infinite;
-    }
-    .zora-cat-lounger .zora-cat-hanging-tail {
-        transform-box: fill-box;
-        transform-origin: 100% 0;
-        animation: zora-cat-sway 3.2s ease-in-out infinite alternate;
-    }
-
-    .zora-cat-player {
-        overflow: visible;
-    }
-    .zora-cat-player .zora-cat-yarn-ball {
-        transform-box: fill-box;
-        transform-origin: 50% 50%;
-        animation: zora-cat-roll 0.9s ease-in-out infinite alternate;
-    }
-    .zora-cat-player .zora-cat-bat {
-        transform-box: fill-box;
-        transform-origin: 0 100%;
-        animation: zora-cat-bat 0.9s ease-in-out infinite alternate;
-    }
-    .zora-cat-player .zora-cat-rump {
-        animation: zora-cat-wiggle 0.3s ease-in-out infinite alternate;
-    }
-    .zora-cat-player .zora-cat-play-tail {
-        transform-box: fill-box;
-        transform-origin: 100% 100%;
-        animation: zora-cat-sway 0.8s ease-in-out infinite alternate;
-    }
-    .zora-cat-player .zora-cat-paper {
-        transform-box: fill-box;
-        transform-origin: 50% 50%;
-        animation: zora-cat-flutter 2.4s ease-in-out infinite alternate;
-    }
-
     @media (prefers-reduced-motion: reduce) {
-        .zora-cat-walker,
-        .zora-cat-walker *,
-        .zora-cat-lounger *,
-        .zora-cat-player * {
+        .zora-logo:hover .zora-mark {
             animation: none;
         }
     }
 }
+@keyframes zora-clay-squish {
+    0% { transform: none; }
+    22% { transform: scale(1.1, 0.86); }
+    48% { transform: scale(0.95, 1.07); }
+    72% { transform: scale(1.02, 0.98); }
+    100% { transform: none; }
+}
 
-/* Along the Z's bar, a hop down onto "ora", to the end, and back. */
-@keyframes zora-cat-walk {
-    0% { transform: translate(0.1em, 0); }
-    14% { transform: translate(0.34em, 0); }
-    16% { transform: translate(0.46em, -0.07em); }
-    18.5% { transform: translate(0.58em, 0.25em); }
-    44% { transform: translate(1.46em, 0.25em); }
-    47% { transform: translate(1.46em, 0.25em); }
-    72.5% { transform: translate(0.58em, 0.25em); }
-    75% { transform: translate(0.46em, -0.07em); }
-    77% { transform: translate(0.34em, 0); }
-    96%, 100% { transform: translate(0.1em, 0); }
+/* Navigation progress (`NavigationProgress` in app-shell.tsx): fills toward
+   90% while the router waits, after a 150ms grace so cached pages never
+   flash it; fades out when the page is ready. */
+@layer components {
+    .zora-nav-progress {
+        position: fixed;
+        inset: 0 0 auto 0;
+        z-index: 60;
+        height: 2px;
+        background: var(--lime);
+        box-shadow: 0 0 10px var(--lime);
+        transform-origin: 0 50%;
+        /* Done: full width while it fades out. */
+        transform: scaleX(1);
+        opacity: 0;
+        transition: opacity 250ms ease-out;
+        pointer-events: none;
+    }
+    .zora-nav-progress[data-pending] {
+        opacity: 1;
+        transition-delay: 150ms;
+        animation: zora-nav-progress 6s cubic-bezier(0.08, 0.7, 0.2, 1) 150ms both;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .zora-nav-progress[data-pending] {
+            animation: none;
+            transform: scaleX(0.6);
+        }
+    }
 }
-@keyframes zora-cat-face {
-    0% { transform: scaleX(1); }
-    45.5% { transform: scaleX(-1); }
-    96%, 100% { transform: scaleX(1); }
-}
-@keyframes zora-cat-step {
-    from { transform: rotate(-16deg); }
-    to { transform: rotate(16deg); }
-}
-@keyframes zora-cat-sway {
-    from { transform: rotate(-7deg); }
-    to { transform: rotate(7deg); }
-}
-/* The lounging cat rests, then once per cycle reaches forward and looks up. */
-@keyframes zora-cat-stretch-body {
-    0%, 76%, 100% { transform: none; }
-    84%, 90% { transform: scale(1.07, 0.94); }
-}
-@keyframes zora-cat-stretch-front {
-    0%, 76%, 100% { transform: none; }
-    84%, 90% { transform: translateX(4px); }
-}
-@keyframes zora-cat-stretch-head {
-    0%, 76%, 100% { transform: none; }
-    84%, 90% { transform: rotate(-10deg) translateY(-1px); }
-}
-@keyframes zora-cat-roll {
-    from { transform: translateX(-1px) rotate(0deg); }
-    to { transform: translateX(5px) rotate(150deg); }
-}
-@keyframes zora-cat-bat {
-    from { transform: rotate(-22deg); }
-    to { transform: rotate(10deg); }
-}
-@keyframes zora-cat-wiggle {
-    from { transform: translateX(-0.5px); }
-    to { transform: translateX(0.5px); }
-}
-@keyframes zora-cat-flutter {
-    from { transform: translate(0, 0) rotate(-10deg); }
-    to { transform: translate(-7px, 8px) rotate(28deg); }
+@keyframes zora-nav-progress {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(0.9); }
 }

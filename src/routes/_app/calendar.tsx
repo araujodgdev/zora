@@ -40,6 +40,7 @@ import {
   useRescheduleContentItem,
 } from '@/lib/content.queries'
 import { contentDragSensors } from '@/lib/dnd'
+import { loadQuery } from '@/lib/route-query'
 import { cn } from '@/lib/utils'
 
 /**
@@ -74,8 +75,8 @@ export const Route = createFileRoute('/_app/calendar')({
   loaderDeps: ({ search }) => search,
   loader: async ({ context, deps }) => {
     await Promise.all([
-      context.queryClient.query(calendarData(deps).listOptions),
-      context.queryClient.query(teamMembersQueryOptions()),
+      loadQuery(context.queryClient, calendarData(deps).listOptions),
+      loadQuery(context.queryClient, teamMembersQueryOptions()),
     ])
   },
   head: () => ({ meta: [{ title: 'Calendário · Zora' }] }),

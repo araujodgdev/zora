@@ -11,8 +11,9 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { getSessionState } from '@/lib/auth.functions'
 import { registerServiceWorker } from '@/lib/pwa'
+import { loadQuery } from '@/lib/route-query'
+import { sessionStateQueryOptions } from '@/lib/session.queries'
 import { readTheme, useTheme } from '@/lib/theme'
 import appCss from '@/styles/app.css?url'
 
@@ -25,10 +26,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   headers: () => ({ 'Cache-Control': 'private, no-store' }),
   // Route-level auth state for guards and the app shell. Data access is
   // protected separately by `authMiddleware` on each server function.
-  // `workspace` is the one the user has open (null without any).
+  // `workspace` is the one the user has open (null without any). It comes
+  // from the Query cache after the first load: this runs before every
+  // navigation, and a round trip here delayed every page change.
   // The theme comes from a cookie, so the server renders the right one.
-  beforeLoad: async () => ({
-    ...(await getSessionState()),
+  beforeLoad: async ({ context }) => ({
+    ...(await loadQuery(context.queryClient, sessionStateQueryOptions())),
     theme: readTheme(),
   }),
   head: () => ({

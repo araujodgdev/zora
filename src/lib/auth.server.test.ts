@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeTestDb, createTestDb, resetDatabase } from '../../test/db'
 import { SIGNUP_NOT_ALLOWED_MESSAGE } from './allowlist'
 import { createAuth } from './auth.server'
@@ -88,10 +88,45 @@ describe('session check used by authMiddleware', () => {
 
   it('rejects a session after sign-out', async () => {
     const headers = sessionHeaders(await signUp('bob@example.com'))
-    await auth.api.signOut({ headers })
-    await expect(requireSessionUser(auth, headers)).rejects.toBeInstanceOf(
+    const signOut = await auth.api.signOut({ headers, asResponse: true })
+    // The browser drops both cookies (the token and the cached session).
+    const cleared = signOut.headers
+      .getSetCookie()
+      .filter((cookie) => /max-age=0/i.test(cookie))
+      .map((cookie) => cookie.split('=')[0])
+    expect(cleared).toEqual(
+      expect.arrayContaining(['better-auth.session_token', 'better-auth.session_data']),
+    )
+    // The token alone (no cached session) is checked against the database.
+    const tokenOnly = new Headers({
+      cookie: headers
+        .get('cookie')!
+        .split('; ')
+        .filter((cookie) => !cookie.startsWith('better-auth.session_data='))
+        .join('; '),
+    })
+    await expect(requireSessionUser(auth, tokenOnly)).rejects.toBeInstanceOf(
       UnauthorizedError,
     )
+  })
+
+  it('trusts a copied session cookie only until the cookie cache expires', async () => {
+    // The trade-off of `session.cookieCache` (5 minutes): a session_data
+    // cookie copied before sign-out keeps working that long.
+    const headers = sessionHeaders(await signUp('bob@example.com'))
+    await auth.api.signOut({ headers })
+    await expect(requireSessionUser(auth, headers)).resolves.toMatchObject({
+      email: 'bob@example.com',
+    })
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(Date.now() + 6 * 60_000)
+      await expect(requireSessionUser(auth, headers)).rejects.toBeInstanceOf(
+        UnauthorizedError,
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

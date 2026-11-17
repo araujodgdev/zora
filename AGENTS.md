@@ -100,6 +100,8 @@ src/
     invitation-email.ts      the invitation email (pt-BR) and its sender
     mailer.server.ts         getMailer(): the Email Sending binding `EMAIL`
     content.queries.ts       queryOptions factories, query keys, mutation hooks
+    route-query.ts           loadQuery: cache-first loading for route loaders
+    session.queries.ts       sessionStateQueryOptions (root beforeLoad)
     content-cache.ts         contentKeys + optimistic cache apply/rollback (no React; unit-tested)
     content-filters.ts       filter search-param schema + toContentListFilters
     content-assets.ts        SHARED media module (allowed types, size limit, URLs, ContentAsset)
@@ -125,7 +127,9 @@ src/
     content-schema.ts        content_item table + enums
     schema.ts                re-exports both (used by drizzle-kit)
     client.server.ts         createDb(binding): Drizzle over the D1 binding
-  components/                app-shell, form-field, local-date-time, zora-cat, ui/ (shadcn)
+  components/                app-shell, auth-layout, brand (logo, clay loops, loader),
+                             form-field, local-date-time, ui/ (shadcn)
+  assets/brand/              generated clay artwork (see scripts/brand/README.md)
     content/                 shared content UI kit: channel-badge, status-badge,
                              assignee-avatar, content-item-card, content-filters
 test/                        in-memory D1 for tests (db.ts, wrangler.jsonc)
@@ -172,21 +176,29 @@ both palettes.
   on dark, ink on light. Violet is the focus ring. Coral is `destructive`.
   Channel and status hues are tokens (`bg-channel-*`, `bg-status-*`) used
   only by the two badge components.
-- **Type:** Figtree (`font-sans`) for the UI; Fraunces (`font-display`) for
-  page titles (`PageHeader`), section titles and the calendar period. The
-  `wonk` utility turns on Fraunces' swash italic: keep it for the wordmark.
-- **Auth pages** (`sign-in`, `sign-up`, `consent`) render inside
-  `AuthLayout` (`@/components/auth-layout`): the big wordmark and coloured
-  tiles. This is the one decorative moment; keep the app itself quiet.
-- **The cat** (`@/components/zora-cat`): a lime (`text-brand`) silhouette
-  that lives on the wordmark. Render the wordmark with
-  `<ZoraWordmark cat="walk" | "lounge" />` (size it with a font size): it
-  walks over the letters on the auth pages and lies on the Z in the app
-  shell. `CatLoader` (the cat playing with yarn) is the router's
-  `defaultPendingComponent`. Motion is CSS in `app.css` (`.zora-cat-*`,
-  positions in `em` of the wordmark) and stops under reduced motion.
-- **App icon and PWA.** `scripts/app-icon.html` draws the icon (the collage
-  Z with the cat); `node scripts/generate-icons.mjs` (needs Chrome or Edge)
+- **Type:** Figtree (`font-sans`) for the UI and the heavy lowercase
+  wordmark; Fraunces (`font-display`) for page titles (`PageHeader`),
+  section titles and the calendar period.
+- **Brand: claymation after clay.com** (`@/components/brand`). A lime
+  plasticine Z with a cream clay cat asleep on it. The artwork is generated
+  (fal.ai) and lives in `src/assets/brand`; how each file was made, and the
+  rules for new ones, are in `scripts/brand/README.md`. Do not draw the
+  brand in CSS or SVG.
+  - `ZoraLogo` (the mark + "zora"; size it with a font size) in the sidebar,
+    the mobile top bar and the auth pages. Hover squishes the clay once
+    (`.zora-logo` in `app.css`).
+  - `ClayLoop` plays a muted looping clip (WebM VP9, MP4 fallback, WebP
+    poster) only while it is on screen and never under reduced motion.
+  - `CatLoader` (the cat batting a yarn ball) is the router's
+    `defaultPendingComponent`; it fades in after a delay so short waits
+    never flash it.
+- **Auth pages** (`sign-in`, `sign-up`, `consent`, invitations, first
+  workspace) render inside `AuthLayout` (`@/components/auth-layout`): the
+  logo, the form, and the clay diorama (a banner above the form below `lg`,
+  the right-hand column with the headline from `lg`). This is the one
+  decorative moment; keep the app itself quiet.
+- **App icon and PWA.** `scripts/app-icon.html` frames the clay icon master
+  (`scripts/brand/app-icon.png`) per variant; `node scripts/generate-icons.mjs` (needs Chrome or Edge)
   writes `public/icons/*`, `public/apple-touch-icon.png` and
   `public/favicon.ico`. `public/manifest.webmanifest` makes Zora installable;
   `public/sw.js` (registered by `@/lib/pwa` in production builds only) only
@@ -278,7 +290,7 @@ Typical route:
 ```tsx
 export const Route = createFileRoute('/_app/calendar')({
   loader: ({ context }) =>
-    context.queryClient.query(contentListQueryOptions({ scheduledFrom, scheduledTo })),
+    loadQuery(context.queryClient, contentListQueryOptions({ scheduledFrom, scheduledTo })),
   component: CalendarPage,
 })
 function CalendarPage() {
@@ -289,8 +301,24 @@ function CalendarPage() {
 ```
 
 Use the same filters object in the loader and the component (put search-param
-filters in `loaderDeps`). Use `queryClient.query` in loaders; the Router docs
-mark `ensureQueryData`/`prefetchQuery` as deprecated.
+filters in `loaderDeps`).
+
+**Loaders use `loadQuery(context.queryClient, options)`** (`@/lib/route-query`),
+never a bare `queryClient.query`: `query` waits for the network whenever the
+data is stale, which made every page change wait on a round trip to the
+Worker and D1 (about 2 s), even for pages already visited. `loadQuery`
+resolves at once from the cache and refreshes stale data in the background;
+it waits only when nothing is cached or a mutation invalidated the entry.
+(The Router docs mark `ensureQueryData`/`prefetchQuery` as deprecated.)
+
+The same applies to the session: the root `beforeLoad` reads
+`sessionStateQueryOptions()` (`@/lib/session.queries`) through `loadQuery`,
+and Better Auth's `session.cookieCache` (5 minutes) spares server functions
+a D1 read to open the session. Anything that changes who is signed in or
+which workspace is open must call `queryClient.clear()` before
+`router.invalidate()` (sign-in, sign-up, sign-out, switching or creating a
+workspace, accepting an invitation all do). While a navigation does wait, a
+thin lime bar (`NavigationProgress` in `app-shell.tsx`) shows at the top.
 
 ## Shared content UI (use this, do not re-implement it)
 
@@ -329,7 +357,7 @@ export const Route = createFileRoute('/_app/content/')({
   validateSearch: contentFilterSearchSchema,
   loaderDeps: ({ search }) => ({ filters: toContentListFilters(search) }),
   loader: ({ context, deps }) =>
-    context.queryClient.query(contentListQueryOptions(deps.filters)),
+    loadQuery(context.queryClient, contentListQueryOptions(deps.filters)),
 })
 // component:
 const search = Route.useSearch()
