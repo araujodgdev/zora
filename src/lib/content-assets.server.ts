@@ -1,13 +1,16 @@
 /**
  * Data access for uploaded media. Server-only, and independent of TanStack
- * Start and Cloudflare so it can be tested against Postgres with an in-memory
+ * Start and Cloudflare so it can be tested against D1 with an in-memory
  * bucket. The route handlers and server functions add the session check.
+ *
+ * Files belong to an item, so they are scoped to the item's workspace: every
+ * function takes the caller's `organizationId` and ignores other workspaces.
  *
  * Bytes live in the R2 bucket under `content/<contentItemId>/<assetId>`; the
  * `content_asset` row holds the metadata. Deleting an item removes its rows
  * through the foreign key; `deleteContentItemWithAssets` removes its objects.
  */
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import type { Database } from '../db/client.server'
 import { contentAsset, contentItem } from '../db/schema'
 import { assetUploadError } from './content-assets'
@@ -48,25 +51,45 @@ export function assetObjectKey(contentItemId: string, assetId: string): string {
   return `content/${contentItemId}/${assetId}`
 }
 
+/** The asset columns, for queries that join the item to check its workspace. */
+const assetColumns = {
+  id: contentAsset.id,
+  contentItemId: contentAsset.contentItemId,
+  filename: contentAsset.filename,
+  contentType: contentAsset.contentType,
+  size: contentAsset.size,
+  createdById: contentAsset.createdById,
+  createdAt: contentAsset.createdAt,
+}
+
 export async function listContentAssets(
   db: Database,
+  organizationId: string,
   contentItemId: string,
 ): Promise<Array<ContentAsset>> {
   return db
-    .select()
+    .select(assetColumns)
     .from(contentAsset)
-    .where(eq(contentAsset.contentItemId, contentItemId))
+    .innerJoin(contentItem, eq(contentItem.id, contentAsset.contentItemId))
+    .where(
+      and(
+        eq(contentAsset.contentItemId, contentItemId),
+        eq(contentItem.organizationId, organizationId),
+      ),
+    )
     .orderBy(asc(contentAsset.createdAt), asc(contentAsset.id))
 }
 
 export async function getContentAsset(
   db: Database,
+  organizationId: string,
   id: string,
 ): Promise<ContentAsset | null> {
   const [asset] = await db
-    .select()
+    .select(assetColumns)
     .from(contentAsset)
-    .where(eq(contentAsset.id, id))
+    .innerJoin(contentItem, eq(contentItem.id, contentAsset.contentItemId))
+    .where(and(eq(contentAsset.id, id), eq(contentItem.organizationId, organizationId)))
     .limit(1)
   return asset ?? null
 }
@@ -80,6 +103,7 @@ export async function createContentAsset(
   db: Database,
   bucket: MediaBucket,
   input: {
+    organizationId: string
     contentItemId: string
     createdById: string
     file: { name: string; type: string; size: number }
@@ -90,7 +114,7 @@ export async function createContentAsset(
   const problem = assetUploadError(file)
   if (problem) throw new AssetUploadError(problem)
 
-  if (!(await itemExists(db, input.contentItemId))) return null
+  if (!(await itemExists(db, input.organizationId, input.contentItemId))) return null
 
   const id = crypto.randomUUID()
   const key = assetObjectKey(input.contentItemId, id)
@@ -112,16 +136,20 @@ export async function createContentAsset(
     // Do not leave the bytes behind. If the item was deleted meanwhile (the
     // foreign key refuses the row), that is a "not found", not a failure.
     await bucket.delete(key).catch(() => {})
-    if (!(await itemExists(db, input.contentItemId))) return null
+    if (!(await itemExists(db, input.organizationId, input.contentItemId))) return null
     throw error
   }
 }
 
-async function itemExists(db: Database, id: string): Promise<boolean> {
+async function itemExists(
+  db: Database,
+  organizationId: string,
+  id: string,
+): Promise<boolean> {
   const [item] = await db
     .select({ id: contentItem.id })
     .from(contentItem)
-    .where(eq(contentItem.id, id))
+    .where(and(eq(contentItem.id, id), eq(contentItem.organizationId, organizationId)))
     .limit(1)
   return item !== undefined
 }
@@ -130,8 +158,13 @@ async function itemExists(db: Database, id: string): Promise<boolean> {
 export async function deleteContentAsset(
   db: Database,
   bucket: MediaBucket,
+  organizationId: string,
   id: string,
 ): Promise<boolean> {
+  // SQLite's DELETE cannot join; check the workspace first. The id is a
+  // random UUID, so the row cannot move to another workspace in between.
+  const asset = await getContentAsset(db, organizationId, id)
+  if (!asset) return false
   const [deleted] = await db
     .delete(contentAsset)
     .where(eq(contentAsset.id, id))
@@ -148,10 +181,11 @@ export async function deleteContentAsset(
 export async function deleteContentItemWithAssets(
   db: Database,
   bucket: MediaBucket,
+  organizationId: string,
   id: string,
 ): Promise<boolean> {
-  const assets = await listContentAssets(db, id)
-  const deleted = await deleteContentItem(db, id)
+  const assets = await listContentAssets(db, organizationId, id)
+  const deleted = await deleteContentItem(db, organizationId, id)
   if (deleted && assets.length > 0) {
     await bucket
       .delete(assets.map((asset) => assetObjectKey(id, asset.id)))

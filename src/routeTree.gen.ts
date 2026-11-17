@@ -18,6 +18,9 @@ import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as DotwellKnownSplatRouteImport } from './routes/[.]well-known/$'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
 import { Route as AppPipelineRouteImport } from './routes/_app/pipeline'
+import { Route as AppTeamRouteImport } from './routes/_app/team'
+import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
+import { Route as WorkspacesNewRouteImport } from './routes/workspaces/new'
 import { Route as AppContentIndexRouteImport } from './routes/_app/content/index'
 import { Route as AppContentItemIdRouteImport } from './routes/_app/content/$itemId'
 import { Route as AppContentNewRouteImport } from './routes/_app/content/new'
@@ -69,6 +72,21 @@ const AppPipelineRoute = AppPipelineRouteImport.update({
   path: '/pipeline',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTeamRoute = AppTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AppRoute,
+} as any)
+const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
+  id: '/invite/$invitationId',
+  path: '/invite/$invitationId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkspacesNewRoute = WorkspacesNewRouteImport.update({
+  id: '/workspaces/new',
+  path: '/workspaces/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppContentIndexRoute = AppContentIndexRouteImport.update({
   id: '/content/',
   path: '/content/',
@@ -109,6 +127,9 @@ export interface FileRoutesByFullPath {
   '/.well-known/$': typeof DotwellKnownSplatRoute
   '/calendar': typeof AppCalendarRoute
   '/pipeline': typeof AppPipelineRoute
+  '/team': typeof AppTeamRoute
+  '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/workspaces/new': typeof WorkspacesNewRoute
   '/content/$itemId': typeof AppContentItemIdRoute
   '/content/new': typeof AppContentNewRoute
   '/api/assets/$assetId': typeof ApiAssetsAssetIdRoute
@@ -125,6 +146,9 @@ export interface FileRoutesByTo {
   '/.well-known/$': typeof DotwellKnownSplatRoute
   '/calendar': typeof AppCalendarRoute
   '/pipeline': typeof AppPipelineRoute
+  '/team': typeof AppTeamRoute
+  '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/workspaces/new': typeof WorkspacesNewRoute
   '/content/$itemId': typeof AppContentItemIdRoute
   '/content/new': typeof AppContentNewRoute
   '/api/assets/$assetId': typeof ApiAssetsAssetIdRoute
@@ -143,6 +167,9 @@ export interface FileRoutesById {
   '/.well-known/$': typeof DotwellKnownSplatRoute
   '/_app/calendar': typeof AppCalendarRoute
   '/_app/pipeline': typeof AppPipelineRoute
+  '/_app/team': typeof AppTeamRoute
+  '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/workspaces/new': typeof WorkspacesNewRoute
   '/_app/content/$itemId': typeof AppContentItemIdRoute
   '/_app/content/new': typeof AppContentNewRoute
   '/api/assets/$assetId': typeof ApiAssetsAssetIdRoute
@@ -161,6 +188,9 @@ export interface FileRouteTypes {
     | '/.well-known/$'
     | '/calendar'
     | '/pipeline'
+    | '/team'
+    | '/invite/$invitationId'
+    | '/workspaces/new'
     | '/content/$itemId'
     | '/content/new'
     | '/api/assets/$assetId'
@@ -177,6 +207,9 @@ export interface FileRouteTypes {
     | '/.well-known/$'
     | '/calendar'
     | '/pipeline'
+    | '/team'
+    | '/invite/$invitationId'
+    | '/workspaces/new'
     | '/content/$itemId'
     | '/content/new'
     | '/api/assets/$assetId'
@@ -194,6 +227,9 @@ export interface FileRouteTypes {
     | '/.well-known/$'
     | '/_app/calendar'
     | '/_app/pipeline'
+    | '/_app/team'
+    | '/invite/$invitationId'
+    | '/workspaces/new'
     | '/_app/content/$itemId'
     | '/_app/content/new'
     | '/api/assets/$assetId'
@@ -210,6 +246,8 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   DotwellKnownSplatRoute: typeof DotwellKnownSplatRoute
+  InviteInvitationIdRoute: typeof InviteInvitationIdRoute
+  WorkspacesNewRoute: typeof WorkspacesNewRoute
   ApiAssetsAssetIdRoute: typeof ApiAssetsAssetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiContentItemIdAssetsRoute: typeof ApiContentItemIdAssetsRoute
@@ -280,6 +318,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPipelineRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/team': {
+      id: '/_app/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AppTeamRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/invite/$invitationId': {
+      id: '/invite/$invitationId'
+      path: '/invite/$invitationId'
+      fullPath: '/invite/$invitationId'
+      preLoaderRoute: typeof InviteInvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workspaces/new': {
+      id: '/workspaces/new'
+      path: '/workspaces/new'
+      fullPath: '/workspaces/new'
+      preLoaderRoute: typeof WorkspacesNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/content/': {
       id: '/_app/content/'
       path: '/content'
@@ -328,6 +387,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppCalendarRoute: typeof AppCalendarRoute
   AppPipelineRoute: typeof AppPipelineRoute
+  AppTeamRoute: typeof AppTeamRoute
   AppContentItemIdRoute: typeof AppContentItemIdRoute
   AppContentNewRoute: typeof AppContentNewRoute
   AppContentIndexRoute: typeof AppContentIndexRoute
@@ -336,6 +396,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppCalendarRoute: AppCalendarRoute,
   AppPipelineRoute: AppPipelineRoute,
+  AppTeamRoute: AppTeamRoute,
   AppContentItemIdRoute: AppContentItemIdRoute,
   AppContentNewRoute: AppContentNewRoute,
   AppContentIndexRoute: AppContentIndexRoute,
@@ -351,6 +412,8 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   DotwellKnownSplatRoute: DotwellKnownSplatRoute,
+  InviteInvitationIdRoute: InviteInvitationIdRoute,
+  WorkspacesNewRoute: WorkspacesNewRoute,
   ApiAssetsAssetIdRoute: ApiAssetsAssetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiContentItemIdAssetsRoute: ApiContentItemIdAssetsRoute,

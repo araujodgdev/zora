@@ -1,8 +1,9 @@
 # AGENTS.md
 
 Guide for agents (and people) working on Zora: an internal TanStack Start app
-for a three-person team planning a product launch. Users share one workspace;
-everyone sees and edits all content.
+for teams planning product launches. Content lives in **workspaces** (Better
+Auth organizations, see "Workspaces"); every member of a workspace sees and
+edits all of its content, and nothing of other workspaces.
 
 ## Rule: ground code in the current docs
 
@@ -54,6 +55,7 @@ pnpm db:migrate    # apply migrations to the local D1 database (.wrangler/state)
 pnpm dev           # http://localhost:3000
 pnpm typecheck && pnpm lint && pnpm test && pnpm build
 pnpm deploy:check  # build + wrangler deploy --dry-run
+pnpm deploy:ci     # remote D1 migrations + wrangler deploy (Workers Builds runs this on push to main)
 pnpm db:generate   # new migration after editing src/db/*-schema.ts
 pnpm db:migrate:remote  # apply migrations to the production D1 database
 pnpm auth:generate # regenerate src/db/auth-schema.ts after changing auth config
@@ -89,7 +91,14 @@ src/
   lib/
     content.ts               SHARED content module (enums, labels, schemas, rules, types)
     content.functions.ts     content server functions (RPC contract)
-    team.functions.ts        listTeamMembers server function
+    team.functions.ts        listTeamMembers server function (members of the current workspace)
+    workspace.ts             SHARED workspace module (roles, types, canManageMembers, schemas)
+    workspace.server.ts      workspace lookups (resolve, members, invitations; unit-tested)
+    workspace.functions.ts   workspace server functions (lists, invite, invitation preview)
+    workspace.queries.ts     query options + invite/cancel/remove hooks
+    invitations.server.ts    inviteToWorkspace: Better Auth invitation + email
+    invitation-email.ts      the invitation email (pt-BR) and its sender
+    mailer.server.ts         getMailer(): the Email Sending binding `EMAIL`
     content.queries.ts       queryOptions factories, query keys, mutation hooks
     content-cache.ts         contentKeys + optimistic cache apply/rollback (no React; unit-tested)
     content-filters.ts       filter search-param schema + toContentListFilters
@@ -427,6 +436,42 @@ function Column({ status, children }) {
 - `DragOverlay` (`@dnd-kit/react`) and `useSortable` (`@dnd-kit/react/sortable`)
   are available if needed; ordering within a column is not persisted.
 
+## Workspaces (Better Auth organizations)
+
+- **Model.** A workspace is a Better Auth organization (`organization()` in
+  `createAuth`; tables `organization`, `member`, `invitation`,
+  `session.active_organization_id`). `content_item.organization_id` scopes
+  items; media follow their item. Roles: `owner`, `admin`, `member` (labels
+  in `@/lib/workspace`). Owners and admins invite, cancel and remove
+  (`canManageMembers`, Better Auth checks again); every member edits content.
+  Workspace deletion is disabled (it would orphan R2 media).
+- **Scope every query.** `authMiddleware` provides `context.workspace` (the
+  session's active organization while the user is still a member, else
+  their oldest one; 403 without any). Every service function in
+  `content.server.ts` / `content-assets.server.ts` takes `organizationId`
+  and only touches that workspace's rows. The HTTP media routes resolve it
+  with `findSessionState`; MCP with `resolveMcpWorkspace` (the workspace of
+  the user's most recently used session).
+- **Route context.** The root route loads `user` and `workspace`; `_app`
+  sends users without a workspace to `/workspaces/new` and exposes a
+  non-null `workspace`. The sidebar switcher calls
+  `authClient.organization.setActive` and then clears the Query cache.
+- **Invitations.** `/team` (Equipe) invites through `inviteWorkspaceMember`
+  -> `inviteToWorkspace`: Better Auth creates the invitation (7 days), then
+  we send the email with the `EMAIL` binding (Cloudflare Email Sending, from
+  `zora@notify.lume.software`). We do not use Better Auth's
+  `sendInvitationEmail`: it swallows send errors, and the inviter must know
+  (`emailSent: false` -> "copy the link"). The link is `/invite/<id>`: public
+  preview (`getInvitationPreview`), then sign up / sign in with the invited
+  email (prefilled via `?email=`) and accept. A pending invitation lets its
+  email sign up even when it is not on `ALLOWED_SIGNUP_EMAILS`.
+- **Email locally.** `pnpm dev` simulates the binding: the message is logged
+  in the terminal and saved under `.wrangler/tmp/email`. In production,
+  sending to arbitrary recipients needs the Workers Paid plan.
+- The migration `20261117134314_useful_frightful_four` (hand-edited) moved
+  the existing data into the "Signum" workspace; its test is
+  `src/db/workspace-migration.test.ts`.
+
 ## Agents: MCP server and WebMCP
 
 Both expose the same actions; their inputs and descriptions live in
@@ -508,10 +553,13 @@ import { doThing } from './thing.server'            // DB code taking `db` as a 
 export const doThingFn = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
   .validator(thingInputSchema)
-  .handler(({ context, data }) => doThing(context.db, context.user.id, data))
+  .handler(({ context, data }) =>
+    doThing(context.db, context.workspace.id, context.user.id, data),
+  )
 ```
 
-Every server function that touches private data must use `authMiddleware`.
+Every server function that touches private data must use `authMiddleware`
+and scope its queries by `context.workspace.id`.
 Route guards are UX, not the security boundary. Keep DB logic in
 `*.server.ts` functions that take `db` explicitly so Vitest can test them
 against D1 (see `src/lib/content.server.test.ts`).
@@ -520,8 +568,11 @@ against D1 (see `src/lib/content.server.test.ts`).
 
 Edit `src/db/content-schema.ts` (or add a file and re-export it from
 `src/db/schema.ts`), then `pnpm db:generate` and `pnpm db:migrate`. Commit the
-generated `drizzle/` folder, and run `pnpm db:migrate:remote` before deploying
-code that needs it. Never edit `src/db/auth-schema.ts` by hand.
+generated `drizzle/` folder. Pushing to `main` deploys through Workers Builds,
+whose deploy command (`pnpm deploy:ci`) applies pending migrations to the
+production database before `wrangler deploy`, so a migration must work with
+the data already there (test it like `src/db/workspace-migration.test.ts`).
+Never edit `src/db/auth-schema.ts` by hand.
 
 SQLite rules: enums are `text` columns with `{ enum: LIST }` plus a CHECK
 built from the same list (`oneOf` in `content-schema.ts`); dates are
@@ -598,8 +649,9 @@ not needed), and the free tier covers a three-person team.
   (`src/lib/utils.ts`), not clsx + tailwind-merge.
 - `compatibility_date` in `wrangler.jsonc` must not be newer than the
   installed `workerd` supports; bump both together.
-- Sign-up allowlist is enforced in Better Auth's `databaseHooks.user.create`
-  (`src/lib/auth.server.ts`), so it covers every way a user can be created.
-  An empty `ALLOWED_SIGNUP_EMAILS` allows nobody.
+- Sign-up is enforced in Better Auth's `databaseHooks.user.create`
+  (`src/lib/auth.server.ts`), so it covers every way a user can be created:
+  allowed are emails with a pending invitation, plus `ALLOWED_SIGNUP_EMAILS`
+  (the backup path; empty allows nobody by itself).
 - Sign-out on the client also calls `queryClient.clear()` so the next user
   never sees cached data.

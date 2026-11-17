@@ -21,6 +21,8 @@ export function safeRedirectPath(value: string | undefined): string {
 /** Search params of the sign-in and sign-up pages. */
 export const authPageSearchSchema = z.object({
   redirect: z.string().optional(),
+  /** Prefills the email field (the invitation page passes the invited one). */
+  email: z.string().max(320).optional().catch(undefined),
 })
 
 /**

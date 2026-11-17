@@ -46,7 +46,7 @@ export const listContentItems = createServerFn({ method: 'GET' })
   .validator(contentListFiltersSchema.default({}))
   .handler(
     ({ context, data }): Promise<Array<ContentItem>> =>
-      contentService.listContentItems(context.db, data),
+      contentService.listContentItems(context.db, context.workspace.id, data),
   )
 
 export const getContentItem = createServerFn({ method: 'GET' })
@@ -54,7 +54,7 @@ export const getContentItem = createServerFn({ method: 'GET' })
   .validator(contentItemIdSchema)
   .handler(
     async ({ context, data }): Promise<ContentItem> =>
-      found(await contentService.getContentItem(context.db, data.id)),
+      found(await contentService.getContentItem(context.db, context.workspace.id, data.id)),
   )
 
 export const createContentItem = createServerFn({ method: 'POST' })
@@ -63,7 +63,12 @@ export const createContentItem = createServerFn({ method: 'POST' })
   .handler(
     ({ context, data }): Promise<ContentItem> =>
       withRuleErrors(() =>
-        contentService.createContentItem(context.db, context.user.id, data),
+        contentService.createContentItem(
+          context.db,
+          context.workspace.id,
+          context.user.id,
+          data,
+        ),
       ),
   )
 
@@ -74,7 +79,7 @@ export const updateContentItem = createServerFn({ method: 'POST' })
     async ({ context, data }): Promise<ContentItem> =>
       found(
         await withRuleErrors(() =>
-          contentService.updateContentItem(context.db, data),
+          contentService.updateContentItem(context.db, context.workspace.id, data),
         ),
       ),
   )
@@ -88,6 +93,7 @@ export const rescheduleContentItem = createServerFn({ method: 'POST' })
         await withRuleErrors(() =>
           contentService.rescheduleContentItem(
             context.db,
+            context.workspace.id,
             data.id,
             data.scheduledAt,
           ),
@@ -104,6 +110,7 @@ export const changeContentItemStatus = createServerFn({ method: 'POST' })
         await withRuleErrors(() =>
           contentService.changeContentItemStatus(
             context.db,
+            context.workspace.id,
             data.id,
             data.status,
           ),
@@ -118,6 +125,7 @@ export const deleteContentItem = createServerFn({ method: 'POST' })
     const deleted = await deleteContentItemWithAssets(
       context.db,
       getMediaBucket(),
+      context.workspace.id,
       data.id,
     )
     if (!deleted) throw notFound()

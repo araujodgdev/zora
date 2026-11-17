@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { closeTestDb, createTestDb, resetDatabase } from '../../test/db'
+import { closeTestDb, createTestDb, resetDatabase, seedWorkspace } from '../../test/db'
 import { user } from '../db/schema'
 import { MAX_ASSET_BYTES } from './content-assets'
 import {
@@ -44,13 +44,17 @@ function fakeBucket() {
   return { bucket, objects }
 }
 
+const ws = 'ws-launch'
+
 async function setup() {
   const [author] = await db
     .insert(user)
     .values({ id: 'u1', name: 'Ana', email: 'ana@example.com', emailVerified: true })
     .returning()
+  await seedWorkspace(db, ws, [author!.id])
   const item = await createContentItem(
     db,
+    ws,
     author!.id,
     createContentItemSchema.parse({ title: 'Post', channel: 'x', format: 'post' }),
   )
@@ -69,6 +73,7 @@ describe('createContentAsset', () => {
     const { bucket, objects } = fakeBucket()
 
     const asset = await createContentAsset(db, bucket, {
+      organizationId: ws,
       contentItemId: item.id,
       createdById: author.id,
       file: png,
@@ -84,7 +89,7 @@ describe('createContentAsset', () => {
     const stored = objects.get(assetObjectKey(item.id, asset!.id))
     expect([...stored!.bytes]).toEqual(BYTES)
     expect(stored?.contentType).toBe('image/png')
-    expect(await listContentAssets(db, item.id)).toHaveLength(1)
+    expect(await listContentAssets(db, ws, item.id)).toHaveLength(1)
   })
 
   it('refuses types that are not media, empty files and large files', async () => {
@@ -92,6 +97,7 @@ describe('createContentAsset', () => {
     const { bucket, objects } = fakeBucket()
     const upload = (file: { name: string; type: string; size: number }) =>
       createContentAsset(db, bucket, {
+        organizationId: ws,
         contentItemId: item.id,
         createdById: author.id,
         file,
@@ -112,6 +118,7 @@ describe('createContentAsset', () => {
     const { author } = await setup()
     const { bucket, objects } = fakeBucket()
     const asset = await createContentAsset(db, bucket, {
+      organizationId: ws,
       contentItemId: '00000000-0000-4000-8000-000000000000',
       createdById: author.id,
       file: png,
@@ -127,16 +134,48 @@ describe('deleteContentAsset', () => {
     const { author, item } = await setup()
     const { bucket, objects } = fakeBucket()
     const asset = (await createContentAsset(db, bucket, {
+      organizationId: ws,
       contentItemId: item.id,
       createdById: author.id,
       file: png,
       body: bytes(),
     }))!
 
-    expect(await deleteContentAsset(db, bucket, asset.id)).toBe(true)
-    expect(await getContentAsset(db, asset.id)).toBeNull()
+    expect(await deleteContentAsset(db, bucket, ws, asset.id)).toBe(true)
+    expect(await getContentAsset(db, ws, asset.id)).toBeNull()
     expect(objects.size).toBe(0)
-    expect(await deleteContentAsset(db, bucket, asset.id)).toBe(false)
+    expect(await deleteContentAsset(db, bucket, ws, asset.id)).toBe(false)
+  })
+})
+
+describe('workspace isolation', () => {
+  it('hides, refuses and keeps the files of another workspace', async () => {
+    const { author, item } = await setup()
+    await seedWorkspace(db, 'ws-other', [author.id])
+    const { bucket, objects } = fakeBucket()
+    const asset = (await createContentAsset(db, bucket, {
+      organizationId: ws,
+      contentItemId: item.id,
+      createdById: author.id,
+      file: png,
+      body: bytes(),
+    }))!
+
+    expect(await listContentAssets(db, 'ws-other', item.id)).toEqual([])
+    expect(await getContentAsset(db, 'ws-other', asset.id)).toBeNull()
+    expect(await deleteContentAsset(db, bucket, 'ws-other', asset.id)).toBe(false)
+    expect(
+      await createContentAsset(db, bucket, {
+        organizationId: 'ws-other',
+        contentItemId: item.id,
+        createdById: author.id,
+        file: png,
+        body: bytes(),
+      }),
+    ).toBeNull()
+    expect(await deleteContentItemWithAssets(db, bucket, 'ws-other', item.id)).toBe(false)
+    expect(objects.size).toBe(1)
+    expect(await getContentAsset(db, ws, asset.id)).toMatchObject({ id: asset.id })
   })
 })
 
@@ -145,12 +184,14 @@ describe('deleteContentItemWithAssets', () => {
     const { author, item } = await setup()
     const other = await createContentItem(
       db,
+      ws,
       author.id,
       createContentItemSchema.parse({ title: 'Other', channel: 'x', format: 'post' }),
     )
     const { bucket, objects } = fakeBucket()
     for (const id of [item.id, item.id, other.id]) {
       await createContentAsset(db, bucket, {
+        organizationId: ws,
         contentItemId: id,
         createdById: author.id,
         file: png,
@@ -158,10 +199,10 @@ describe('deleteContentItemWithAssets', () => {
       })
     }
 
-    expect(await deleteContentItemWithAssets(db, bucket, item.id)).toBe(true)
+    expect(await deleteContentItemWithAssets(db, bucket, ws, item.id)).toBe(true)
 
-    expect(await listContentAssets(db, item.id)).toEqual([])
-    expect(await listContentAssets(db, other.id)).toHaveLength(1)
+    expect(await listContentAssets(db, ws, item.id)).toEqual([])
+    expect(await listContentAssets(db, ws, other.id)).toHaveLength(1)
     expect([...objects.keys()].every((key) => key.startsWith(`content/${other.id}/`))).toBe(true)
     expect(objects.size).toBe(1)
   })
@@ -172,6 +213,7 @@ describe('deleteContentItemWithAssets', () => {
       await deleteContentItemWithAssets(
         db,
         bucket,
+        ws,
         '00000000-0000-4000-8000-000000000000',
       ),
     ).toBe(false)

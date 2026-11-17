@@ -16,7 +16,7 @@ export const listContentAssets = createServerFn({ method: 'GET' })
   .validator(contentItemIdSchema)
   .handler(
     ({ context, data }): Promise<Array<ContentAsset>> =>
-      assets.listContentAssets(context.db, data.id),
+      assets.listContentAssets(context.db, context.workspace.id, data.id),
   )
 
 export const deleteContentAsset = createServerFn({ method: 'POST' })
@@ -26,6 +26,7 @@ export const deleteContentAsset = createServerFn({ method: 'POST' })
     const deleted = await assets.deleteContentAsset(
       context.db,
       getMediaBucket(),
+      context.workspace.id,
       data.id,
     )
     if (!deleted) throw notFound()

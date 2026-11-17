@@ -29,6 +29,15 @@
   ],
   // Uploaded media (bucket created with `wrangler r2 bucket create`).
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "zora-media" }],
+  // Invitation emails (Cloudflare Email Sending; notify.lume.software is the
+  // onboarded sending domain). `pnpm dev` simulates it and only logs messages.
+  // Sending to arbitrary recipients needs the Workers Paid plan.
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_sender_addresses": ["zora@notify.lume.software"]
+    }
+  ],
   "observability": {
     "enabled": true
   }

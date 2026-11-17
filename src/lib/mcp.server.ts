@@ -25,6 +25,7 @@ import type { ContentAsset } from './content-assets'
 import * as assets from './content-assets.server'
 import type { MediaBucket } from './content-assets.server'
 import * as content from './content.server'
+import type { Workspace } from './workspace'
 
 /** Uploads through MCP arrive as base64 in the JSON-RPC body. */
 export const MAX_MCP_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -38,6 +39,8 @@ export type McpDeps = {
   bucket: MediaBucket
   /** The team member the access token was issued to. */
   user: TeamMember
+  /** The workspace the tools act in (see `resolveMcpWorkspace`). */
+  workspace: Workspace
   /** Public base URL, for links back to the app. */
   appUrl: string
 }
@@ -153,36 +156,45 @@ export const zoraTools = [
   defineTool({
     ...action('get_current_user'),
     annotations: readOnly,
-    run: async (_args, { user }) => ok(user),
+    run: async (_args, { user, workspace }) =>
+      ok({ ...user, workspace: { id: workspace.id, name: workspace.name } }),
   }),
   defineTool({
     ...action('list_team_members'),
     annotations: readOnly,
-    run: async (_args, { db }) => ok(await content.listTeamMembers(db)),
+    run: async (_args, { db, workspace }) =>
+      ok(await content.listTeamMembers(db, workspace.id)),
   }),
   defineTool({
     ...action('list_content_items'),
     annotations: readOnly,
-    run: async (args, { db, appUrl }) => {
-      const items = await content.listContentItems(db, contentListFiltersSchema.parse(args))
+    run: async (args, { db, workspace, appUrl }) => {
+      const items = await content.listContentItems(
+        db,
+        workspace.id,
+        contentListFiltersSchema.parse(args),
+      )
       return ok({ count: items.length, items: items.map((item) => withLink(item, appUrl)) })
     },
   }),
   defineTool({
     ...action('get_content_item'),
     annotations: readOnly,
-    run: async ({ id: itemId }, { db, appUrl }) => {
-      const item = (await content.getContentItem(db, itemId)) ?? notFound('content item', itemId)
-      const media = await assets.listContentAssets(db, itemId)
+    run: async ({ id: itemId }, { db, workspace, appUrl }) => {
+      const item =
+        (await content.getContentItem(db, workspace.id, itemId)) ??
+        notFound('content item', itemId)
+      const media = await assets.listContentAssets(db, workspace.id, itemId)
       return ok({ ...withLink(item, appUrl), media: media.map(describeAsset) })
     },
   }),
   defineTool({
     ...action('create_content_item'),
     annotations: writes,
-    run: async (args, { db, user, appUrl }) => {
+    run: async (args, { db, user, workspace, appUrl }) => {
       const item = await content.createContentItem(
         db,
+        workspace.id,
         user.id,
         createContentItemSchema.parse(args),
       )
@@ -192,9 +204,9 @@ export const zoraTools = [
   defineTool({
     ...action('update_content_item'),
     annotations: { ...writes, idempotentHint: true },
-    run: async (args, { db, appUrl }) => {
+    run: async (args, { db, workspace, appUrl }) => {
       const item =
-        (await content.updateContentItem(db, updateContentItemSchema.parse(args))) ??
+        (await content.updateContentItem(db, workspace.id, updateContentItemSchema.parse(args))) ??
         notFound('content item', args.id)
       return ok(withLink(item, appUrl))
     },
@@ -202,10 +214,10 @@ export const zoraTools = [
   defineTool({
     ...action('reschedule_content_item'),
     annotations: { ...writes, idempotentHint: true },
-    run: async (args, { db, appUrl }) => {
+    run: async (args, { db, workspace, appUrl }) => {
       const data = rescheduleContentItemSchema.parse(args)
       const item =
-        (await content.rescheduleContentItem(db, data.id, data.scheduledAt)) ??
+        (await content.rescheduleContentItem(db, workspace.id, data.id, data.scheduledAt)) ??
         notFound('content item', data.id)
       return ok(withLink(item, appUrl))
     },
@@ -213,10 +225,10 @@ export const zoraTools = [
   defineTool({
     ...action('change_content_item_status'),
     annotations: { ...writes, idempotentHint: true },
-    run: async (args, { db, appUrl }) => {
+    run: async (args, { db, workspace, appUrl }) => {
       const data = changeContentItemStatusSchema.parse(args)
       const item =
-        (await content.changeContentItemStatus(db, data.id, data.status)) ??
+        (await content.changeContentItemStatus(db, workspace.id, data.id, data.status)) ??
         notFound('content item', data.id)
       return ok(withLink(item, appUrl))
     },
@@ -224,8 +236,8 @@ export const zoraTools = [
   defineTool({
     ...action('delete_content_item'),
     annotations: deletes,
-    run: async ({ id: itemId }, { db, bucket }) => {
-      if (!(await assets.deleteContentItemWithAssets(db, bucket, itemId))) {
+    run: async ({ id: itemId }, { db, bucket, workspace }) => {
+      if (!(await assets.deleteContentItemWithAssets(db, bucket, workspace.id, itemId))) {
         notFound('content item', itemId)
       }
       return ok({ deleted: itemId })
@@ -244,12 +256,13 @@ export const zoraTools = [
       dataBase64: z.string().min(1).describe('The file content, base64-encoded.'),
     }),
     annotations: writes,
-    run: async (args, { db, bucket, user }) => {
+    run: async (args, { db, bucket, user, workspace }) => {
       if (args.dataBase64.length > Math.ceil(MAX_MCP_UPLOAD_BYTES / 3) * 4 + 64) {
         throw new ToolError(`The file is larger than ${formatBytes(MAX_MCP_UPLOAD_BYTES)}.`)
       }
       const bytes = fromBase64(args.dataBase64)
       const asset = await assets.createContentAsset(db, bucket, {
+        organizationId: workspace.id,
         contentItemId: args.itemId,
         createdById: user.id,
         file: {
@@ -268,8 +281,8 @@ export const zoraTools = [
     description: `Metadata of an uploaded file. Images up to ${formatBytes(MAX_MCP_IMAGE_PREVIEW_BYTES)} are returned too, so you can look at them.`,
     inputSchema: z.object({ assetId: z.uuid().describe('Media file id.') }),
     annotations: readOnly,
-    run: async ({ assetId }, { db, bucket }) => {
-      const asset = (await assets.getContentAsset(db, assetId)) ?? notFound('media file', assetId)
+    run: async ({ assetId }, { db, bucket, workspace }) => {
+      const asset = (await assets.getContentAsset(db, workspace.id, assetId)) ?? notFound('media file', assetId)
       const result = ok(describeAsset(asset))
       if (assetKind(asset.contentType) !== 'image' || asset.size > MAX_MCP_IMAGE_PREVIEW_BYTES) {
         return result
@@ -287,8 +300,8 @@ export const zoraTools = [
     description: 'Permanently deletes an uploaded file. Confirm with the user first.',
     inputSchema: z.object({ assetId: z.uuid().describe('Media file id.') }),
     annotations: deletes,
-    run: async ({ assetId }, { db, bucket }) => {
-      if (!(await assets.deleteContentAsset(db, bucket, assetId))) {
+    run: async ({ assetId }, { db, bucket, workspace }) => {
+      if (!(await assets.deleteContentAsset(db, bucket, workspace.id, assetId))) {
         notFound('media file', assetId)
       }
       return ok({ deleted: assetId })

@@ -11,5 +11,8 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     // Each database test file starts its own workerd process: give that time.
     hookTimeout: 30_000,
+    // Auth tests hash passwords with scrypt in JS; the first one in a busy
+    // run (many workerd processes) can take several seconds.
+    testTimeout: 30_000,
   },
 })

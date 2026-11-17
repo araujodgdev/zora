@@ -64,13 +64,14 @@ const optionalItemFields = Object.fromEntries(
 export const agentActions = {
   get_current_user: {
     title: 'Who am I',
-    description: 'The Zora team member you are acting for (id, name, email).',
+    description:
+      'The Zora team member you are acting for (id, name, email) and the workspace you act in.',
     input: z.object({}),
   },
   list_team_members: {
     title: 'List team members',
     description:
-      'Everyone on the team. Use their id as assigneeId. All members share one workspace and can edit everything.',
+      'The members of the current workspace. Use their id as assigneeId. Every member can edit all of the workspace content.',
     input: z.object({}),
   },
   list_content_items: {
@@ -132,6 +133,6 @@ export type AgentActionName = keyof typeof agentActions
 /** Shared guidance for agents, used as MCP server instructions. */
 export const AGENT_INSTRUCTIONS = `Zora is a three-person team's planner for a product launch's social media and blog content.
 Each content item has a channel, a format and a pipeline status (${STATUSES.join(' -> ')}), optionally a scheduled date, an assignee and uploaded media.
-Everyone on the team sees and edits everything. Dates are UTC instants: always send an offset, and show times to the user in their time zone.
+Content belongs to a workspace; you act in the workspace the user has open in the app (get_current_user names it), and every member of it sees and edits all of its content. Dates are UTC instants: always send an offset, and show times to the user in their time zone.
 Text (body) is Markdown for the blog and plain text for X, LinkedIn and Instagram: never put Markdown in a social post.
 Each returned item has a url to open it in the app. Ask before deleting anything.`

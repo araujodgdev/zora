@@ -1,14 +1,17 @@
 /**
  * Content data access. Server-only, and independent of TanStack Start so it can
- * be tested directly against Postgres. The server functions in
+ * be tested directly against D1. The server functions in
  * `content.functions.ts` are thin wrappers that add the session check.
+ *
+ * Every function takes the workspace (`organizationId`) the caller acts in
+ * and only sees and changes that workspace's items.
  *
  * Inputs are expected to be already parsed by the schemas in `./content`.
  */
 import { and, asc, desc, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import type { Database } from '../db/client.server'
-import { contentItem, user } from '../db/schema'
+import { contentItem, member, user } from '../db/schema'
 import { normalizeScheduleState, scheduleStateError } from './content'
 import type {
   ContentItem,
@@ -35,17 +38,22 @@ function assertScheduleState<T extends ScheduleState>(item: T, now: Date): T {
   return normalized
 }
 
-async function assertAssigneeExists(
+async function assertAssigneeIsMember(
   db: Pick<Database, 'select'>,
+  organizationId: string,
   assigneeId: string | null | undefined,
 ): Promise<void> {
   if (!assigneeId) return
   const [found] = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(eq(user.id, assigneeId))
+    .select({ id: member.id })
+    .from(member)
+    .where(and(eq(member.organizationId, organizationId), eq(member.userId, assigneeId)))
     .limit(1)
   if (!found) throw new ContentRuleError('O responsável não faz parte da equipe.')
+}
+
+function inWorkspace(organizationId: string, id: string) {
+  return and(eq(contentItem.organizationId, organizationId), eq(contentItem.id, id))
 }
 
 /**
@@ -54,9 +62,10 @@ async function assertAssigneeExists(
  */
 export async function listContentItems(
   db: Database,
+  organizationId: string,
   filters: ContentListFiltersData = {},
 ): Promise<Array<ContentItem>> {
-  const conditions: Array<SQL> = []
+  const conditions: Array<SQL> = [eq(contentItem.organizationId, organizationId)]
   if (filters.scheduledFrom || filters.scheduledTo) {
     conditions.push(isNotNull(contentItem.scheduledAt))
   }
@@ -89,27 +98,29 @@ export async function listContentItems(
 
 export async function getContentItem(
   db: Database,
+  organizationId: string,
   id: string,
 ): Promise<ContentItem | null> {
   const [item] = await db
     .select()
     .from(contentItem)
-    .where(eq(contentItem.id, id))
+    .where(inWorkspace(organizationId, id))
     .limit(1)
   return item ?? null
 }
 
 export async function createContentItem(
   db: Database,
+  organizationId: string,
   createdById: string,
   input: CreateContentItemData,
   now: Date = new Date(),
 ): Promise<ContentItem> {
   const values = assertScheduleState(input, now)
-  await assertAssigneeExists(db, values.assigneeId)
+  await assertAssigneeIsMember(db, organizationId, values.assigneeId)
   const [item] = await db
     .insert(contentItem)
-    .values({ ...values, createdById })
+    .values({ ...values, organizationId, createdById })
     .returning()
   return item!
 }
@@ -128,6 +139,7 @@ const MAX_PATCH_ATTEMPTS = 3
  */
 async function patchContentItem(
   db: Database,
+  organizationId: string,
   id: string,
   patch: Partial<CreateContentItemData>,
   now: Date,
@@ -136,12 +148,12 @@ async function patchContentItem(
     const [current] = await db
       .select()
       .from(contentItem)
-      .where(eq(contentItem.id, id))
+      .where(inWorkspace(organizationId, id))
     if (!current) return null
 
     const merged = assertScheduleState({ ...current, ...patch }, now)
     if (patch.assigneeId !== undefined) {
-      await assertAssigneeExists(db, patch.assigneeId)
+      await assertAssigneeIsMember(db, organizationId, patch.assigneeId)
     }
 
     // Strictly after the value read, so every write changes `updatedAt` and a
@@ -158,7 +170,7 @@ async function patchContentItem(
         updatedAt,
       })
       .where(
-        and(eq(contentItem.id, id), eq(contentItem.updatedAt, current.updatedAt)),
+        and(inWorkspace(organizationId, id), eq(contentItem.updatedAt, current.updatedAt)),
       )
       .returning()
     if (updated) return updated
@@ -171,6 +183,7 @@ async function patchContentItem(
 /** Partial update. Fields left `undefined` are not changed. */
 export async function updateContentItem(
   db: Database,
+  organizationId: string,
   input: UpdateContentItemData,
   now: Date = new Date(),
 ): Promise<ContentItem | null> {
@@ -178,47 +191,53 @@ export async function updateContentItem(
   const patch = Object.fromEntries(
     Object.entries(fields).filter(([, value]) => value !== undefined),
   ) as Partial<CreateContentItemData>
-  return patchContentItem(db, id, patch, now)
+  return patchContentItem(db, organizationId, id, patch, now)
 }
 
 /** Sets or clears `scheduledAt` only. */
 export async function rescheduleContentItem(
   db: Database,
+  organizationId: string,
   id: string,
   scheduledAt: Date | null,
   now: Date = new Date(),
 ): Promise<ContentItem | null> {
-  return patchContentItem(db, id, { scheduledAt }, now)
+  return patchContentItem(db, organizationId, id, { scheduledAt }, now)
 }
 
 /** Changes `status` only (publishing fills `publishedAt` when missing). */
 export async function changeContentItemStatus(
   db: Database,
+  organizationId: string,
   id: string,
   status: ContentStatus,
   now: Date = new Date(),
 ): Promise<ContentItem | null> {
-  return patchContentItem(db, id, { status }, now)
+  return patchContentItem(db, organizationId, id, { status }, now)
 }
 
 /** Returns `false` when the item did not exist. */
 export async function deleteContentItem(
   db: Database,
+  organizationId: string,
   id: string,
 ): Promise<boolean> {
   const deleted = await db
     .delete(contentItem)
-    .where(eq(contentItem.id, id))
+    .where(inWorkspace(organizationId, id))
     .returning({ id: contentItem.id })
   return deleted.length > 0
 }
 
-/** Everyone who has signed up; all users share one workspace. */
+/** The members of a workspace (the people an item can be assigned to). */
 export async function listTeamMembers(
   db: Database,
+  organizationId: string,
 ): Promise<Array<TeamMember>> {
   return db
     .select({ id: user.id, name: user.name, email: user.email })
-    .from(user)
+    .from(member)
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(eq(member.organizationId, organizationId))
     .orderBy(asc(user.name), asc(user.email))
 }

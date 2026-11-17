@@ -57,7 +57,7 @@ function SignInPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   const form = useForm({
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: search.email ?? '', password: '' },
     validators: { onSubmit: signInSchema },
     onSubmit: async ({ value }) => {
       setFormError(null)
@@ -156,7 +156,7 @@ function SignInPage() {
               ) : (
                 <Link
                   to="/sign-up"
-                  search={{ redirect: search.redirect }}
+                  search={{ redirect: search.redirect, email: search.email }}
                   className="text-foreground underline underline-offset-4"
                 >
                   Criar conta

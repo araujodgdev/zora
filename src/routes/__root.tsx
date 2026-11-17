@@ -10,7 +10,7 @@ import {
 import type { ReactNode } from 'react'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { getSessionUser } from '@/lib/auth.functions'
+import { getSessionState } from '@/lib/auth.functions'
 import { readTheme, useTheme } from '@/lib/theme'
 import appCss from '@/styles/app.css?url'
 
@@ -23,9 +23,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   headers: () => ({ 'Cache-Control': 'private, no-store' }),
   // Route-level auth state for guards and the app shell. Data access is
   // protected separately by `authMiddleware` on each server function.
+  // `workspace` is the one the user has open (null without any).
   // The theme comes from a cookie, so the server renders the right one.
   beforeLoad: async () => ({
-    user: await getSessionUser(),
+    ...(await getSessionState()),
     theme: readTheme(),
   }),
   head: () => ({

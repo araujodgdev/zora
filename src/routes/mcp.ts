@@ -4,6 +4,7 @@ import { mcpResourceUrl } from '@/lib/auth.server'
 import { getMediaBucket } from '@/lib/media-bucket.server'
 import { createZoraMcpHandler, findMcpUser } from '@/lib/mcp.server'
 import { getRequestServices } from '@/lib/services.server'
+import { resolveMcpWorkspace } from '@/lib/workspace.server'
 
 /**
  * The MCP server: `POST /mcp` (Streamable HTTP, stateless). Requests need an
@@ -24,10 +25,18 @@ async function handle(request: Request): Promise<Response> {
           { status: 403 },
         )
       }
+      const workspace = await resolveMcpWorkspace(db, user.id)
+      if (!workspace) {
+        return Response.json(
+          { error: 'The user of this token is not a member of any workspace.' },
+          { status: 403 },
+        )
+      }
       const handler = createZoraMcpHandler({
         db,
         bucket: getMediaBucket(),
         user,
+        workspace,
         appUrl: env.BETTER_AUTH_URL,
       })
       return handler.fetch(authorized)

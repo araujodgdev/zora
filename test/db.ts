@@ -6,6 +6,9 @@ import {
   account,
   contentAsset,
   contentItem,
+  invitation,
+  member,
+  organization,
   session,
   user,
   verification,
@@ -36,11 +39,39 @@ export async function closeTestDb(db: Database): Promise<void> {
   await disposers.get(db)?.()
 }
 
+/**
+ * Creates a workspace (organization) with the given users as members; the
+ * first one is the owner. Returns its id.
+ */
+export async function seedWorkspace(
+  db: Database,
+  id: string,
+  userIds: Array<string>,
+  name = id,
+): Promise<string> {
+  await db.insert(organization).values({ id, name, slug: id, createdAt: new Date() })
+  if (userIds.length > 0) {
+    await db.insert(member).values(
+      userIds.map((userId, index) => ({
+        id: `${id}-${userId}`,
+        organizationId: id,
+        userId,
+        role: index === 0 ? 'owner' : 'member',
+        createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, index)),
+      })),
+    )
+  }
+  return id
+}
+
 /** Empties every application and auth table (children before parents). */
 export async function resetDatabase(db: Database): Promise<void> {
   for (const table of [
     contentAsset,
     contentItem,
+    invitation,
+    member,
+    organization,
     session,
     account,
     verification,

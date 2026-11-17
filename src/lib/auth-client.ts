@@ -1,4 +1,5 @@
 import { oauthProviderClient } from '@better-auth/oauth-provider/client'
+import { organizationClient } from 'better-auth/client/plugins'
 import { createAuthClient } from 'better-auth/react'
 
 /**
@@ -8,7 +9,10 @@ import { createAuthClient } from 'better-auth/react'
  * `oauthProviderClient` carries an MCP client's signed authorization request
  * (the `/sign-in` and `/consent` query) through sign-in and consent; when a
  * response says `{ redirect: true, url }`, the client navigates there itself.
+ *
+ * `organizationClient` adds `authClient.organization.*`: workspaces, members
+ * and invitations (see `@/lib/workspace.queries`).
  */
 export const authClient = createAuthClient({
-  plugins: [oauthProviderClient()],
+  plugins: [oauthProviderClient(), organizationClient()],
 })

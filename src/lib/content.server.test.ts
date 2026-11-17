@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { closeTestDb, createTestDb, resetDatabase } from '../../test/db'
+import { closeTestDb, createTestDb, resetDatabase, seedWorkspace } from '../../test/db'
 import { user } from '../db/schema'
 import { createContentItemSchema } from './content'
 import type { CreateContentItemInput } from './content'
@@ -19,11 +19,16 @@ import {
 const db = await createTestDb()
 const alice = { id: 'user-alice', name: 'Alice', email: 'alice@example.com' }
 const bob = { id: 'user-bob', name: 'Bob', email: 'bob@example.com' }
+const carol = { id: 'user-carol', name: 'Carol', email: 'carol@example.com' }
 const missingId = '00000000-0000-4000-8000-000000000000'
+// Alice and Bob share the workspace under test; Carol works in another one.
+const ws = 'ws-launch'
+const otherWs = 'ws-other'
 
 function create(input: CreateContentItemInput, now?: Date) {
   return createContentItem(
     db,
+    ws,
     alice.id,
     createContentItemSchema.parse(input),
     now,
@@ -32,7 +37,9 @@ function create(input: CreateContentItemInput, now?: Date) {
 
 beforeEach(async () => {
   await resetDatabase(db)
-  await db.insert(user).values([bob, alice])
+  await db.insert(user).values([bob, alice, carol])
+  await seedWorkspace(db, ws, [alice.id, bob.id])
+  await seedWorkspace(db, otherWs, [carol.id])
 })
 
 afterAll(async () => {
@@ -56,7 +63,7 @@ describe('createContentItem', () => {
     })
     expect(item.id).toMatch(/^[0-9a-f-]{36}$/)
     expect(item.createdAt).toBeInstanceOf(Date)
-    expect(await getContentItem(db, item.id)).toEqual(item)
+    expect(await getContentItem(db, ws, item.id)).toEqual(item)
   })
 
   it('stores scheduledAt as the same UTC instant', async () => {
@@ -84,6 +91,12 @@ describe('createContentItem', () => {
       create({ title: 'T', channel: 'x', format: 'post', assigneeId: 'ghost' }),
     ).rejects.toBeInstanceOf(ContentRuleError)
   })
+
+  it('rejects an assignee from another workspace', async () => {
+    await expect(
+      create({ title: 'T', channel: 'x', format: 'post', assigneeId: carol.id }),
+    ).rejects.toBeInstanceOf(ContentRuleError)
+  })
 })
 
 describe('listContentItems', () => {
@@ -107,12 +120,12 @@ describe('listContentItems', () => {
   })
 
   it('returns everything ordered by scheduledAt, unscheduled last', async () => {
-    const titles = (await listContentItems(db)).map((item) => item.title)
+    const titles = (await listContentItems(db, ws)).map((item) => item.title)
     expect(titles).toEqual(['March X', 'April LinkedIn', 'Unscheduled idea'])
   })
 
   it('filters by a half-open scheduledAt range', async () => {
-    const items = await listContentItems(db, {
+    const items = await listContentItems(db, ws, {
       scheduledFrom: new Date('2026-03-01T00:00:00Z'),
       scheduledTo: new Date('2026-04-01T00:00:00Z'),
     })
@@ -121,17 +134,17 @@ describe('listContentItems', () => {
 
   it('filters by channels, statuses and assignee', async () => {
     expect(
-      (await listContentItems(db, { channels: ['linkedin', 'blog'] })).map(
+      (await listContentItems(db, ws, { channels: ['linkedin', 'blog'] })).map(
         (item) => item.title,
       ),
     ).toEqual(['April LinkedIn', 'Unscheduled idea'])
     expect(
-      (await listContentItems(db, { statuses: ['scheduled'] })).map(
+      (await listContentItems(db, ws, { statuses: ['scheduled'] })).map(
         (item) => item.title,
       ),
     ).toEqual(['March X'])
     expect(
-      (await listContentItems(db, { assigneeId: bob.id })).map(
+      (await listContentItems(db, ws, { assigneeId: bob.id })).map(
         (item) => item.title,
       ),
     ).toEqual(['March X'])
@@ -146,7 +159,7 @@ describe('updateContentItem', () => {
       format: 'post',
       notes: 'keep me',
     })
-    const updated = await updateContentItem(db, {
+    const updated = await updateContentItem(db, ws, {
       id: item.id,
       title: 'New',
       assetLinks: ['https://example.com/a.png'],
@@ -166,10 +179,10 @@ describe('updateContentItem', () => {
   it('checks the rules against the merged item', async () => {
     const item = await create({ title: 'T', channel: 'x', format: 'post' })
     await expect(
-      updateContentItem(db, { id: item.id, status: 'scheduled' }),
+      updateContentItem(db, ws, { id: item.id, status: 'scheduled' }),
     ).rejects.toThrow('Um item agendado precisa de data e hora de agendamento.')
 
-    const ok = await updateContentItem(db, {
+    const ok = await updateContentItem(db, ws, {
       id: item.id,
       status: 'scheduled',
       scheduledAt: new Date('2026-06-01T08:00:00Z'),
@@ -178,7 +191,7 @@ describe('updateContentItem', () => {
   })
 
   it('returns null for a missing item', async () => {
-    expect(await updateContentItem(db, { id: missingId, title: 'X' })).toBeNull()
+    expect(await updateContentItem(db, ws, { id: missingId, title: 'X' })).toBeNull()
   })
 })
 
@@ -186,9 +199,9 @@ describe('rescheduleContentItem', () => {
   it('sets and clears scheduledAt without touching other fields', async () => {
     const item = await create({ title: 'T', channel: 'x', format: 'post' })
     const date = new Date('2026-07-01T15:30:00Z')
-    const moved = await rescheduleContentItem(db, item.id, date)
+    const moved = await rescheduleContentItem(db, ws, item.id, date)
     expect(moved).toMatchObject({ scheduledAt: date, status: 'idea', title: 'T' })
-    const cleared = await rescheduleContentItem(db, item.id, null)
+    const cleared = await rescheduleContentItem(db, ws, item.id, null)
     expect(cleared?.scheduledAt).toBeNull()
   })
 
@@ -201,12 +214,12 @@ describe('rescheduleContentItem', () => {
       scheduledAt: '2026-07-01T15:30:00Z',
     })
     await expect(
-      rescheduleContentItem(db, item.id, null),
+      rescheduleContentItem(db, ws, item.id, null),
     ).rejects.toBeInstanceOf(ContentRuleError)
   })
 
   it('returns null for a missing item', async () => {
-    expect(await rescheduleContentItem(db, missingId, null)).toBeNull()
+    expect(await rescheduleContentItem(db, ws, missingId, null)).toBeNull()
   })
 })
 
@@ -214,17 +227,17 @@ describe('changeContentItemStatus', () => {
   it('fills publishedAt when publishing', async () => {
     const item = await create({ title: 'T', channel: 'x', format: 'post' })
     const now = new Date('2026-08-01T12:00:00Z')
-    const published = await changeContentItemStatus(db, item.id, 'published', now)
+    const published = await changeContentItemStatus(db, ws, item.id, 'published', now)
     expect(published).toMatchObject({ status: 'published', publishedAt: now })
   })
 
   it('requires a date before scheduling', async () => {
     const item = await create({ title: 'T', channel: 'x', format: 'post' })
     await expect(
-      changeContentItemStatus(db, item.id, 'scheduled'),
+      changeContentItemStatus(db, ws, item.id, 'scheduled'),
     ).rejects.toBeInstanceOf(ContentRuleError)
-    await rescheduleContentItem(db, item.id, new Date('2026-08-02T09:00:00Z'))
-    expect((await changeContentItemStatus(db, item.id, 'scheduled'))?.status).toBe(
+    await rescheduleContentItem(db, ws, item.id, new Date('2026-08-02T09:00:00Z'))
+    expect((await changeContentItemStatus(db, ws, item.id, 'scheduled'))?.status).toBe(
       'scheduled',
     )
   })
@@ -239,12 +252,12 @@ describe('simultaneous changes to one item', () => {
     for (let round = 0; round < 5; round += 1) {
       const item = await create({ title: `R${round}`, channel: 'x', format: 'post' })
       const [published, rescheduled] = await Promise.all([
-        changeContentItemStatus(db, item.id, 'published'),
-        rescheduleContentItem(db, item.id, when),
+        changeContentItemStatus(db, ws, item.id, 'published'),
+        rescheduleContentItem(db, ws, item.id, when),
       ])
       expect(published?.status).toBe('published')
       expect(rescheduled?.scheduledAt).toEqual(when)
-      const saved = await getContentItem(db, item.id)
+      const saved = await getContentItem(db, ws, item.id)
       expect(saved).toMatchObject({ status: 'published', scheduledAt: when })
       expect(saved?.publishedAt).toBeInstanceOf(Date)
     }
@@ -253,8 +266,8 @@ describe('simultaneous changes to one item', () => {
   it('moves updatedAt forward on every change, even within a millisecond', async () => {
     const item = await create({ title: 'T', channel: 'x', format: 'post' })
     const frozen = new Date('2000-01-01T00:00:00Z')
-    const first = await changeContentItemStatus(db, item.id, 'draft', frozen)
-    const second = await changeContentItemStatus(db, item.id, 'ready', frozen)
+    const first = await changeContentItemStatus(db, ws, item.id, 'draft', frozen)
+    const second = await changeContentItemStatus(db, ws, item.id, 'ready', frozen)
     expect(first!.updatedAt.getTime()).toBeGreaterThan(item.updatedAt.getTime())
     expect(second!.updatedAt.getTime()).toBeGreaterThan(first!.updatedAt.getTime())
   })
@@ -263,14 +276,29 @@ describe('simultaneous changes to one item', () => {
 describe('deleteContentItem', () => {
   it('deletes once and reports missing items', async () => {
     const item = await create({ title: 'T', channel: 'x', format: 'post' })
-    expect(await deleteContentItem(db, item.id)).toBe(true)
-    expect(await getContentItem(db, item.id)).toBeNull()
-    expect(await deleteContentItem(db, item.id)).toBe(false)
+    expect(await deleteContentItem(db, ws, item.id)).toBe(true)
+    expect(await getContentItem(db, ws, item.id)).toBeNull()
+    expect(await deleteContentItem(db, ws, item.id)).toBe(false)
   })
 })
 
 describe('listTeamMembers', () => {
-  it('returns id, name and email ordered by name', async () => {
-    expect(await listTeamMembers(db)).toEqual([alice, bob])
+  it('returns the workspace members (id, name, email) ordered by name', async () => {
+    expect(await listTeamMembers(db, ws)).toEqual([alice, bob])
+    expect(await listTeamMembers(db, otherWs)).toEqual([carol])
+  })
+})
+
+describe('workspace isolation', () => {
+  it('never shows or changes an item from another workspace', async () => {
+    const item = await create({ title: 'Secret', channel: 'x', format: 'post' })
+    expect(await listContentItems(db, ws)).toEqual([item])
+    expect(await listContentItems(db, otherWs)).toEqual([])
+    expect(await getContentItem(db, otherWs, item.id)).toBeNull()
+    expect(await updateContentItem(db, otherWs, { id: item.id, title: 'Hacked' })).toBeNull()
+    expect(await rescheduleContentItem(db, otherWs, item.id, new Date())).toBeNull()
+    expect(await changeContentItemStatus(db, otherWs, item.id, 'draft')).toBeNull()
+    expect(await deleteContentItem(db, otherWs, item.id)).toBe(false)
+    expect(await getContentItem(db, ws, item.id)).toEqual(item)
   })
 })

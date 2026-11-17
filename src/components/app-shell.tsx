@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Link,
   Outlet,
@@ -6,7 +6,18 @@ import {
   useMatchRoute,
   useRouter,
 } from '@tanstack/react-router'
-import { CalendarDays, List, LogOut, Moon, SquareKanban, Sun } from 'lucide-react'
+import {
+  CalendarDays,
+  Check,
+  ChevronsUpDown,
+  List,
+  LogOut,
+  Moon,
+  Plus,
+  SquareKanban,
+  Sun,
+  Users,
+} from 'lucide-react'
 import { useState } from 'react'
 import {
   Sidebar,
@@ -24,10 +35,20 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { WebMcpTools } from '@/components/webmcp-tools'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
 import { setTheme, useTheme } from '@/lib/theme'
+import { myWorkspacesQueryOptions, unwrapAuth } from '@/lib/workspace.queries'
+import { toast } from 'sonner'
 
 const appRoute = getRouteApi('/_app')
 
@@ -35,6 +56,7 @@ const navItems = [
   { to: '/calendar', label: 'Calendário', icon: CalendarDays },
   { to: '/pipeline', label: 'Pipeline', icon: SquareKanban },
   { to: '/content', label: 'Conteúdos', icon: List },
+  { to: '/team', label: 'Equipe', icon: Users },
 ] as const
 
 /**
@@ -115,6 +137,15 @@ function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <WorkspaceSwitcher />
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupContent>
             <SidebarMenu aria-label="Principal">
               {navItems.map(({ to, label, icon: Icon }) => (
                 <SidebarMenuItem key={to}>
@@ -162,6 +193,70 @@ function AppSidebar() {
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+  )
+}
+
+/**
+ * The open workspace, and a menu to switch to another one or create one.
+ * Switching changes the session's active organization; everything cached
+ * belongs to the previous workspace, so the cache is dropped.
+ */
+function WorkspaceSwitcher() {
+  const { workspace } = appRoute.useRouteContext()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const { setOpenMobile } = useSidebar()
+  const [open, setOpen] = useState(false)
+  const workspaces = useQuery({ ...myWorkspacesQueryOptions(), enabled: open })
+
+  async function switchTo(organizationId: string) {
+    if (organizationId === workspace.id) return
+    try {
+      await unwrapAuth(
+        authClient.organization.setActive({ organizationId }),
+        'Não foi possível trocar de workspace.',
+      )
+    } catch (error) {
+      toast.error((error as Error).message)
+      return
+    }
+    setOpenMobile(false)
+    queryClient.clear()
+    await router.invalidate()
+    await router.navigate({ to: '/calendar' })
+  }
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <SidebarMenuButton tooltip={workspace.name} className="font-medium">
+          <span
+            aria-hidden
+            className="bg-lime text-ink flex size-4 shrink-0 items-center justify-center rounded-[4px] text-[0.625rem] font-semibold"
+          >
+            {Array.from(workspace.name)[0]?.toUpperCase()}
+          </span>
+          <span className="truncate">{workspace.name}</span>
+          <ChevronsUpDown className="ml-auto" />
+        </SidebarMenuButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-56">
+        <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+        {(workspaces.data ?? [workspace]).map((item) => (
+          <DropdownMenuItem key={item.id} onSelect={() => void switchTo(item.id)}>
+            <span className="truncate">{item.name}</span>
+            {item.id === workspace.id ? <Check className="ml-auto" /> : null}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/workspaces/new" onClick={() => setOpenMobile(false)}>
+            <Plus />
+            Novo workspace
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

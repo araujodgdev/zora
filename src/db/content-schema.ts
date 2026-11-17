@@ -8,7 +8,7 @@ import {
 } from 'drizzle-orm/sqlite-core'
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core'
 import { CHANNELS, FORMATS, STATUSES } from '../lib/content'
-import { user } from './auth-schema'
+import { organization, user } from './auth-schema'
 
 // SQLite has no enums: the columns are text, typed by `enum` in TypeScript and
 // guarded by a CHECK constraint built from the same lists. DDL cannot take bound
@@ -28,6 +28,12 @@ export const contentItem = sqliteTable(
     id: text('id')
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
+    // The workspace (Better Auth organization) the item belongs to. Every
+    // query in content.server.ts is scoped by it. Workspace deletion is
+    // disabled, so `restrict` never blocks a normal flow.
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
     title: text('title').notNull(),
     body: text('body').notNull().default(''),
     channel: text('channel', { enum: CHANNELS }).notNull(),
@@ -54,6 +60,7 @@ export const contentItem = sqliteTable(
       .$onUpdate(() => new Date()),
   },
   (table) => [
+    index('content_item_organization_id_idx').on(table.organizationId),
     index('content_item_scheduled_at_idx').on(table.scheduledAt),
     index('content_item_status_idx').on(table.status),
     index('content_item_assignee_id_idx').on(table.assigneeId),

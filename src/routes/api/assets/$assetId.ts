@@ -7,7 +7,7 @@ import {
 } from '@/lib/content-assets.server'
 import { getMediaBucket } from '@/lib/media-bucket.server'
 import { getRequestServices } from '@/lib/services.server'
-import { findSessionUser } from '@/lib/session.server'
+import { findSessionState } from '@/lib/session.server'
 
 // Serves an uploaded file to signed-in users, for `<img>`, `<video>` and links
 // (the session cookie goes along with those requests).
@@ -16,11 +16,14 @@ export const Route = createFileRoute('/api/assets/$assetId')({
     handlers: {
       GET: async ({ request, params }) => {
         const { auth, db } = getRequestServices()
-        if (!(await findSessionUser(auth, request.headers))) {
-          return new Response('Unauthorized', { status: 401 })
-        }
+        const state = await findSessionState(auth, db, request.headers)
+        if (!state) return new Response('Unauthorized', { status: 401 })
+        // Only files of the workspace the user has open.
         const id = z.uuid().safeParse(params.assetId)
-        const asset = id.success ? await getContentAsset(db, id.data) : null
+        const asset =
+          id.success && state.workspace
+            ? await getContentAsset(db, state.workspace.id, id.data)
+            : null
         if (!asset) return new Response('Not found', { status: 404 })
 
         const ranged = request.headers.has('range')

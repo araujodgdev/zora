@@ -5,7 +5,9 @@ import { readSidebarOpen } from '@/lib/sidebar-state'
 /**
  * Pathless layout for every signed-in page. Put protected pages in
  * `src/routes/_app/`. The guard is route UX; server functions still check the
- * session themselves through `authMiddleware`.
+ * session and the workspace themselves through `authMiddleware`.
+ *
+ * Signed-in users without a workspace go to `/workspaces/new`.
  */
 export const Route = createFileRoute('/_app')({
   beforeLoad: ({ context, location }) => {
@@ -15,7 +17,12 @@ export const Route = createFileRoute('/_app')({
         search: { redirect: location.href },
       })
     }
-    return { user: context.user, sidebarOpen: readSidebarOpen() }
+    if (!context.workspace) throw redirect({ to: '/workspaces/new' })
+    return {
+      user: context.user,
+      workspace: context.workspace,
+      sidebarOpen: readSidebarOpen(),
+    }
   },
   component: AppShell,
 })

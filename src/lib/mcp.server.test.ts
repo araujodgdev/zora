@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
-import { closeTestDb, createTestDb, resetDatabase } from '../../test/db'
+import { closeTestDb, createTestDb, resetDatabase, seedWorkspace } from '../../test/db'
 import { user } from '../db/schema'
 import type { MediaBucket, MediaObject } from './content-assets.server'
 import {
@@ -29,12 +29,14 @@ const bucket: MediaBucket = {
     for (const key of Array.isArray(keys) ? keys : [keys]) objects.delete(key)
   },
 }
-const deps: McpDeps = { db, bucket, user: ana, appUrl: 'https://zora.test' }
+const workspace = { id: 'ws-signum', name: 'Signum', slug: 'ws-signum', role: 'owner' }
+const deps: McpDeps = { db, bucket, user: ana, workspace, appUrl: 'https://zora.test' }
 
 beforeEach(async () => {
   await resetDatabase(db)
   objects.clear()
   await db.insert(user).values({ ...ana, emailVerified: true })
+  await seedWorkspace(db, workspace.id, [ana.id], workspace.name)
 })
 
 async function call(name: string, args: unknown = {}) {
@@ -160,6 +162,9 @@ describe('over JSON-RPC', () => {
 
   it('calls a tool', async () => {
     const { body } = await rpc('tools/call', { name: 'get_current_user', arguments: {} })
-    expect(JSON.parse(body.result.content[0].text)).toEqual(ana)
+    expect(JSON.parse(body.result.content[0].text)).toEqual({
+      ...ana,
+      workspace: { id: workspace.id, name: 'Signum' },
+    })
   })
 })

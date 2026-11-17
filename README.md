@@ -23,16 +23,18 @@ pnpm env:setup      # creates .env from .env.example with a generated auth secre
 ```
 
 Open `.env` and set `ALLOWED_SIGNUP_EMAILS` to the comma-separated emails of
-the people who may create an account (matching ignores case). Nobody else can
-sign up.
+the people who may create an account without an invitation (matching ignores
+case). Everyone else joins through an invitation from a workspace's **Equipe**
+page; a pending invitation lets its email sign up.
 
 ```sh
 pnpm db:migrate     # applies the migrations in ./drizzle to the local D1 database
 pnpm dev            # http://localhost:3000
 ```
 
-Open http://localhost:3000, choose **Create an account**, and sign up with an
-allowlisted email.
+Open http://localhost:3000, choose **Criar conta**, sign up with an
+allowlisted email and create your workspace. Invitation emails are not sent
+locally: the dev server logs them (and saves them under `.wrangler/tmp/email`).
 
 Local data lives in `.wrangler/state` (git-ignored); delete that folder to start
 from an empty database, then run `pnpm db:migrate` again.
@@ -80,8 +82,10 @@ an agent in the browser also gets tools for the open tab.
 
 Live at https://zora.lume.software (a Custom Domain on the `lume.software`
 zone; the `workers.dev` URL is turned off): one Cloudflare Worker (`zora`) with
-the D1 database `zora` (binding `DB`) and the R2 bucket `zora-media` (binding
-`MEDIA`), on the account set as `account_id` in `wrangler.jsonc`.
+the D1 database `zora` (binding `DB`), the R2 bucket `zora-media` (binding
+`MEDIA`) and Cloudflare Email Sending from `notify.lume.software` (binding
+`EMAIL`, for invitations; needs the Workers Paid plan to reach any address),
+on the account set as `account_id` in `wrangler.jsonc`.
 
 `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `ALLOWED_SIGNUP_EMAILS` are Worker
 secrets (`pnpm exec wrangler secret list`). To change the allowlist:
@@ -89,10 +93,18 @@ secrets (`pnpm exec wrangler secret list`). To change the allowlist:
 seconds, no deploy needed). If the app moves to another URL, update
 `BETTER_AUTH_URL` the same way.
 
-To deploy a new version:
+Deploys run on Cloudflare **Workers Builds**, connected to `main` of the
+GitHub repository: every push to `main` builds and deploys. Settings (Workers
+& Pages > `zora` > Settings > Builds):
 
-1. `pnpm db:migrate:remote` when there are new migrations.
-2. `pnpm build && pnpm exec wrangler deploy`. (`pnpm deploy` is a pnpm
-   built-in, not this project's script.)
+- Build command: `pnpm build`
+- Deploy command: `pnpm deploy:ci` (applies pending D1 migrations, then
+  `wrangler deploy`; migrations always run before the new code goes live)
+- API token: needs **D1 (edit)** besides the Workers permissions, because of
+  the migrations. The token Workers Builds creates by default does not have it.
+
+pnpm comes from the `packageManager` field (Corepack). To deploy by hand
+instead, run `pnpm build && pnpm deploy:ci` from a machine logged in with
+Wrangler. (`pnpm deploy` is a pnpm built-in, not this project's script.)
 
 See AGENTS.md for production caveats (Workers CPU limits, D1 limits).

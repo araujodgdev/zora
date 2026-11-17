@@ -7,6 +7,8 @@ declare module 'cloudflare:workers' {
     DB: import('drizzle-orm/d1').AnyD1Database
     /** R2 bucket for uploaded media. */
     MEDIA: import('./lib/content-assets.server').MediaBucket
+    /** Cloudflare Email Sending, for invitation emails. */
+    EMAIL: import('./lib/mailer.server').Mailer
   }
 }
 

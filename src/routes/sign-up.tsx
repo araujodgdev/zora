@@ -74,7 +74,7 @@ function SignUpPage() {
   const [formError, setFormError] = useState<string | null>(null)
 
   const form = useForm({
-    defaultValues: { name: '', email: '', password: '' },
+    defaultValues: { name: '', email: search.email ?? '', password: '' },
     validators: { onSubmit: signUpSchema },
     onSubmit: async ({ value }) => {
       setFormError(null)
@@ -103,7 +103,7 @@ function SignUpPage() {
         <CardHeader>
           <CardTitle>Criar sua conta</CardTitle>
           <CardDescription>
-            O cadastro é liberado só para e-mails convidados da equipe.
+            O cadastro é liberado só para e-mails convidados para um workspace.
           </CardDescription>
         </CardHeader>
         <form
@@ -159,7 +159,7 @@ function SignUpPage() {
               )}
             </form.Subscribe>
             <p className="text-muted-foreground text-sm">
-              Already have an account?{' '}
+              Já tem conta?{' '}
               {oauthSearch ? (
                 <a href={`/sign-in${oauthSearch}`} className="text-foreground underline underline-offset-4">
                   Entrar
@@ -167,7 +167,7 @@ function SignUpPage() {
               ) : (
                 <Link
                   to="/sign-in"
-                  search={{ redirect: search.redirect }}
+                  search={{ redirect: search.redirect, email: search.email }}
                   className="text-foreground underline underline-offset-4"
                 >
                   Entrar

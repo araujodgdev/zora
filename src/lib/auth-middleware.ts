@@ -4,7 +4,8 @@ import {
   setResponseStatus,
 } from '@tanstack/react-start/server'
 import { getRequestServices } from './services.server'
-import { UnauthorizedError, requireSessionUser } from './session.server'
+import { UnauthorizedError, requireWorkspaceSession } from './session.server'
+import { NoWorkspaceError } from './workspace.server'
 
 /**
  * Server function middleware that requires a signed-in user.
@@ -15,20 +16,25 @@ import { UnauthorizedError, requireSessionUser } from './session.server'
  *     .middleware([authMiddleware])
  *     .handler(({ context }) => { context.user; context.db })
  *
- * It rejects requests without a valid session (HTTP 401) and provides
- * `context.user` (id, name, email) and `context.db` (this request's Drizzle
- * client). Route guards (`beforeLoad`) are UX only; this is the data boundary.
+ * It rejects requests without a valid session (HTTP 401) or without a
+ * workspace the user belongs to (HTTP 403), and provides `context.user` (id,
+ * name, email), `context.workspace` (the workspace the request acts in; scope
+ * every query by `context.workspace.id`) and `context.db` (this request's
+ * Drizzle client). Route guards (`beforeLoad`) are UX only; this is the data
+ * boundary.
  */
 export const authMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
     const { auth, db } = getRequestServices()
-    const user = await requireSessionUser(
+    const { user, workspace } = await requireWorkspaceSession(
       auth,
+      db,
       new Headers(getRequestHeaders()),
     ).catch((error: unknown) => {
       if (error instanceof UnauthorizedError) setResponseStatus(401)
+      if (error instanceof NoWorkspaceError) setResponseStatus(403)
       throw error
     })
-    return next({ context: { user, db } })
+    return next({ context: { user, workspace, db } })
   },
 )

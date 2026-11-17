@@ -2,7 +2,7 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
 import { mcp } from '@better-auth/mcp'
 import { APIError } from 'better-auth/api'
 import { betterAuth } from 'better-auth/minimal'
-import { jwt } from 'better-auth/plugins'
+import { jwt, organization } from 'better-auth/plugins'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import * as authSchema from '../db/auth-schema'
 import type { Database } from '../db/client.server'
@@ -12,6 +12,7 @@ import {
   parseAllowlist,
 } from './allowlist'
 import type { ServerEnv } from './env.server'
+import { hasPendingInvitation, initialWorkspaceId } from './workspace.server'
 
 /**
  * The MCP endpoint (`src/routes/mcp.ts`) as an OAuth protected resource: MCP
@@ -20,6 +21,9 @@ import type { ServerEnv } from './env.server'
 export function mcpResourceUrl(baseUrl: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/mcp`
 }
+
+/** How long an invitation link works (the email says 7 days). */
+export const INVITATION_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60
 
 export type AuthEnv = Pick<
   ServerEnv,
@@ -58,15 +62,30 @@ export function createAuth(db: Database, env: AuthEnv) {
     databaseHooks: {
       user: {
         create: {
-          // The sign-up allowlist. Enforced at user creation so it covers
-          // every path that can create a user, not only the sign-up form.
+          // Who may sign up: anyone with a pending workspace invitation, or
+          // an email on the env allowlist (the backup path). Enforced at user
+          // creation so it covers every path that can create a user.
           before: async (user) => {
-            if (!isEmailAllowed(user.email, allowlist)) {
+            if (
+              !isEmailAllowed(user.email, allowlist) &&
+              !(await hasPendingInvitation(db, user.email))
+            ) {
               throw new APIError('FORBIDDEN', {
                 message: SIGNUP_NOT_ALLOWED_MESSAGE,
               })
             }
             return { data: user }
+          },
+        },
+      },
+      session: {
+        create: {
+          // A new session opens the user's oldest workspace. Switching later
+          // goes through `organization.setActive`.
+          before: async (session) => {
+            if (session.activeOrganizationId) return { data: session }
+            const activeOrganizationId = await initialWorkspaceId(db, session.userId)
+            return { data: { ...session, activeOrganizationId } }
           },
         },
       },
@@ -77,6 +96,17 @@ export function createAuth(db: Database, env: AuthEnv) {
     plugins: [
       // Signing keys (stored in the `jwks` table) for OAuth access tokens.
       jwt({ disableSettingJwtHeader: true }),
+      // Workspaces: every content item belongs to one organization; members
+      // join through invitations (`/invite/<id>`). Owners and admins invite
+      // (the plugin's default permissions). The invitation email is sent by
+      // `inviteToWorkspace` (invitations.server.ts), not `sendInvitationEmail`:
+      // Better Auth only logs that hook's errors, and the inviter must know
+      // when the email did not go out.
+      organization({
+        // Deleting would orphan the media of its items in R2; not offered.
+        disableOrganizationDeletion: true,
+        invitationExpiresIn: INVITATION_EXPIRES_IN_SECONDS,
+      }),
       // Zora as the OAuth 2.1 authorization server for MCP clients (Claude,
       // ChatGPT, editors): they send the user through /sign-in and /consent,
       // then call /mcp with an access token bound to that user.

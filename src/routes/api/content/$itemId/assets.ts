@@ -7,7 +7,7 @@ import {
 import { contentItemIdSchema } from '@/lib/content'
 import { getMediaBucket } from '@/lib/media-bucket.server'
 import { getRequestServices } from '@/lib/services.server'
-import { findSessionUser } from '@/lib/session.server'
+import { findSessionState } from '@/lib/session.server'
 
 function problem(status: number, error: string) {
   return Response.json({ error }, { status })
@@ -28,8 +28,10 @@ export const Route = createFileRoute('/api/content/$itemId/assets')({
     handlers: {
       POST: async ({ request, params }) => {
         const { auth, db } = getRequestServices()
-        const user = await findSessionUser(auth, request.headers)
-        if (!user) return problem(401, 'Não autorizado: entre para continuar.')
+        const state = await findSessionState(auth, db, request.headers)
+        if (!state) return problem(401, 'Não autorizado: entre para continuar.')
+        const { user, workspace } = state
+        if (!workspace) return problem(404, 'Item de conteúdo não encontrado.')
 
         const id = contentItemIdSchema.safeParse({ id: params.itemId })
         if (!id.success) return problem(404, 'Item de conteúdo não encontrado.')
@@ -42,6 +44,7 @@ export const Route = createFileRoute('/api/content/$itemId/assets')({
 
         try {
           const asset = await createContentAsset(db, getMediaBucket(), {
+            organizationId: workspace.id,
             contentItemId: id.data.id,
             createdById: user.id,
             file: {
