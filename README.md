@@ -63,6 +63,19 @@ All live in `.env` locally (git-ignored; `.env.example` documents them).
 | `BETTER_AUTH_URL` | Public base URL of the app |
 | `ALLOWED_SIGNUP_EMAILS` | Comma-separated emails allowed to sign up |
 
+## Connecting an AI agent (MCP)
+
+Zora is an MCP server at `<app URL>/mcp` (production:
+`https://zora.lume.software/mcp`). Add it as a custom connector in Claude
+(Settings, Connectors) or with
+`claude mcp add --transport http zora https://zora.lume.software/mcp` in
+Claude Code. The client opens Zora's sign-in page, you approve it on the
+consent page, and the agent then acts as you. There is no screen yet to
+revoke an agent's access; see "Known gaps" in docs/PLAN.md.
+
+In Chrome with WebMCP (origin trial, or `chrome://flags/#enable-webmcp-testing`),
+an agent in the browser also gets tools for the open tab.
+
 ## Production
 
 Live at https://zora.lume.software (a Custom Domain on the `lume.software`

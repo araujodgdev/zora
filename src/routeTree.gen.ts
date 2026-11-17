@@ -11,8 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as ConsentRouteImport } from './routes/consent'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as DotwellKnownSplatRouteImport } from './routes/[.]well-known/$'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
 import { Route as AppPipelineRouteImport } from './routes/_app/pipeline'
 import { Route as AppContentIndexRouteImport } from './routes/_app/content/index'
@@ -31,6 +34,16 @@ const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConsentRoute = ConsentRouteImport.update({
+  id: '/consent',
+  path: '/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -39,6 +52,11 @@ const SignInRoute = SignInRouteImport.update({
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DotwellKnownSplatRoute = DotwellKnownSplatRouteImport.update({
+  id: '/.well-known/$',
+  path: '/.well-known/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppCalendarRoute = AppCalendarRouteImport.update({
@@ -84,8 +102,11 @@ const ApiContentItemIdAssetsRoute = ApiContentItemIdAssetsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/consent': typeof ConsentRoute
+  '/mcp': typeof McpRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/.well-known/$': typeof DotwellKnownSplatRoute
   '/calendar': typeof AppCalendarRoute
   '/pipeline': typeof AppPipelineRoute
   '/content/$itemId': typeof AppContentItemIdRoute
@@ -97,8 +118,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/consent': typeof ConsentRoute
+  '/mcp': typeof McpRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/.well-known/$': typeof DotwellKnownSplatRoute
   '/calendar': typeof AppCalendarRoute
   '/pipeline': typeof AppPipelineRoute
   '/content/$itemId': typeof AppContentItemIdRoute
@@ -112,8 +136,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/consent': typeof ConsentRoute
+  '/mcp': typeof McpRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/.well-known/$': typeof DotwellKnownSplatRoute
   '/_app/calendar': typeof AppCalendarRoute
   '/_app/pipeline': typeof AppPipelineRoute
   '/_app/content/$itemId': typeof AppContentItemIdRoute
@@ -127,8 +154,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/consent'
+    | '/mcp'
     | '/sign-in'
     | '/sign-up'
+    | '/.well-known/$'
     | '/calendar'
     | '/pipeline'
     | '/content/$itemId'
@@ -140,8 +170,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/consent'
+    | '/mcp'
     | '/sign-in'
     | '/sign-up'
+    | '/.well-known/$'
     | '/calendar'
     | '/pipeline'
     | '/content/$itemId'
@@ -154,8 +187,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
+    | '/consent'
+    | '/mcp'
     | '/sign-in'
     | '/sign-up'
+    | '/.well-known/$'
     | '/_app/calendar'
     | '/_app/pipeline'
     | '/_app/content/$itemId'
@@ -169,8 +205,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  ConsentRoute: typeof ConsentRoute
+  McpRoute: typeof McpRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  DotwellKnownSplatRoute: typeof DotwellKnownSplatRoute
   ApiAssetsAssetIdRoute: typeof ApiAssetsAssetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiContentItemIdAssetsRoute: typeof ApiContentItemIdAssetsRoute
@@ -192,6 +231,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/consent': {
+      id: '/consent'
+      path: '/consent'
+      fullPath: '/consent'
+      preLoaderRoute: typeof ConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sign-in': {
       id: '/sign-in'
       path: '/sign-in'
@@ -204,6 +257,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/$': {
+      id: '/.well-known/$'
+      path: '/.well-known/$'
+      fullPath: '/.well-known/$'
+      preLoaderRoute: typeof DotwellKnownSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/calendar': {
@@ -286,8 +346,11 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  ConsentRoute: ConsentRoute,
+  McpRoute: McpRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  DotwellKnownSplatRoute: DotwellKnownSplatRoute,
   ApiAssetsAssetIdRoute: ApiAssetsAssetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiContentItemIdAssetsRoute: ApiContentItemIdAssetsRoute,

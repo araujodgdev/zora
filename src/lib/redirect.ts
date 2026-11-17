@@ -22,3 +22,12 @@ export function safeRedirectPath(value: string | undefined): string {
 export const authPageSearchSchema = z.object({
   redirect: z.string().optional(),
 })
+
+/**
+ * Whether the page was opened by Better Auth's OAuth provider while an MCP
+ * client signs a user in (the URL carries a signed authorization request).
+ * Better Auth then decides the next step, so the page must not redirect.
+ */
+export function isOAuthContinuation(search: string): boolean {
+  return new URLSearchParams(search).has('sig')
+}

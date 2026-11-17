@@ -24,6 +24,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar'
+import { WebMcpTools } from '@/components/webmcp-tools'
 import { authClient } from '@/lib/auth-client'
 
 const appRoute = getRouteApi('/_app')
@@ -43,6 +44,7 @@ export function AppShell() {
   const { sidebarOpen } = appRoute.useRouteContext()
   return (
     <SidebarProvider defaultOpen={sidebarOpen}>
+      <WebMcpTools />
       <AppSidebar />
       <SidebarInset>
         <SidebarTrigger className="m-2 md:hidden" />

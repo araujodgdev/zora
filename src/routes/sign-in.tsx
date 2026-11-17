@@ -21,7 +21,11 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth-client'
-import { authPageSearchSchema, safeRedirectPath } from '@/lib/redirect'
+import {
+  authPageSearchSchema,
+  isOAuthContinuation,
+  safeRedirectPath,
+} from '@/lib/redirect'
 
 const signInSchema = z.object({
   email: z.email({ message: 'Enter a valid email address.' }),
@@ -30,8 +34,10 @@ const signInSchema = z.object({
 
 export const Route = createFileRoute('/sign-in')({
   validateSearch: authPageSearchSchema,
-  beforeLoad: ({ context, search }) => {
-    if (context.user) throw redirect({ href: safeRedirectPath(search.redirect) })
+  beforeLoad: ({ context, search, location }) => {
+    if (context.user && !isOAuthContinuation(location.searchStr)) {
+      throw redirect({ href: safeRedirectPath(search.redirect) })
+    }
   },
   head: () => ({ meta: [{ title: 'Sign in · Zora' }] }),
   component: SignInPage,
@@ -41,6 +47,11 @@ function SignInPage() {
   const search = Route.useSearch()
   const router = useRouter()
   const hydrated = useHydrated()
+  // During an MCP client's sign-in, keep its signed request across pages.
+  const oauthSearch =
+    hydrated && isOAuthContinuation(window.location.search)
+      ? window.location.search
+      : null
   const [formError, setFormError] = useState<string | null>(null)
 
   const form = useForm({
@@ -48,11 +59,13 @@ function SignInPage() {
     validators: { onSubmit: signInSchema },
     onSubmit: async ({ value }) => {
       setFormError(null)
-      const { error } = await authClient.signIn.email(value)
+      const { data, error } = await authClient.signIn.email(value)
       if (error) {
         setFormError(error.message ?? 'Sign-in failed. Please try again.')
         return
       }
+      // Signing in for an MCP client: the auth client follows the redirect.
+      if (data.redirect) return
       await router.invalidate()
       await router.navigate({ href: safeRedirectPath(search.redirect) })
     },
@@ -134,13 +147,19 @@ function SignInPage() {
             </form.Subscribe>
             <p className="text-muted-foreground text-sm">
               New to the team?{' '}
-              <Link
-                to="/sign-up"
-                search={{ redirect: search.redirect }}
-                className="text-foreground underline underline-offset-4"
-              >
-                Create an account
-              </Link>
+              {oauthSearch ? (
+                <a href={`/sign-up${oauthSearch}`} className="text-foreground underline underline-offset-4">
+                  Create an account
+                </a>
+              ) : (
+                <Link
+                  to="/sign-up"
+                  search={{ redirect: search.redirect }}
+                  className="text-foreground underline underline-offset-4"
+                >
+                  Create an account
+                </Link>
+              )}
             </p>
           </CardFooter>
         </form>

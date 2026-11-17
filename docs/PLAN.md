@@ -125,13 +125,36 @@ commands and the contracts that the steps below build on; read it first.
   (editor, calendar, pipeline, media upload up to 90 MB, delete cascading to
   R2) against the local D1.
 
+### 9. Sidebar, MCP server and WebMCP
+
+- The top navigation is a sidebar that collapses to icons (Ctrl/Cmd+B), so
+  pages get the full height.
+- `POST /mcp`: an MCP server (Streamable HTTP, stateless) with 12 tools over
+  the same service functions as the UI: list/get/create/update/reschedule/
+  move/delete items, team members, and upload/view/delete media.
+- Agents authenticate with OAuth: Better Auth's MCP plugin makes Zora the
+  authorization server. Clients register themselves (dynamic client
+  registration, rate-limited to 10 per minute), the user signs in on
+  `/sign-in` and approves on `/consent`; tokens act as that user.
+- WebMCP: the signed-in app registers the same actions (plus "open page" and
+  "start a new item") as browser tools, so an agent in Chrome operates the
+  open tab; changes show on screen and deletes ask the user to confirm.
+- Checked: 107 tests, the full OAuth + MCP flow in Chrome against the dev
+  server (register, sign in, sign up mid-flow, consent and deny, token,
+  tools, tampered token, refresh), the registration rate limit, and every
+  WebMCP tool in Chrome 157 with WebMCP enabled.
+
 ## Before launch
 
 - Deployed on 2026-11-16, served at https://zora.lume.software (see README.md
   "Production"). Checked there with a temporary test account, since removed:
   sign-up and sign-in, the editor, calendar and pipeline flows, media upload,
   playback and delete. The database and bucket were left empty.
-- The three partners create their accounts (the allowlist has three emails).
+- The production allowlist holds only the owner's email (placeholder
+  addresses were removed on 2026-11-16). Add the partners' emails with
+  `pnpm exec wrangler secret put ALLOWED_SIGNUP_EMAILS`, then they sign up.
+- Deploy the MCP work: `pnpm db:migrate:remote` (two new migrations), then
+  build and deploy.
 - Password hashing: sign-up and sign-in worked in production. If they ever
   fail with a CPU limit error (Workers Free allows 10 ms), move to Workers
   Paid or configure a cheaper hash.
@@ -140,6 +163,9 @@ commands and the contracts that the steps below build on; read it first.
 
 ## Known gaps
 
+- No screen to see or revoke the agents (OAuth clients) connected to your
+  account. Today it takes deleting rows from `oauth_consent` and
+  `oauth_refresh_token` in D1. Access tokens expire on their own.
 - Touch dragging and dark mode have not been tested.
 - The toast component reads a theme from `next-themes`, but no theme provider
   is mounted. It falls back to the system theme.

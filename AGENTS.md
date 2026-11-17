@@ -80,6 +80,9 @@ src/
     _app/content/new.tsx     /content/new: editor form, presets from the search
     _app/content/$itemId.tsx /content/$itemId: editor form (loader + not-found state)
     api/auth/$.ts            Better Auth HTTP handler
+    mcp.ts                   POST /mcp: MCP server behind OAuth (see "Agents")
+    consent.tsx              OAuth consent page for MCP clients
+    [.]well-known/$.ts       OAuth discovery documents (served by Better Auth)
     api/content/$itemId/assets.ts  POST: upload a file of an item (raw body)
     api/assets/$assetId.ts   GET: serve an uploaded file (session required, range support)
   lib/
@@ -352,6 +355,38 @@ function Column({ status, children }) {
 - It renders under SSR in `workerd` (verified); no client-only wrapper needed.
 - `DragOverlay` (`@dnd-kit/react`) and `useSortable` (`@dnd-kit/react/sortable`)
   are available if needed; ordering within a column is not persisted.
+
+## Agents: MCP server and WebMCP
+
+Both expose the same actions; their inputs and descriptions live in
+`@/lib/agent-tools` (client-safe, plain JSON-Schema-friendly zod shapes;
+handlers re-validate with the shared `@/lib/content` schemas).
+
+- **MCP server** (`src/routes/mcp.ts`, tools in `src/lib/mcp.server.ts`,
+  tested in `mcp.server.test.ts`): `POST /mcp`, stateless Streamable HTTP via
+  `@modelcontextprotocol/server` v2 (`createMcpHandler`, legacy 2025 clients
+  served statelessly too). Each request builds a fresh server for the token's
+  user. Tools call the `*.server.ts` service functions; rule violations come
+  back as `isError` results with the message. Add a tool by adding it to
+  `zoraTools` (and to `agentActions` if WebMCP should have it too).
+- **Auth**: Better Auth `mcp()` (OAuth 2.1 provider, `@better-auth/mcp`) +
+  `jwt()` signing keys, configured in `createAuth`. Discovery is served by
+  `auth.handler` from `src/routes/[.]well-known/$.ts`; `requireMcpAuth`
+  checks signature, issuer, audience (`mcpResourceUrl`) and expiry. Clients
+  register via DCR (`/api/auth/oauth2/register`, open but rate-limited in
+  D1; registering grants nothing until a user consents). CIMD was tried and
+  dropped: its fetch transport needs connection pinning that Workers cannot
+  give, and `cloudflare:sockets` refuses Cloudflare-hosted hosts.
+- **Sign-in during OAuth**: `/sign-in` and `/sign-up` must not redirect when
+  the URL carries a signed request (`isOAuthContinuation`); the auth client
+  (`oauthProviderClient`) follows Better Auth's `{ redirect, url }` itself.
+  `/consent` (`ssr: false`) verifies the signed query on the server before
+  showing the client and its redirect host.
+- **WebMCP** (`src/components/webmcp-tools.tsx`, typings in
+  `src/webmcp.d.ts`): registered with `document.modelContext.registerTool`
+  while the app shell is mounted, through the Query hooks so changes show on
+  screen. Deletes require `window.confirm`. Test in Chrome with
+  `--enable-features=WebMCP` (`getTools()` / `executeTool()`).
 
 ## Patterns
 

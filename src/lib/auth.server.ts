@@ -1,6 +1,8 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
+import { mcp } from '@better-auth/mcp'
 import { APIError } from 'better-auth/api'
 import { betterAuth } from 'better-auth/minimal'
+import { jwt } from 'better-auth/plugins'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import * as authSchema from '../db/auth-schema'
 import type { Database } from '../db/client.server'
@@ -10,6 +12,14 @@ import {
   parseAllowlist,
 } from './allowlist'
 import type { ServerEnv } from './env.server'
+
+/**
+ * The MCP endpoint (`src/routes/mcp.ts`) as an OAuth protected resource: MCP
+ * access tokens are issued for, and only accepted at, this URL.
+ */
+export function mcpResourceUrl(baseUrl: string): string {
+  return `${baseUrl.replace(/\/+$/, '')}/mcp`
+}
 
 export type AuthEnv = Pick<
   ServerEnv,
@@ -36,6 +46,15 @@ export function createAuth(db: Database, env: AuthEnv) {
       // Workers do not set X-Forwarded-For; Cloudflare sends the client IP here.
       ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] },
     },
+    // Per-request auth instances must not reset the counters. D1 shares them
+    // across Worker instances; especially important for anonymous registration.
+    rateLimit: {
+      enabled: true,
+      storage: 'database',
+      customRules: {
+        '/oauth2/register': { window: 60, max: 10 },
+      },
+    },
     databaseHooks: {
       user: {
         create: {
@@ -52,8 +71,29 @@ export function createAuth(db: Database, env: AuthEnv) {
         },
       },
     },
-    // Must stay last: lets auth.api calls set cookies through TanStack Start.
-    plugins: [tanstackStartCookies()],
+    // The JWT plugin's own `/token` endpoint would hand out session JWTs signed
+    // with the same key as MCP access tokens; OAuth clients use /oauth2/token.
+    disabledPaths: ['/token'],
+    plugins: [
+      // Signing keys (stored in the `jwks` table) for OAuth access tokens.
+      jwt({ disableSettingJwtHeader: true }),
+      // Zora as the OAuth 2.1 authorization server for MCP clients (Claude,
+      // ChatGPT, editors): they send the user through /sign-in and /consent,
+      // then call /mcp with an access token bound to that user.
+      mcp({
+        loginPage: '/sign-in',
+        consentPage: '/consent',
+        signup: { page: '/sign-up' },
+        resource: mcpResourceUrl(env.BETTER_AUTH_URL),
+        grantTypes: ['authorization_code', 'refresh_token'],
+        allowDynamicClientRegistration: true,
+        allowUnauthenticatedClientRegistration: true,
+        clientRegistrationDefaultApplicationType: 'infer',
+        clientRegistrationDefaultScopes: ['openid', 'profile', 'email', 'offline_access'],
+      }),
+      // Must stay last: lets auth.api calls set cookies through TanStack Start.
+      tanstackStartCookies(),
+    ],
   })
 }
 

@@ -9,3 +9,4 @@ declare module 'cloudflare:workers' {
     MEDIA: import('./lib/content-assets.server').MediaBucket
   }
 }
+

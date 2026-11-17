@@ -21,7 +21,11 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { authClient } from '@/lib/auth-client'
-import { authPageSearchSchema, safeRedirectPath } from '@/lib/redirect'
+import {
+  authPageSearchSchema,
+  isOAuthContinuation,
+  safeRedirectPath,
+} from '@/lib/redirect'
 
 // Client-side checks are for feedback only. The server enforces the email
 // allowlist and Better Auth's password rules (8–128 characters by default).
@@ -36,8 +40,10 @@ const signUpSchema = z.object({
 
 export const Route = createFileRoute('/sign-up')({
   validateSearch: authPageSearchSchema,
-  beforeLoad: ({ context, search }) => {
-    if (context.user) throw redirect({ href: safeRedirectPath(search.redirect) })
+  beforeLoad: ({ context, search, location }) => {
+    if (context.user && !isOAuthContinuation(location.searchStr)) {
+      throw redirect({ href: safeRedirectPath(search.redirect) })
+    }
   },
   head: () => ({ meta: [{ title: 'Create account · Zora' }] }),
   component: SignUpPage,
@@ -58,6 +64,11 @@ function SignUpPage() {
   const search = Route.useSearch()
   const router = useRouter()
   const hydrated = useHydrated()
+  // During an MCP client's sign-in, keep its signed request across pages.
+  const oauthSearch =
+    hydrated && isOAuthContinuation(window.location.search)
+      ? window.location.search
+      : null
   const [formError, setFormError] = useState<string | null>(null)
 
   const form = useForm({
@@ -65,7 +76,7 @@ function SignUpPage() {
     validators: { onSubmit: signUpSchema },
     onSubmit: async ({ value }) => {
       setFormError(null)
-      const { error } = await authClient.signUp.email({
+      const { data, error } = await authClient.signUp.email({
         name: value.name.trim(),
         email: value.email,
         password: value.password,
@@ -74,6 +85,8 @@ function SignUpPage() {
         setFormError(error.message ?? 'Sign-up failed. Please try again.')
         return
       }
+      // Signing up for an MCP client: the auth client follows the redirect.
+      if ('redirect' in data && data.redirect) return
       // Better Auth signs the user in after sign-up.
       await router.invalidate()
       await router.navigate({ href: safeRedirectPath(search.redirect) })
@@ -143,13 +156,19 @@ function SignUpPage() {
             </form.Subscribe>
             <p className="text-muted-foreground text-sm">
               Already have an account?{' '}
-              <Link
-                to="/sign-in"
-                search={{ redirect: search.redirect }}
-                className="text-foreground underline underline-offset-4"
-              >
-                Sign in
-              </Link>
+              {oauthSearch ? (
+                <a href={`/sign-in${oauthSearch}`} className="text-foreground underline underline-offset-4">
+                  Sign in
+                </a>
+              ) : (
+                <Link
+                  to="/sign-in"
+                  search={{ redirect: search.redirect }}
+                  className="text-foreground underline underline-offset-4"
+                >
+                  Sign in
+                </Link>
+              )}
             </p>
           </CardFooter>
         </form>
