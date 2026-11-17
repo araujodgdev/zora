@@ -341,7 +341,7 @@ export function ContentItemForm({
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') event.preventDefault()
                   }}
-                  className="font-display placeholder:text-muted-foreground/60 min-h-0 resize-none rounded-lg border-transparent bg-transparent px-2 py-1 -mx-2 text-4xl leading-[1.1] font-semibold tracking-[-0.02em] shadow-none hover:bg-white/[0.03] focus-visible:bg-white/[0.03] md:text-5xl dark:bg-transparent"
+                  className="font-display placeholder:text-muted-foreground/60 min-h-0 resize-none rounded-lg border-transparent bg-transparent px-2 py-1 -mx-2 text-4xl leading-[1.1] font-semibold tracking-[-0.02em] shadow-none hover:bg-foreground/[0.03] focus-visible:bg-foreground/[0.03] md:text-5xl dark:bg-transparent"
                   {...errorProps('item-title', 'title')}
                 />
                 {fieldErrors.title ? (

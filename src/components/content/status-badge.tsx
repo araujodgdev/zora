@@ -25,7 +25,7 @@ export function StatusBadge({ status, className, ...props }: StatusBadgeProps) {
     <Badge
       variant="outline"
       data-status={status}
-      className={cn('border-white/15 text-foreground/90 rounded-md', className)}
+      className={cn('border-foreground/15 text-foreground/90 rounded-md', className)}
       {...props}
     >
       <span

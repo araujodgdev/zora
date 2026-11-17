@@ -141,21 +141,28 @@ are stored in English; only `*_LABELS` are translated.
 
 ## Design system
 
-A dark studio look after Affinity (affinity.studio). Tokens live in
-`src/styles/app.css`; the header comment lists the palette.
+A studio look after Affinity (affinity.studio), in a dark theme (default) and
+a light one. Tokens live in `src/styles/app.css`; the header comment lists
+both palettes.
 
-- **Dark only.** `<html class="dark">` in `__root.tsx`; the tokens are defined
-  once in `:root`, and the toaster is fixed to `theme="dark"`. Do not add a
-  light theme or `next-themes` switching without redoing the palette.
-- **Surfaces:** pages sit on true black (`bg-background`); the sidebar, board
-  columns, calendar cells and cards are one step up (`bg-card`); things on
-  those (item cards, inputs, hover) are one more (`bg-muted`). Do not
-  separate surfaces with borders and shadows where a step in tone works.
-- **Colour roles:** lime (`primary`, also `text-lime`/`bg-lime`) is the only
-  action colour: primary buttons, the active nav item, today, drop targets.
-  Bone (`secondary`) for secondary buttons. Violet is the focus ring. Coral
-  is `destructive`. Channel and status hues are tokens (`bg-channel-*`,
-  `bg-status-*`) used only by the two badge components.
+- **Themes.** Light tokens are in `:root`, dark ones in `.dark`. The choice is
+  the `zora_theme` cookie (`@/lib/theme`): the root route reads it in
+  `beforeLoad` (`readTheme`, isomorphic) so the server renders the right
+  `<html class>`; `setTheme` flips the class and the cookie, `useTheme` follows
+  it (the toaster and the sidebar's "Tema claro/escuro" switch use it). No
+  "system" option on purpose: it would flash on load. In components use
+  tokens (or `foreground/<alpha>` for hairlines), never `white/`/`black/`.
+- **Surfaces:** pages sit on the canvas (`bg-background`: black, or bone in
+  light); the sidebar, board columns, calendar cells and cards are one step
+  up (`bg-card`); things on those (item cards, hover) are one more
+  (`bg-muted`). Do not separate surfaces with borders and shadows where a
+  step in tone works.
+- **Colour roles:** lime (`primary`, `bg-lime`) is the only action colour:
+  primary buttons, today, drop targets. Lime as text (the active nav item) is
+  `text-brand`, deep green in light so it stays readable. `secondary` is bone
+  on dark, ink on light. Violet is the focus ring. Coral is `destructive`.
+  Channel and status hues are tokens (`bg-channel-*`, `bg-status-*`) used
+  only by the two badge components.
 - **Type:** Figtree (`font-sans`) for the UI; Fraunces (`font-display`) for
   page titles (`PageHeader`), section titles and the calendar period. The
   `wonk` utility turns on Fraunces' swash italic: keep it for the wordmark.

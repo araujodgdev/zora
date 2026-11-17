@@ -11,6 +11,7 @@ import type { ReactNode } from 'react'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { getSessionUser } from '@/lib/auth.functions'
+import { readTheme, useTheme } from '@/lib/theme'
 import appCss from '@/styles/app.css?url'
 
 export type RouterContext = {
@@ -22,7 +23,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   headers: () => ({ 'Cache-Control': 'private, no-store' }),
   // Route-level auth state for guards and the app shell. Data access is
   // protected separately by `authMiddleware` on each server function.
-  beforeLoad: async () => ({ user: await getSessionUser() }),
+  // The theme comes from a cookie, so the server renders the right one.
+  beforeLoad: async () => ({
+    user: await getSessionUser(),
+    theme: readTheme(),
+  }),
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -48,15 +53,17 @@ function NotFound() {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
+  const initialTheme = Route.useRouteContext({ select: (context) => context.theme })
+  const theme = useTheme(initialTheme)
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang="pt-BR" className={theme === 'dark' ? 'dark' : undefined}>
       <head>
         <HeadContent />
       </head>
       <body>
         <TooltipProvider>{children}</TooltipProvider>
         {/* The one toast container: call `toast()` from `sonner` anywhere. */}
-        <Toaster />
+        <Toaster theme={theme} />
         <Scripts />
       </body>
     </html>

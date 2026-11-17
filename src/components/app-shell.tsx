@@ -6,7 +6,7 @@ import {
   useMatchRoute,
   useRouter,
 } from '@tanstack/react-router'
-import { CalendarDays, List, LogOut, SquareKanban } from 'lucide-react'
+import { CalendarDays, List, LogOut, Moon, SquareKanban, Sun } from 'lucide-react'
 import { useState } from 'react'
 import {
   Sidebar,
@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/sidebar'
 import { WebMcpTools } from '@/components/webmcp-tools'
 import { authClient } from '@/lib/auth-client'
+import { setTheme, useTheme } from '@/lib/theme'
 
 const appRoute = getRouteApi('/_app')
 
@@ -98,7 +99,7 @@ function AppSidebar() {
                     asChild
                     isActive={Boolean(matchRoute({ to, fuzzy: true }))}
                     tooltip={label}
-                    className="data-[active=true]:text-lime"
+                    className="data-[active=true]:text-brand"
                   >
                     <Link to={to} onClick={() => setOpenMobile(false)}>
                       <Icon />
@@ -122,6 +123,9 @@ function AppSidebar() {
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
+            <ThemeSwitcher />
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Sair"
               onClick={() => void signOut()}
@@ -135,6 +139,20 @@ function AppSidebar() {
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+  )
+}
+
+/** Switches between the dark and the light theme; the choice is remembered. */
+function ThemeSwitcher() {
+  const { theme: initialTheme } = appRoute.useRouteContext()
+  const theme = useTheme(initialTheme)
+  const next = theme === 'dark' ? 'light' : 'dark'
+  const label = next === 'light' ? 'Tema claro' : 'Tema escuro'
+  return (
+    <SidebarMenuButton tooltip={label} onClick={() => setTheme(next)}>
+      {next === 'light' ? <Sun /> : <Moon />}
+      <span>{label}</span>
+    </SidebarMenuButton>
   )
 }
 

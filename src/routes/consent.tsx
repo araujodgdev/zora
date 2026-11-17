@@ -53,7 +53,7 @@ function ConsentPage() {
 
   return (
     <AuthLayout>
-      <Card className="w-full max-w-md shadow-2xl shadow-black">
+      <Card className="w-full max-w-md shadow-2xl shadow-black/15 dark:shadow-black">
         {!request ? (
           <CardHeader>
             <CardTitle>Este link não é mais válido</CardTitle>

@@ -75,7 +75,7 @@ function SignInPage() {
 
   return (
     <AuthLayout>
-      <Card className="w-full max-w-sm shadow-2xl shadow-black">
+      <Card className="w-full max-w-sm shadow-2xl shadow-black/15 dark:shadow-black">
         <CardHeader>
           <CardTitle>Entrar</CardTitle>
           <CardDescription>Planeje e acompanhe o conteúdo do lançamento.</CardDescription>

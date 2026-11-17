@@ -99,7 +99,7 @@ function SignUpPage() {
 
   return (
     <AuthLayout>
-      <Card className="w-full max-w-sm shadow-2xl shadow-black">
+      <Card className="w-full max-w-sm shadow-2xl shadow-black/15 dark:shadow-black">
         <CardHeader>
           <CardTitle>Criar sua conta</CardTitle>
           <CardDescription>

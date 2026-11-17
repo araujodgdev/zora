@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 // The one place that decides how each channel looks: a solid fill in the
 // channel's hue (tokens in app.css) with ink text, like a swatch.
 const CHANNEL_CLASS_NAMES: Record<Channel, string> = {
-  x: 'bg-channel-x text-ink',
+  x: 'bg-channel-x text-channel-x-foreground',
   linkedin: 'bg-channel-linkedin text-ink',
   instagram: 'bg-channel-instagram text-ink',
   blog: 'bg-channel-blog text-ink',

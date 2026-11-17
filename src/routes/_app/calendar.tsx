@@ -146,7 +146,7 @@ function CalendarPage() {
               <div
                 role="grid"
                 aria-label={periodTitle(range)}
-                className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border bg-white/[0.07]"
+                className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border bg-foreground/[0.08]"
               >
                 {range.days.map((day) => (
                   <DayCell

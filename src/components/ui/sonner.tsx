@@ -4,8 +4,6 @@ import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon
 const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
-      // Zora is dark only.
-      theme="dark"
       className="toaster group"
       icons={{
         success: (

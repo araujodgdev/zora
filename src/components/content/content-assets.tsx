@@ -124,7 +124,7 @@ export function ContentAssets({ itemId }: { itemId: string }) {
 
       <div
         className={cn(
-          'bg-card rounded-xl border border-dashed border-white/15 p-3 transition-colors',
+          'bg-card rounded-xl border border-dashed border-foreground/15 p-3 transition-colors',
           dragging && 'bg-lime/10 border-lime/60',
         )}
         onDragOver={(event) => {

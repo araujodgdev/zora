@@ -7,15 +7,17 @@
 @import "@fontsource-variable/fraunces/full-italic.css";
 
 /*
- * Zora's design system: a dark studio, after Affinity.
+ * Zora's design system, after Affinity. Two themes on the same brand:
  *
- *   ink     #000000  the canvas: pages sit on true black
- *   panel   #141414  sidebar, cards, popovers (one step up)
- *   raised  #222120  hover, muted fills, inputs
- *   bone    #EFE9DE  warm off-white: secondary buttons, the X channel
- *   lime    #A7F175  the one action colour (primary buttons, today, active nav)
- *   violet  #A370FC  focus rings and links
- *   coral   #E35B67  destructive
+ *              dark       light
+ *   canvas     #000000    #EFE9DE  (bone)   pages
+ *   panel      #141414    #FAF7F1  (paper)  sidebar, cards, popovers
+ *   raised     #222120    #E4DDD0           hover, muted fills, cards on panels
+ *   ink text   #FFFFFF    #0E1318
+ *   lime       #A7F175 in both: the one action colour (primary buttons, today,
+ *              drop targets); lime as text is `text-brand` (deep green on light)
+ *   violet     focus rings and links
+ *   coral      destructive
  *
  * Channels and statuses take their hues from the same palette (see
  * `--channel-*` and `--status-*`); only channel-badge.tsx and status-badge.tsx
@@ -24,7 +26,9 @@
  * Type: Fraunces (soft, wonky display serif) for page titles and the wordmark,
  * via `font-display`; Figtree for everything else.
  *
- * The app is dark only: <html class="dark">, so shadcn's dark variants apply.
+ * Light tokens live in `:root`, dark ones in `.dark`; <html class="dark"> is
+ * set from the `zora_theme` cookie (`@/lib/theme`). Use tokens, or
+ * `foreground/<alpha>` for hairlines, never `white/` or `black/`.
  */
 
 @custom-variant dark (&:is(.dark *));
@@ -38,6 +42,8 @@
     --color-violet: var(--violet);
     --color-coral: var(--coral);
     --color-ink: var(--ink);
+    --color-brand: var(--brand-text);
+    --color-channel-x-foreground: var(--channel-x-foreground);
     --color-channel-x: var(--channel-x);
     --color-channel-linkedin: var(--channel-linkedin);
     --color-channel-instagram: var(--channel-instagram);
@@ -88,22 +94,76 @@
 }
 
 :root {
-    color-scheme: dark;
+    color-scheme: light;
 
-    --ink: #000000;
-    --panel: #141414;
-    --raised: #222120;
+    --ink: #0e1318;
     --bone: #efe9de;
     --lime: #a7f175;
-    --violet: #a370fc;
-    --coral: #e35b67;
+    --violet: #6b3fe0;
+    --coral: #c8303f;
+    --panel: #faf7f1;
+    --raised: #e4ddd0;
+    --brand-text: #3e7a14;
 
-    --channel-x: var(--bone);
+    --channel-x: #0e1318;
+    --channel-x-foreground: var(--bone);
     --channel-linkedin: #5cc8ff;
     --channel-instagram: #ff8ad8;
     --channel-blog: #f5c04a;
 
     --status-idea: #8c877f;
+    --status-draft: #f08a3e;
+    --status-ready: #8a5cf6;
+    --status-scheduled: #5b7cfa;
+    --status-published: #4e9a1f;
+
+    --background: var(--bone);
+    --foreground: #0e1318;
+    --card: var(--panel);
+    --card-foreground: #0e1318;
+    --popover: #fffdf9;
+    --popover-foreground: #0e1318;
+    --primary: var(--lime);
+    --primary-foreground: #0e1318;
+    --secondary: #0e1318;
+    --secondary-foreground: var(--bone);
+    --muted: var(--raised);
+    --muted-foreground: #5f5a52;
+    --accent: var(--raised);
+    --accent-foreground: #0e1318;
+    --destructive: var(--coral);
+    --border: rgb(14 19 24 / 0.12);
+    --input: rgb(14 19 24 / 0.18);
+    --ring: var(--violet);
+    --chart-1: var(--lime);
+    --chart-2: var(--violet);
+    --chart-3: #5cc8ff;
+    --chart-4: #f5c04a;
+    --chart-5: #ff8ad8;
+    --radius: 0.75rem;
+    --sidebar: var(--panel);
+    --sidebar-foreground: #0e1318;
+    --sidebar-primary: var(--lime);
+    --sidebar-primary-foreground: #0e1318;
+    --sidebar-accent: var(--raised);
+    --sidebar-accent-foreground: #0e1318;
+    --sidebar-border: rgb(14 19 24 / 0.08);
+    --sidebar-ring: var(--violet);
+}
+
+.dark {
+    color-scheme: dark;
+
+    --ink: #000000;
+    --violet: #a370fc;
+    --coral: #e35b67;
+    --panel: #141414;
+    --raised: #222120;
+    --brand-text: var(--lime);
+
+    --channel-x: var(--bone);
+    --channel-x-foreground: #000000;
+
     --status-draft: #ff9f5a;
     --status-ready: var(--violet);
     --status-scheduled: #7c9cff;
@@ -115,8 +175,6 @@
     --card-foreground: #ffffff;
     --popover: #1a1a19;
     --popover-foreground: #ffffff;
-    --primary: var(--lime);
-    --primary-foreground: #0e1318;
     --secondary: var(--bone);
     --secondary-foreground: #0e1318;
     --muted: var(--raised);
@@ -127,16 +185,8 @@
     --border: rgb(255 255 255 / 0.1);
     --input: rgb(255 255 255 / 0.14);
     --ring: var(--violet);
-    --chart-1: var(--lime);
-    --chart-2: var(--violet);
-    --chart-3: #5cc8ff;
-    --chart-4: #f5c04a;
-    --chart-5: #ff8ad8;
-    --radius: 0.75rem;
     --sidebar: var(--panel);
     --sidebar-foreground: #ffffff;
-    --sidebar-primary: var(--lime);
-    --sidebar-primary-foreground: #0e1318;
     --sidebar-accent: var(--raised);
     --sidebar-accent-foreground: #ffffff;
     --sidebar-border: rgb(255 255 255 / 0.08);
@@ -204,12 +254,12 @@
         margin: 0;
     }
     .zora-prose blockquote {
-        border-left: 3px solid var(--lime);
+        border-left: 3px solid var(--brand-text);
         padding-left: 1em;
         color: var(--muted-foreground);
     }
     .zora-prose a {
-        color: var(--violet);
+        color: var(--ring);
         text-decoration: underline;
         text-underline-offset: 3px;
     }
