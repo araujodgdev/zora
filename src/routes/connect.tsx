@@ -51,8 +51,7 @@ function ConnectPage() {
         </h1>
         <p className="text-muted-foreground mt-4 max-w-[58ch] text-base sm:text-lg">
           Peça ao Claude, ao ChatGPT ou ao Codex para listar, criar, reagendar e mover os conteúdos
-          do lançamento. O agente entra com a sua conta, age no workspace que você tem aberto no
-          Zora e só vê o que você vê.
+          do lançamento.
         </p>
 
         <section aria-labelledby="server-url" className="mt-10">
@@ -116,15 +115,7 @@ function ConnectPage() {
               </Button>
             ) : null}
 
-            {guide.note ? (
-              <p className="text-muted-foreground mt-6 text-sm">{guide.note}</p>
-            ) : null}
           </div>
-
-          <p className="text-muted-foreground mt-4 text-sm">
-            Outro agente? Qualquer cliente MCP com transporte HTTP e login OAuth funciona com a URL
-            acima.
-          </p>
         </section>
 
         <section aria-labelledby="try-it" className="mt-12">

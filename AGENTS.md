@@ -203,7 +203,8 @@ both palettes.
 - **Auth pages** (`sign-in`, `sign-up`, `consent`, invitations, first
   workspace) render inside `AuthLayout` (`@/components/auth-layout`): the
   logo in the top-left corner (the Z with "zora" beside it below `lg`; from
-  `lg` the Z alone, with the `ZoraWordmark` large above the form), and the
+  `lg` the Z alone, with the `ZoraWordmark` large above the form), the
+  slogan (`ZORA_SLOGAN`, the `tagline` prop; sign-in and sign-up only), and the
   clay diorama with no text on it (a banner above
   the form below `lg`, the right-hand column from `lg`). This is the one
   decorative moment; keep the app itself quiet.

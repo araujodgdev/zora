@@ -26,7 +26,6 @@ export type AgentGuide = {
   /** Terminal commands, copied together (one per line). */
   command?: string
   steps: Array<string>
-  note?: string
   /** Where to start in the app, for app-based agents. */
   link?: { href: string; label: string }
 }
@@ -40,13 +39,12 @@ export function agentGuides(serverUrl: string): Array<AgentGuide> {
       id: 'claude',
       name: 'Claude',
       surface: 'claude.ai, app para desktop e celular',
-      link: { href: 'https://claude.ai/customize/connectors', label: 'Abrir Connectors no Claude' },
+      link: { href: 'https://claude.ai/customize/connectors', label: 'Abrir Conectores no Claude' },
       steps: [
-        'Abra Customize → Connectors.',
-        'Adicione um conector personalizado (custom connector) com o nome Zora e a URL do servidor acima. Clique em Continue.',
-        'Clique em Connect. ' + APPROVE,
+        'Abra Personalizar → Conectores.',
+        'Adicione um conector personalizado com o nome Zora e a URL do servidor acima. Clique em Continuar.',
+        'Clique em Conectar. ' + APPROVE,
       ],
-      note: 'Nos planos Team e Enterprise, quem administra a organização adiciona o conector em Organization settings → Connectors; depois cada pessoa clica em Connect.',
     },
     {
       id: 'chatgpt',
@@ -54,9 +52,9 @@ export function agentGuides(serverUrl: string): Array<AgentGuide> {
       surface: 'chatgpt.com e apps',
       link: { href: 'https://chatgpt.com/plugins', label: 'Abrir Plugins no ChatGPT' },
       steps: [
-        'Abra Plugins, clique em + e escolha Add custom MCP server.',
-        'Nome: Zora. Em Server URL, cole a URL do servidor acima; a autenticação é OAuth.',
-        'Leia o aviso, confirme e clique em Create as a plugin.',
+        'Abra Plugins, clique em + e escolha Adicionar servidor MCP personalizado.',
+        'Nome: Zora. Em URL do servidor, cole a URL acima; a autenticação é OAuth.',
+        'Leia o aviso, confirme e clique em Criar como plugin.',
         APPROVE,
       ],
     },
@@ -76,7 +74,6 @@ export function agentGuides(serverUrl: string): Array<AgentGuide> {
       surface: 'terminal, editor e app para desktop',
       command: [`codex mcp add zora --url ${serverUrl}`, 'codex mcp login zora'].join('\n'),
       steps: ['Cole os comandos no terminal.', 'O navegador abre. ' + APPROVE],
-      note: 'A configuração vale para o Codex no terminal, na extensão do editor e no app do ChatGPT para desktop.',
     },
   ]
 }

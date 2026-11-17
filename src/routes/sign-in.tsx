@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { z } from 'zod'
 import { FormField, firstErrorMessage } from '@/components/form-field'
 import { AuthLayout } from '@/components/auth-layout'
+import { ZORA_SLOGAN } from '@/components/brand'
 import { ConnectAgentLink } from '@/components/connect-agent-link'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -78,7 +79,7 @@ function SignInPage() {
   })
 
   return (
-    <AuthLayout>
+    <AuthLayout tagline={ZORA_SLOGAN}>
       <Card className="w-full max-w-sm shadow-2xl shadow-black/15 dark:shadow-black">
         <CardHeader>
           <CardTitle>Entrar</CardTitle>

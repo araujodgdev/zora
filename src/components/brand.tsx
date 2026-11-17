@@ -11,6 +11,9 @@ import { cn } from '@/lib/utils'
  * (see `scripts/brand/README.md`) and live in `src/assets/brand`.
  */
 
+/** Zora's slogan, shown on the sign-in and sign-up pages. */
+export const ZORA_SLOGAN = 'Sua gestão de conteúdo nunca foi tão simples.'
+
 /** The clay Z with the cat, sized by the font size (1.5em tall). */
 export function ZoraMark({ className }: { className?: string }) {
   return (
