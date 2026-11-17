@@ -6,19 +6,22 @@ import { ClayLoop, ZoraMark, ZoraWordmark } from '@/components/brand'
 
 /**
  * The page around sign-in, sign-up, consent, invitations and the first
- * workspace: the clay Z alone in the top-left corner, a rounded card with the
- * claymation scene (a looping clip; its poster under reduced motion), and
- * the "zora" wordmark above the form. Below `lg` the card is a short banner
- * just above the form (the two centred together, as wide as the form card),
- * framed on the Z and the cat; from `lg` it fills the right column. Grid
- * areas move the one card, so the clip is never loaded twice.
+ * workspace: the logo in the top-left corner, a rounded card with the
+ * claymation scene (a looping clip; its poster under reduced motion), and the
+ * form. Below `lg` the logo is the Z with "zora" beside it; from `lg` the
+ * corner keeps only the Z and "zora" sits large above the form. The scene
+ * card is a short banner just above the form below `lg` (the two centred
+ * together, as wide as the form card), framed on the Z and the cat; from `lg`
+ * it fills the right column. Grid areas move the one card, so the clip is
+ * never loaded twice.
  */
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <main className="grid min-h-svh grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr_auto_auto_1fr] [grid-template-areas:'logo'_'.'_'art'_'form'_'.'] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:grid-rows-[auto_1fr] lg:[grid-template-areas:'logo_art'_'form_art']">
-      <div className="px-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-[2rem] [grid-area:logo] sm:px-10">
-        <span className="zora-logo inline-flex">
+      <div className="px-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-[1.625rem] [grid-area:logo] sm:px-10 lg:text-[2rem]">
+        <span className="zora-logo inline-flex items-center gap-[0.22em]">
           <ZoraMark />
+          <ZoraWordmark className="lg:hidden" />
         </span>
       </div>
       <aside aria-hidden="true" className="min-w-0 px-6 pt-6 [grid-area:art] sm:px-10 lg:p-3">
@@ -32,7 +35,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <div className="animate-in fade-in slide-in-from-bottom-3 flex min-w-0 flex-col items-center justify-center px-6 pt-6 pb-10 duration-500 ease-out [grid-area:form] motion-reduce:animate-none sm:px-10">
-        <p className="mb-6 text-[2.75rem] lg:mb-8 lg:text-[3.5rem]">
+        <p className="mb-8 hidden text-[3.5rem] lg:block">
           <ZoraWordmark />
         </p>
         {children}

@@ -198,7 +198,12 @@ function Sidebar({
             <SheetTitle>Menu</SheetTitle>
             <SheetDescription>Navegação do Zora.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          {/* Installed on iOS the page runs under the status bar and the
+              home indicator (`viewport-fit=cover`): keep the menu clear of
+              them. The insets are 0 in a browser tab. */}
+          <div className="flex h-full w-full flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
+            {children}
+          </div>
         </SheetContent>
       </Sheet>
     )

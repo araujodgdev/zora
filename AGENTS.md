@@ -184,18 +184,24 @@ both palettes.
   (fal.ai) and lives in `src/assets/brand`; how each file was made, and the
   rules for new ones, are in `scripts/brand/README.md`. Do not draw the
   brand in CSS or SVG.
-  - `ZoraLogo` (the mark + "zora"; size it with a font size) in the sidebar,
-    the mobile top bar and the auth pages. Hover squishes the clay once
-    (`.zora-logo` in `app.css`).
+  - `ZoraLogo` (the mark + "zora"; size it with a font size) in the sidebar
+    and the auth pages (below `lg`). The mobile top bar shows only
+    `ZoraWordmark`; the full logo is in the open menu. Hover squishes the
+    clay once (`.zora-logo` in `app.css`).
   - `ClayLoop` plays a muted looping clip (WebM VP9, MP4 fallback, WebP
     poster) only while it is on screen and never under reduced motion.
-  - `CatLoader` (the cat batting a yarn ball) is the router's
-    `defaultPendingComponent`; it fades in after a delay so short waits
-    never flash it.
+  - `AlphaLoop` plays a clip with transparency: a "stacked alpha" MP4
+    (colour on top, matte below) combined in a canvas, with a WebP still
+    before playback and under reduced motion. Safari does not decode VP9
+    alpha, so do not use a transparent WebM instead.
+  - `CatLoader` (the cat batting a yarn ball, cut out, straight on the page
+    background, no tile) is the router's `defaultPendingComponent`; it fades
+    in after a delay so short waits never flash it.
 - **Auth pages** (`sign-in`, `sign-up`, `consent`, invitations, first
   workspace) render inside `AuthLayout` (`@/components/auth-layout`): the
-  clay Z alone in the top-left corner, the "zora" wordmark (`ZoraWordmark`)
-  above the form, and the clay diorama with no text on it (a banner above
+  logo in the top-left corner (the Z with "zora" beside it below `lg`; from
+  `lg` the Z alone, with the `ZoraWordmark` large above the form), and the
+  clay diorama with no text on it (a banner above
   the form below `lg`, the right-hand column from `lg`). This is the one
   decorative moment; keep the app itself quiet.
 - **App icon and PWA.** `scripts/app-icon.html` frames the clay icon master
@@ -205,7 +211,8 @@ both palettes.
   `public/sw.js` (registered by `@/lib/pwa` in production builds only) only
   shows `public/offline.html` when a page load fails and caches nothing
   private. Installed on iOS the page runs under the status bar, so the
-  mobile top bar adds `env(safe-area-inset-top)`.
+  mobile top bar adds `env(safe-area-inset-top)` and the mobile sidebar
+  sheet pads by the top, bottom and left insets (`ui/sidebar.tsx`).
 - Fonts come from `@fontsource-variable/figtree` and
   `@fontsource-variable/fraunces` (the `full` files carry the SOFT/WONK axes).
 

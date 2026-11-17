@@ -45,7 +45,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { WebMcpTools } from '@/components/webmcp-tools'
-import { ZoraLogo } from '@/components/brand'
+import { ZoraLogo, ZoraWordmark } from '@/components/brand'
 import { authClient } from '@/lib/auth-client'
 import { cn } from '@/lib/utils'
 import { setTheme, useTheme } from '@/lib/theme'
@@ -115,8 +115,9 @@ function MobileTopBar() {
   return (
     <header className="bg-background/85 sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center pt-[env(safe-area-inset-top)] gap-2 border-b px-2 backdrop-blur-md lg:hidden">
       <SidebarTrigger className="size-10" />
+      {/* Just the name here; the full logo (Z and cat) is in the open menu. */}
       <Link to="/calendar" className="text-[1.5rem]">
-        <ZoraLogo />
+        <ZoraWordmark />
       </Link>
     </header>
   )

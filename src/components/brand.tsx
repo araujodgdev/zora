@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ComponentProps } from 'react'
-import catYarnMp4 from '@/assets/brand/cat-yarn.mp4'
-import catYarnWebm from '@/assets/brand/cat-yarn.webm'
-import catYarnPoster from '@/assets/brand/cat-yarn.webp'
+import catYarnAlpha from '@/assets/brand/cat-yarn-alpha.mp4'
+import catYarnStill from '@/assets/brand/cat-yarn-still.webp'
 import markUrl from '@/assets/brand/zora-mark.webp'
 import { cn } from '@/lib/utils'
 
@@ -121,23 +120,135 @@ export function ClayLoop({
 }
 
 /**
- * The router's pending page: the clay cat playing with yarn on a cream clay
- * tile. It eases in, so a short wait never flashes it.
+ * A looping clip with transparency, drawn straight on the page background.
+ * `src` is a "stacked alpha" MP4: the colour on the top half, the matte
+ * (white = opaque) on the bottom half. H.264 has no alpha channel and
+ * Safari does not decode VP9 alpha, so each frame is combined in a canvas;
+ * this works in every browser and keeps the file small (an animated WebP of
+ * the same clip is ten times larger). `still` (a WebP with alpha) shows
+ * until the first frame is drawn, and stays under reduced motion or when
+ * autoplay is blocked.
+ */
+export function AlphaLoop({
+  src,
+  still,
+  width,
+  height,
+  className,
+}: {
+  src: string
+  still: string
+  /** Size of one half of the stacked video, in pixels. */
+  width: number
+  height: number
+  className?: string
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [drawing, setDrawing] = useState(false)
+
+  useEffect(() => {
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const output = canvas.getContext('2d')
+    const scratch = document.createElement('canvas')
+    scratch.width = width
+    scratch.height = height * 2
+    const source = scratch.getContext('2d', { willReadFrequently: true })
+    if (!output || !source) return
+
+    const frame = output.createImageData(width, height)
+    const alphaOffset = width * height * 4
+    let stopped = false
+    let pending = 0
+    let shown = false
+
+    const draw = () => {
+      if (stopped) return
+      if (video.readyState >= 2) {
+        source.drawImage(video, 0, 0, width, height * 2)
+        const pixels = source.getImageData(0, 0, width, height * 2).data
+        const out = frame.data
+        out.set(pixels.subarray(0, alphaOffset))
+        for (let i = 3; i < alphaOffset; i += 4) {
+          // The matte's red channel; video compression leaves faint noise
+          // in its black, which would show as a haze around the cat.
+          const alpha = pixels[alphaOffset + i - 3] ?? 0
+          out[i] = alpha < 10 ? 0 : alpha
+        }
+        output.putImageData(frame, 0, 0)
+        if (!shown) {
+          shown = true
+          setDrawing(true)
+        }
+      }
+      schedule()
+    }
+    const schedule = () => {
+      pending =
+        'requestVideoFrameCallback' in video
+          ? video.requestVideoFrameCallback(draw)
+          : requestAnimationFrame(draw)
+    }
+
+    // Rejected when the browser blocks autoplay: the still stays.
+    video
+      .play()
+      .then(schedule)
+      .catch(() => {})
+    return () => {
+      stopped = true
+      if ('cancelVideoFrameCallback' in video) video.cancelVideoFrameCallback(pending)
+      cancelAnimationFrame(pending)
+      video.pause()
+    }
+  }, [width, height])
+
+  return (
+    <div aria-hidden="true" className={cn('relative', className)} style={{ aspectRatio: `${width} / ${height}` }}>
+      <img
+        src={still}
+        alt=""
+        width={width}
+        height={height}
+        draggable={false}
+        className={cn('absolute inset-0 size-full select-none', drawing && 'invisible')}
+      />
+      <canvas ref={canvasRef} width={width} height={height} className="absolute inset-0 size-full" />
+      {/* Decoded only to be drawn on the canvas, never shown. */}
+      <video
+        ref={videoRef}
+        src={src}
+        muted
+        loop
+        playsInline
+        preload="auto"
+        disablePictureInPicture
+        className="pointer-events-none absolute size-px opacity-0"
+      />
+    </div>
+  )
+}
+
+/**
+ * The router's pending page: the clay cat playing with yarn, right on the
+ * page background. It eases in, so a short wait never flashes it.
  */
 export function CatLoader({ className }: { className?: string }) {
   return (
     <div
       role="status"
-      className={cn('flex flex-col items-center justify-center gap-4', className)}
+      className={cn('flex flex-col items-center justify-center gap-3', className)}
     >
-      <div className="animate-in fade-in zoom-in-90 fill-mode-backwards size-32 overflow-hidden rounded-[2.25rem] bg-[#e2d5c0] delay-150 duration-500 ease-out motion-reduce:animate-none">
-        <ClayLoop
-          webm={catYarnWebm}
-          mp4={catYarnMp4}
-          poster={catYarnPoster}
-          className="size-full"
-        />
-      </div>
+      <AlphaLoop
+        src={catYarnAlpha}
+        still={catYarnStill}
+        width={320}
+        height={242}
+        className="animate-in fade-in zoom-in-95 fill-mode-backwards w-40 delay-150 duration-500 ease-out motion-reduce:animate-none"
+      />
       <span className="text-muted-foreground animate-in fade-in fill-mode-backwards text-sm delay-300 duration-500 motion-reduce:animate-none">
         Carregando…
       </span>

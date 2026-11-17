@@ -9,7 +9,8 @@ variant can be produced in the same style.
 | --- | --- | --- |
 | `src/assets/brand/zora-mark.webp` | the Z and the cat, transparent, 256 px tall | `ZoraMark` / `ZoraLogo` (`@/components/brand`) |
 | `src/assets/brand/auth-hero.{webm,mp4,webp}` | the diorama loop (6 s, 960×1280) and its first frame | `AuthLayout` |
-| `src/assets/brand/cat-yarn.{webm,mp4,webp}` | the cat with the yarn ball (4 s, 320×320) and its first frame | `CatLoader` (router pending page) |
+| `src/assets/brand/cat-yarn-alpha.mp4` | the cat with the yarn ball, cut out (4 s, 320×242): colour on top, matte below | `CatLoader` (router pending page) via `AlphaLoop` |
+| `src/assets/brand/cat-yarn-still.webp` | its first frame, with alpha | `AlphaLoop` still (before playback, reduced motion) |
 | `scripts/brand/app-icon.png` | 1024 px icon master on charcoal clay | `scripts/app-icon.html` -> `node scripts/generate-icons.mjs` |
 
 ## How they were made
@@ -29,7 +30,7 @@ with subtle fingerprints, fine film grain" and no text other than the Z.
      clay sky with puffy clouds; the Z stands on the hill with the cat
      asleep on top; around it a calendar page with a day circled in lime,
      three social-post cards (yellow, blue, pink) and a coral rocket
-     lifting off. Open sky in the upper third, for the headline.
+     lifting off. Open sky in the upper third.
    - *Loader* (1:1): the cat on its side on plain cream (`#F2EDE4`) batting
      a lime yarn ball.
    - *App icon* (1:1): the Z and the cat centred on a full-bleed slab of
@@ -41,17 +42,28 @@ with subtle fingerprints, fine film grain" and no text other than the Z.
    the rocket bobs; in the loader the cat bats the ball), "the last frame
    matches the first frame exactly". 6 s at 1080p for the scene, 4 s at
    720p for the loader.
-5. **Encoding** (ffmpeg): scaled to 960×1280 and 320×320, no audio, VP9
-   WebM and H.264 MP4 (`yuv420p`, `+faststart`); the poster is the first
-   frame as WebP. Keep the files small: they are bundled assets (the scene
-   is under 300 KB, the loader under 40 KB).
+5. **Encoding the scene** (ffmpeg): 960×1280, no audio, VP9 WebM and H.264
+   MP4 (`yuv420p`, `+faststart`); the poster is the first frame as WebP.
+6. **The loader, cut out** so the cat sits on the app's own background:
+   `fal-ai/birefnet/v2/video` (model `Matting`, `output_mask: true`) on the
+   loader loop gives a matte video. ffmpeg crops both to the cat's bounding
+   box over all frames (`cropdetect` on the matte; 740×560 at 176,230),
+   scales to 320×242 and stacks colour over matte (`vstack`) into one H.264
+   MP4 (CRF 24); the still is the first frame with the matte merged
+   (`alphamerge`) as WebP. `AlphaLoop` combines the halves in a canvas.
+   VP9 alpha is not decoded by Safari, and an animated WebP of the same clip
+   was about 800 KB, ten times the stacked MP4.
+
+Keep the files small: they are bundled assets (the scene is under 300 KB,
+the loader under 90 KB).
 
 ## Rules
 
 - The artwork is the same in both themes. Text over it uses fixed ink
   (`text-neutral-950`), not theme tokens.
 - Loops play only while on screen and never under `prefers-reduced-motion`
-  (the poster stays); `ClayLoop` handles both. Do not autoplay a loop
-  without it.
+  (the poster stays); `ClayLoop` handles both, and `AlphaLoop` (for clips
+  with transparency) skips playback under reduced motion. Do not autoplay a
+  loop without them.
 - A new picture of the cat or the Z must start from the base render as the
   edit reference, or the character drifts.
