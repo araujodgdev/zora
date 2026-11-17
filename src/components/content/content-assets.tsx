@@ -27,6 +27,7 @@ import {
   useUploadContentAsset,
 } from '@/lib/content.queries'
 import { cn } from '@/lib/utils'
+import { MediaLightbox } from './media-lightbox'
 
 /** A file being uploaded, shown until it is stored (or has failed). */
 type Upload = { key: string; name: string; progress: number }
@@ -42,7 +43,9 @@ export function ContentAssets({ itemId }: { itemId: string }) {
   const [uploads, setUploads] = useState<Array<Upload>>([])
   const [errors, setErrors] = useState<Array<string>>([])
   const [dragging, setDragging] = useState(false)
-  const [viewing, setViewing] = useState<ContentAsset | null>(null)
+  // Images and videos open in the lightbox; PDFs open in a new tab.
+  const viewable = assets.filter((asset) => assetKind(asset.contentType) !== 'document')
+  const [viewingIndex, setViewingIndex] = useState<number | null>(null)
   const [deleting, setDeleting] = useState<ContentAsset | null>(null)
 
   async function uploadFiles(files: Array<File>) {
@@ -159,7 +162,7 @@ export function ContentAssets({ itemId }: { itemId: string }) {
               <li key={asset.id}>
                 <AssetTile
                   asset={asset}
-                  onOpen={() => setViewing(asset)}
+                  onOpen={() => setViewingIndex(viewable.indexOf(asset))}
                   onDelete={() => setDeleting(asset)}
                 />
               </li>
@@ -182,17 +185,17 @@ export function ContentAssets({ itemId }: { itemId: string }) {
         )}
       </div>
 
-      <Dialog open={viewing !== null} onOpenChange={(open) => !open && setViewing(null)}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle className="truncate pr-8">{viewing?.filename}</DialogTitle>
-            <DialogDescription>
-              {viewing ? formatBytes(viewing.size) : null}
-            </DialogDescription>
-          </DialogHeader>
-          {viewing ? <AssetViewer asset={viewing} /> : null}
-        </DialogContent>
-      </Dialog>
+      <MediaLightbox
+        assets={viewable}
+        index={viewingIndex}
+        onIndexChange={setViewingIndex}
+        onClose={() => setViewingIndex(null)}
+        onDelete={(asset) => {
+          // Close the viewer first: the confirmation is a normal dialog.
+          setViewingIndex(null)
+          setDeleting(asset)
+        }}
+      />
 
       <DeleteAssetDialog
         itemId={itemId}
@@ -273,25 +276,6 @@ function AssetTile({
         <Trash2 />
       </Button>
     </div>
-  )
-}
-
-function AssetViewer({ asset }: { asset: ContentAsset }) {
-  const url = assetFileUrl(asset.id)
-  return assetKind(asset.contentType) === 'video' ? (
-    <video
-      src={url}
-      controls
-      autoPlay
-      playsInline
-      className="max-h-[70vh] w-full rounded-md bg-black"
-    />
-  ) : (
-    <img
-      src={url}
-      alt={asset.filename}
-      className="max-h-[70vh] w-full rounded-md object-contain"
-    />
   )
 }
 
