@@ -26,7 +26,11 @@ export const instant = z.iso
 
 export const itemFields = {
   title: z.string().min(1).max(300).describe('Short title.'),
-  body: z.string().describe('The post copy.'),
+  body: z
+    .string()
+    .describe(
+      'The post copy. Blog: Markdown. X, LinkedIn, Instagram: plain text only, no Markdown (those networks show **, # and [](...) literally); keep within 280 (X), 3000 (LinkedIn) or 2200 (Instagram) characters.',
+    ),
   channel: z
     .enum(CHANNELS)
     .describe(`Network: ${CHANNELS.map((c) => `${c} (${CHANNEL_LABELS[c]})`).join(', ')}.`),
@@ -129,4 +133,5 @@ export type AgentActionName = keyof typeof agentActions
 export const AGENT_INSTRUCTIONS = `Zora is a three-person team's planner for a product launch's social media and blog content.
 Each content item has a channel, a format and a pipeline status (${STATUSES.join(' -> ')}), optionally a scheduled date, an assignee and uploaded media.
 Everyone on the team sees and edits everything. Dates are UTC instants: always send an offset, and show times to the user in their time zone.
+Text (body) is Markdown for the blog and plain text for X, LinkedIn and Instagram: never put Markdown in a social post.
 Each returned item has a url to open it in the app. Ask before deleting anything.`

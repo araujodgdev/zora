@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { toast } from 'sonner'
 import { ChannelBadge } from '@/components/content/channel-badge'
+import { ContentBodyEditor } from '@/components/content/content-body-editor'
 import { StatusBadge } from '@/components/content/status-badge'
 import { FormField } from '@/components/form-field'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -44,6 +45,7 @@ import {
   useUpdateContentItem,
 } from '@/lib/content.queries'
 import { fromDateTimeLocalValue, toDateTimeLocalValue } from '@/lib/dates'
+import { isMarkdownChannel } from '@/lib/post-text'
 import { editorReturnPath } from '@/lib/editor-search'
 import type { EditorOrigin } from '@/lib/editor-search'
 
@@ -358,20 +360,36 @@ export function ContentItemForm({
           </Alert>
         ) : null}
 
-        <form.Field name="body">
-          {(field) => (
-            <FormField id="item-body" label="Texto" error={fieldErrors.body}>
-              <Textarea
-                id="item-body"
-                placeholder="O texto que vai ser publicado."
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(event) => field.handleChange(event.target.value)}
-                className="min-h-56 text-[0.9375rem] leading-relaxed"
-              />
-            </FormField>
+        <form.Subscribe selector={(state) => state.values.channel}>
+          {(channel) => (
+            <form.Field name="body">
+              {(field) => (
+                <div className="grid gap-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span id="item-body-label" className="text-sm leading-none font-medium">
+                      Texto
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {isMarkdownChannel(channel)
+                        ? 'Com formatação (Markdown)'
+                        : 'Texto simples, sem formatação'}
+                    </span>
+                  </div>
+                  <ContentBodyEditor
+                    labelId="item-body-label"
+                    channel={channel}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={field.handleChange}
+                  />
+                  {fieldErrors.body ? (
+                    <p className="text-destructive text-sm">{fieldErrors.body}</p>
+                  ) : null}
+                </div>
+              )}
+            </form.Field>
           )}
-        </form.Field>
+        </form.Subscribe>
 
         {media ?? (
           <section className="bg-card text-muted-foreground flex items-center gap-3 rounded-xl border border-dashed p-5 text-sm">

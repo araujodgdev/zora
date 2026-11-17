@@ -340,6 +340,25 @@ If the page has other search params, keep them:
   Delete go to `editorReturnPath(from)`. The routes use `ssr: 'data-only'`:
   the form reads local times, so it renders in the browser.
 
+### Item text by channel: `@/lib/post-text`
+
+`body` is always stored as a string; what it holds depends on the channel.
+
+- **Blog: Markdown.** Edited with Tiptap (`@tiptap/react`, StarterKit with
+  h2/h3, no underline, plus `@tiptap/markdown`), which loads and writes
+  Markdown (`contentType: 'markdown'`, `editor.getMarkdown()`). Formatted
+  display uses the `.zora-prose` styles in `app.css`.
+- **X, LinkedIn, Instagram: plain text.** They do not render Markdown, so
+  `**` would be posted literally. The editor shows a character count against
+  `CHANNEL_TEXT_LIMITS` (280 / 3000 / 2200; graphemes via `countCharacters`),
+  warns when `hasMarkdownFormatting`, offers "Remover formatação"
+  (`stripMarkdown`) and "Copiar texto".
+- Both live in `ContentBodyEditor` (`@/components/content/content-body-editor`),
+  chosen by `isMarkdownChannel(channel)`. Changing an item's channel keeps the
+  text. Limits are guidance, not validation: the server accepts any length.
+- Agents are told the same rule in the `body` description and
+  `AGENT_INSTRUCTIONS` (`@/lib/agent-tools`).
+
 ### Media: `@/lib/content-assets`
 
 An item can have uploaded files (images, videos, PDFs), shown and managed in
