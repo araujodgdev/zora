@@ -4,6 +4,7 @@ import {
   Outlet,
   getRouteApi,
   useMatchRoute,
+  useMatches,
   useRouter,
   useRouterState,
 } from '@tanstack/react-router'
@@ -16,6 +17,7 @@ import {
   Moon,
   Plug,
   Plus,
+  Share2,
   SquareKanban,
   Sun,
   Users,
@@ -59,6 +61,7 @@ const navItems = [
   { to: '/calendar', label: 'Calendário', icon: CalendarDays },
   { to: '/pipeline', label: 'Pipeline', icon: SquareKanban },
   { to: '/content', label: 'Conteúdos', icon: List },
+  { to: '/connections', label: 'Conexões', icon: Share2 },
   { to: '/team', label: 'Equipe', icon: Users },
 ] as const
 
@@ -73,9 +76,17 @@ const navItems = [
  * `--page-h` is the height a page can use without scrolling the window (the
  * window minus the top bar and the padding). Full-height pages (calendar,
  * item editor) size themselves with `h-(--page-h)`.
+ *
+ * A route with `staticData: { fullBleed: true }` (the design editor) gets no
+ * padding: it fills the whole area right of the sidebar (below the top bar
+ * under `lg`), and `--page-h` is that whole height. Such a page pads its own
+ * fallback states with `PAGE_PADDING`.
  */
 export function AppShell() {
   const { sidebarOpen } = appRoute.useRouteContext()
+  const fullBleed = useMatches({
+    select: (matches) => matches.some((match) => match.staticData.fullBleed === true),
+  })
   return (
     <SidebarProvider defaultOpen={sidebarOpen}>
       <WebMcpTools />
@@ -83,12 +94,31 @@ export function AppShell() {
       <SidebarInset>
         <NavigationProgress />
         <MobileTopBar />
-        <div className="w-full px-4 py-6 [--page-h:calc(100svh-3.5rem-env(safe-area-inset-top)-3rem)] md:px-6 lg:px-10 lg:py-8 lg:[--page-h:calc(100svh-4rem)]">
+        <div
+          className={
+            fullBleed
+              ? 'w-full [--page-h:calc(100svh-3.5rem-env(safe-area-inset-top))] lg:[--page-h:100svh]'
+              : cn(
+                  'w-full [--page-h:calc(100svh-3.5rem-env(safe-area-inset-top)-3rem)] lg:[--page-h:calc(100svh-4rem)]',
+                  PAGE_PADDING,
+                )
+          }
+        >
           <Outlet />
         </div>
       </SidebarInset>
     </SidebarProvider>
   )
+}
+
+/** The shell's page padding, for full-bleed pages' own fallback states. */
+export const PAGE_PADDING = 'px-4 py-6 md:px-6 lg:px-10 lg:py-8'
+
+declare module '@tanstack/react-router' {
+  interface StaticDataRouteOption {
+    /** The page fills the area right of the sidebar, with no shell padding. */
+    fullBleed?: boolean
+  }
 }
 
 /**

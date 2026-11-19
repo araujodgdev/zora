@@ -15,6 +15,7 @@ import {
 import {
   MAX_ASSET_BYTES,
   MEDIA_ACCEPT,
+  assetCreditText,
   assetFileUrl,
   assetKind,
   assetUploadError,
@@ -217,6 +218,7 @@ function AssetTile({
 }) {
   const kind = assetKind(asset.contentType)
   const url = assetFileUrl(asset.id)
+  const credit = assetCreditText(asset.attribution)
   const preview = (
     <>
       <div className="bg-muted relative flex aspect-video items-center justify-center overflow-hidden">
@@ -247,7 +249,10 @@ function AssetTile({
       </div>
       <div className="p-2 pr-9 text-left">
         <p className="truncate text-xs font-medium">{asset.filename}</p>
-        <p className="text-muted-foreground text-xs">{formatBytes(asset.size)}</p>
+        <p className="text-muted-foreground truncate text-xs">
+          {formatBytes(asset.size)}
+          {credit ? ` · ${credit}` : ''}
+        </p>
       </div>
     </>
   )

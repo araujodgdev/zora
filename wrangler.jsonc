@@ -8,7 +8,8 @@
   // Better Auth needs Node.js APIs.
   // Default since 2026-08-04, kept explicit for clarity.
   "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
+  // Start's handler plus the exported Durable Object classes (StudioEngine).
+  "main": "src/server.ts",
   // Served only at https://zora.lume.software (zone lume.software, same
   // account). Wrangler creates the DNS record and certificate on deploy.
   // BETTER_AUTH_URL must match this origin.
@@ -38,11 +39,46 @@
       "allowed_sender_addresses": ["zora@notify.lume.software"]
     }
   ],
+  // The design engine (Zora Studio's engine, headless; see AGENTS.md, "Design
+  // engine"). One Durable Object per engine container.
+  "durable_objects": {
+    "bindings": [{ "name": "STUDIO_ENGINE", "class_name": "StudioEngine" }]
+  },
+  "exports": {
+    "StudioEngine": { "type": "durable-object", "storage": "sqlite" }
+  },
+  // THE SWITCH for the engine container: it is off while this entry stays
+  // commented out (the tools then say the engine is not configured, unless
+  // STUDIO_ENGINE_URL points at an engine). To switch it on (Workers Paid
+  // plan), build the image from ../zora-vector/apps/zora-studio-server/Dockerfile,
+  // push it to the Cloudflare registry and paste its digest (README,
+  // "Design engine"), then uncomment:
+  // "containers": [
+  //   {
+  //     "class_name": "StudioEngine",
+  //     "scheduling_policy": "durable_object",
+  //     "images": {
+  //       "engine": {
+  //         "image": "registry.cloudflare.com/bf552f67bcf46921dbe4137ee0ff8980/zora-studio-engine@sha256:<digest>"
+  //       }
+  //     }
+  //   }
+  // ],
+  // Local dev cannot run containers on Windows (Wrangler refuses), and they
+  // need Docker: `pnpm dev` never starts one. Use STUDIO_ENGINE_URL instead.
+  "dev": {
+    "enable_containers": false
+  },
+  // Automated social publishing: dispatches due `scheduled` items and advances
+  // asynchronous video uploads (Instagram Reels, TikTok, LinkedIn).
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
   "observability": {
     "enabled": true
   }
   // Set as Worker secrets (`wrangler secret put <NAME>`), never committed:
-  //   BETTER_AUTH_SECRET, BETTER_AUTH_URL, ALLOWED_SIGNUP_EMAILS
-  // (the last two are not secret, but as secrets they stay out of this file
-  // and `wrangler deploy` never resets them).
+  //   BETTER_AUTH_SECRET, BETTER_AUTH_URL, ALLOWED_SIGNUP_EMAILS,
+  //   UNSPLASH_ACCESS_KEY, FAL_KEY, TREG_TOKEN
+  // (the non-secret ones stay as secrets too so `wrangler deploy` never resets them).
 }

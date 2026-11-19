@@ -51,7 +51,15 @@
     --color-channel-x: var(--channel-x);
     --color-channel-linkedin: var(--channel-linkedin);
     --color-channel-instagram: var(--channel-instagram);
+    --color-channel-tiktok: var(--channel-tiktok);
+    --color-channel-youtube: var(--channel-youtube);
     --color-channel-blog: var(--channel-blog);
+    --color-channel-tile-foreground: var(--channel-tile-foreground);
+    --color-channel-tile-x: var(--channel-tile-x);
+    --color-channel-tile-linkedin: var(--channel-tile-linkedin);
+    --color-channel-tile-instagram: var(--channel-tile-instagram);
+    --color-channel-tile-tiktok: var(--channel-tile-tiktok);
+    --color-channel-tile-youtube: var(--channel-tile-youtube);
     --color-status-idea: var(--status-idea);
     --color-status-draft: var(--status-draft);
     --color-status-ready: var(--status-ready);
@@ -113,7 +121,17 @@
     --channel-x-foreground: #ffffff;
     --channel-linkedin: #5cc8ff;
     --channel-instagram: #ff8ad8;
+    --channel-tiktok: #3ef0e8;
+    --channel-youtube: #ff6b6b;
     --channel-blog: #f5c04a;
+
+    /* Rich brand swatches for social icon tiles with white brand marks. */
+    --channel-tile-foreground: #ffffff;
+    --channel-tile-x: #0e1318;
+    --channel-tile-linkedin: #0a66c2;
+    --channel-tile-instagram: #d62976;
+    --channel-tile-tiktok: #0d9488;
+    --channel-tile-youtube: #e62117;
 
     --status-idea: #8a8d91;
     --status-draft: #f08a3e;

@@ -11,7 +11,11 @@ describe('post text', () => {
   it('treats only the blog as Markdown', () => {
     expect(isMarkdownChannel('blog')).toBe(true)
     expect(isMarkdownChannel('x')).toBe(false)
+    expect(isMarkdownChannel('tiktok')).toBe(false)
+    expect(isMarkdownChannel('youtube')).toBe(false)
     expect(CHANNEL_TEXT_LIMITS.x).toBe(280)
+    expect(CHANNEL_TEXT_LIMITS.tiktok).toBe(2200)
+    expect(CHANNEL_TEXT_LIMITS.youtube).toBe(5000)
     expect(CHANNEL_TEXT_LIMITS.blog).toBeNull()
   })
 

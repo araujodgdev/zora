@@ -3,9 +3,10 @@
  * editor, the MCP tool descriptions and tests.
  *
  * - Blog: Markdown, edited with a rich-text editor and stored as Markdown.
- * - X, LinkedIn, Instagram: plain text. None of them render Markdown, so
- *   `**bold**` would be posted with its asterisks. The editor counts
- *   characters against the network's limit and offers to strip formatting.
+ * - X, LinkedIn, Instagram, TikTok, YouTube: plain text. None of them render
+ *   Markdown, so `**bold**` would be posted with its asterisks. The editor
+ *   counts characters against the network's limit and offers to strip
+ *   formatting.
  */
 import type { Channel } from './content'
 
@@ -23,6 +24,8 @@ export const CHANNEL_TEXT_LIMITS: Record<Channel, number | null> = {
   x: 280,
   linkedin: 3000,
   instagram: 2200,
+  tiktok: 2200,
+  youtube: 5000,
   blog: null,
 }
 

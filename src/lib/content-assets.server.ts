@@ -8,13 +8,15 @@
  *
  * Bytes live in the R2 bucket under `content/<contentItemId>/<assetId>`; the
  * `content_asset` row holds the metadata. Deleting an item removes its rows
- * through the foreign key; `deleteContentItemWithAssets` removes its objects.
+ * through the foreign key; `deleteContentItemWithAssets` removes its objects,
+ * and those of the item's designs (`designs/<designId>/...`).
  */
 import { and, asc, eq } from 'drizzle-orm'
 import type { Database } from '../db/client.server'
-import { contentAsset, contentItem } from '../db/schema'
+import { contentAsset, contentDesign, contentDesignVersion, contentItem } from '../db/schema'
 import { assetUploadError } from './content-assets'
-import type { ContentAsset } from './content-assets'
+import type { AssetAttribution, ContentAsset } from './content-assets'
+import { designPreviewKey, designSourceKey } from './content-designs'
 import { deleteContentItem } from './content.server'
 
 /** The part of an R2 bucket binding this app uses. */
@@ -58,6 +60,7 @@ const assetColumns = {
   filename: contentAsset.filename,
   contentType: contentAsset.contentType,
   size: contentAsset.size,
+  attribution: contentAsset.attribution,
   createdById: contentAsset.createdById,
   createdAt: contentAsset.createdAt,
 }
@@ -108,6 +111,8 @@ export async function createContentAsset(
     createdById: string
     file: { name: string; type: string; size: number }
     body: ReadableStream | ArrayBuffer | Blob
+    /** Credit of a file fetched from a provider (stock photo, generated image). */
+    attribution?: AssetAttribution | null
   },
 ): Promise<ContentAsset | null> {
   const { file } = input
@@ -128,6 +133,7 @@ export async function createContentAsset(
         filename: file.name,
         contentType: file.type,
         size: file.size,
+        attribution: input.attribution ?? null,
         createdById: input.createdById,
       })
       .returning()
@@ -174,9 +180,33 @@ export async function deleteContentAsset(
   return true
 }
 
+/** R2 keys of every version of every design of an item. */
+async function listItemDesignObjectKeys(
+  db: Database,
+  organizationId: string,
+  contentItemId: string,
+): Promise<Array<string>> {
+  const rows = await db
+    .select({ designId: contentDesignVersion.designId, versionId: contentDesignVersion.id })
+    .from(contentDesignVersion)
+    .innerJoin(contentDesign, eq(contentDesign.id, contentDesignVersion.designId))
+    .innerJoin(contentItem, eq(contentItem.id, contentDesign.contentItemId))
+    .where(
+      and(
+        eq(contentDesign.contentItemId, contentItemId),
+        eq(contentItem.organizationId, organizationId),
+      ),
+    )
+  return rows.flatMap(({ designId, versionId }) => [
+    designSourceKey(designId, versionId),
+    designPreviewKey(designId, versionId),
+  ])
+}
+
 /**
- * Deletes an item and, once that succeeded, its files. A failure to delete
- * the files leaves unreachable objects behind, not a broken item.
+ * Deletes an item and, once that succeeded, its files and the files of its
+ * designs (the rows go with the item through the foreign keys). A failure to
+ * delete the files leaves unreachable objects behind, not a broken item.
  */
 export async function deleteContentItemWithAssets(
   db: Database,
@@ -185,13 +215,16 @@ export async function deleteContentItemWithAssets(
   id: string,
 ): Promise<boolean> {
   const assets = await listContentAssets(db, organizationId, id)
+  const designKeys = await listItemDesignObjectKeys(db, organizationId, id)
   const deleted = await deleteContentItem(db, organizationId, id)
-  if (deleted && assets.length > 0) {
-    await bucket
-      .delete(assets.map((asset) => assetObjectKey(id, asset.id)))
-      .catch((error: unknown) => {
+  const keys = [...assets.map((asset) => assetObjectKey(id, asset.id)), ...designKeys]
+  if (deleted && keys.length > 0) {
+    // R2 deletes up to 1000 keys per call.
+    for (let start = 0; start < keys.length; start += 1000) {
+      await bucket.delete(keys.slice(start, start + 1000)).catch((error: unknown) => {
         console.error('Could not delete the media of item', id, error)
       })
+    }
   }
   return deleted
 }

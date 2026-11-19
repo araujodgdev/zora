@@ -28,6 +28,27 @@ export const MEDIA_ACCEPT = Object.keys(MEDIA_TYPES).join(',')
 /** 100 MB: the request body limit of Cloudflare Workers on the Free and Pro plans. */
 export const MAX_ASSET_BYTES = 100 * 1024 * 1024
 
+/**
+ * Where a file came from, when Zora fetched it from a provider rather than a
+ * person uploading it. Stock photos carry the credit their licence asks for.
+ */
+export type AssetAttribution =
+  | {
+      provider: 'unsplash'
+      photoId: string
+      photographer: string
+      /** The photographer's Unsplash profile, with UTM parameters. */
+      photographerUrl: string
+      /** The photo's Unsplash page, with UTM parameters. */
+      photoUrl: string
+    }
+  | {
+      provider: 'fal'
+      /** fal endpoint id, e.g. `fal-ai/nano-banana-2`. */
+      model: string
+      prompt: string
+    }
+
 /** An uploaded file, as returned by the server. */
 export type ContentAsset = {
   id: string
@@ -35,8 +56,30 @@ export type ContentAsset = {
   filename: string
   contentType: string
   size: number
+  attribution: AssetAttribution | null
   createdById: string
   createdAt: Date
+}
+
+/** The `utm_source` Unsplash asks every link back to carry. */
+export const UNSPLASH_UTM_SOURCE = 'zora'
+
+/** Unsplash's home page, with UTM parameters (the "Unsplash" link of a credit). */
+export const UNSPLASH_HOME_URL = `https://unsplash.com/?utm_source=${UNSPLASH_UTM_SOURCE}&utm_medium=referral`
+
+/** Appends Unsplash's UTM parameters to a link back to unsplash.com. */
+export function withUnsplashUtm(url: string): string {
+  const parsed = new URL(url)
+  parsed.searchParams.set('utm_source', UNSPLASH_UTM_SOURCE)
+  parsed.searchParams.set('utm_medium', 'referral')
+  return parsed.toString()
+}
+
+/** The credit line shown with a file (pt-BR), or `null` when it needs none. */
+export function assetCreditText(attribution: AssetAttribution | null): string | null {
+  if (!attribution) return null
+  if (attribution.provider === 'unsplash') return `Foto: ${attribution.photographer} / Unsplash`
+  return 'Imagem gerada por IA'
 }
 
 export function assetKind(contentType: string): AssetKind | null {

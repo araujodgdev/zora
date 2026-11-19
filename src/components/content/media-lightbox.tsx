@@ -9,8 +9,14 @@ import {
 } from 'lucide-react'
 import { useEffect } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
-import { assetFileUrl, assetKind, formatBytes } from '@/lib/content-assets'
-import type { ContentAsset } from '@/lib/content-assets'
+import {
+  UNSPLASH_HOME_URL,
+  assetCreditText,
+  assetFileUrl,
+  assetKind,
+  formatBytes,
+} from '@/lib/content-assets'
+import type { AssetAttribution, ContentAsset } from '@/lib/content-assets'
 import { cn } from '@/lib/utils'
 
 /**
@@ -81,6 +87,7 @@ export function MediaLightbox({
                     {formatBytes(asset.size)}
                     {hasMany ? ` · ${(index ?? 0) + 1} de ${count}` : ''}
                   </p>
+                  <AssetCredit attribution={asset.attribution} />
                 </div>
                 <div className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-full bg-white/10 p-1 backdrop-blur-md">
                   <ControlLink href={assetFileUrl(asset.id)} download={asset.filename} label="Baixar">
@@ -123,6 +130,36 @@ export function MediaLightbox({
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
+  )
+}
+
+/**
+ * The credit of a fetched file: Unsplash photos name and link the
+ * photographer and Unsplash (as Unsplash's guidelines ask); generated images
+ * say so, with the prompt on hover.
+ */
+function AssetCredit({ attribution }: { attribution: AssetAttribution | null }) {
+  if (!attribution) return null
+  const linkClass = 'pointer-events-auto underline underline-offset-2 hover:text-white'
+  return (
+    <p className="mt-0.5 truncate text-xs text-white/60">
+      {attribution.provider === 'unsplash' ? (
+        <>
+          Foto:{' '}
+          <a href={attribution.photographerUrl} target="_blank" rel="noreferrer" className={linkClass}>
+            {attribution.photographer}
+          </a>{' '}
+          /{' '}
+          <a href={UNSPLASH_HOME_URL} target="_blank" rel="noreferrer" className={linkClass}>
+            Unsplash
+          </a>
+        </>
+      ) : (
+        <span className="pointer-events-auto" title={attribution.prompt}>
+          {assetCreditText(attribution)}
+        </span>
+      )}
+    </p>
   )
 }
 

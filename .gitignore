@@ -3,6 +3,8 @@ dist/
 .output/
 .wrangler/
 .tanstack/
+# Downloads of `pnpm fonts:sync`.
+.cache/
 coverage/
 *.log
 

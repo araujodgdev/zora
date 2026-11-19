@@ -59,8 +59,8 @@ describe('createContentItemSchema', () => {
 
   it('rejects unknown channels, formats and statuses', () => {
     for (const patch of [
-      { channel: 'tiktok' },
-      { format: 'video' },
+      { channel: 'bluesky' },
+      { format: 'podcast' },
       { status: 'archived' },
     ]) {
       const result = createContentItemSchema.safeParse({

@@ -64,6 +64,9 @@ All live in `.env` locally (git-ignored; `.env.example` documents them).
 | `BETTER_AUTH_SECRET` | Auth secret, at least 32 random characters |
 | `BETTER_AUTH_URL` | Public base URL of the app |
 | `ALLOWED_SIGNUP_EMAILS` | Comma-separated emails allowed to sign up |
+| `UNSPLASH_ACCESS_KEY` | Optional. Unsplash access key for the MCP stock photo tools |
+| `FAL_KEY` | Optional. fal API key for the MCP `generate_image` tool |
+| `STUDIO_ENGINE_URL` | Optional. URL of a design engine run natively (development); wins over the container |
 
 ## Connecting an AI agent (MCP)
 
@@ -92,6 +95,8 @@ secrets (`pnpm exec wrangler secret list`). To change the allowlist:
 `pnpm exec wrangler secret put ALLOWED_SIGNUP_EMAILS` (takes effect in a few
 seconds, no deploy needed). If the app moves to another URL, update
 `BETTER_AUTH_URL` the same way.
+The image tools' keys are optional secrets too:
+`pnpm exec wrangler secret put UNSPLASH_ACCESS_KEY` and `... FAL_KEY`.
 
 Deploys run on Cloudflare **Workers Builds**, connected to `main` of the
 GitHub repository: every push to `main` builds and deploys. Settings (Workers
@@ -106,5 +111,36 @@ GitHub repository: every push to `main` builds and deploys. Settings (Workers
 pnpm comes from the `packageManager` field (Corepack). To deploy by hand
 instead, run `pnpm build && pnpm deploy:ci` from a machine logged in with
 Wrangler. (`pnpm deploy` is a pnpm built-in, not this project's script.)
+
+### Design engine (Cloudflare Container)
+
+The MCP design tools (`edit_design`, `render_design` with a scale,
+`inspect_design`, `list_design_commands`) run Zora Studio's engine
+(`apps/zora-studio-server` in `../zora-vector`) in a Cloudflare Container.
+It is **off** until these owner steps are done (the tools say "not
+configured" meanwhile):
+
+1. Upgrade to the Workers Paid plan (Containers need it).
+2. Build the image (linux/amd64) from the Studio repo and push it to the
+   Cloudflare registry, from this repo's folder (Wrangler is here):
+   ```sh
+   docker build --platform linux/amd64 -f ../zora-vector/apps/zora-studio-server/Dockerfile -t zora-studio-engine:<tag> ../zora-vector
+   pnpm exec wrangler containers push zora-studio-engine:<tag>
+   docker image inspect --format '{{join .RepoDigests "
+"}}' registry.cloudflare.com/bf552f67bcf46921dbe4137ee0ff8980/zora-studio-engine:<tag>
+   ```
+   (Adjust the build context if the R3 Dockerfile expects another one.)
+3. In `wrangler.jsonc`, uncomment the `containers` entry and put the
+   `registry.cloudflare.com/...@sha256:<digest>` reference in
+   `images.engine.image`. A digest (not a Dockerfile path) keeps Workers
+   Builds working: it clones only this repo, so it could not build from
+   `../zora-vector`.
+4. Push to `main`. The first deploy provisions the container; it can take
+   several minutes before the tools work. A new engine build = steps 2 to 4
+   with a new tag and digest.
+
+Locally the container never runs (`dev.enable_containers` is false;
+Wrangler does not run containers on Windows): start the engine binary
+yourself and set `STUDIO_ENGINE_URL` (e.g. `http://127.0.0.1:8080`) in `.env`.
 
 See AGENTS.md for production caveats (Workers CPU limits, D1 limits).

@@ -22,6 +22,11 @@ export const contentKeys = {
   detail: (id: string) => [...contentKeys.details(), id] as const,
   /** The uploaded media of one item. */
   assets: (id: string) => [...contentKeys.all, 'assets', id] as const,
+  /** The designs of one item. */
+  designs: (itemId: string) => [...contentKeys.all, 'designs', itemId] as const,
+  /** The saved versions of one design. */
+  designVersions: (designId: string) =>
+    [...contentKeys.all, 'design-versions', designId] as const,
 }
 
 /** Fields a drag-and-drop move can change. */

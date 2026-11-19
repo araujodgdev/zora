@@ -180,15 +180,23 @@ type ContentItemFormProps = {
   members: ReadonlyArray<TeamMember>
   /** The page the editor was opened from: the back link and "Cancelar" go there. */
   from: EditorOrigin | undefined
+  /** The designs section of an existing item, shown in the main column above the media. */
+  designs?: ReactNode
   /** The media section of an existing item, shown in the main column. */
   media?: ReactNode
+  /** Social publishing controls for an existing item, shown in the inspector panel. */
+  renderPublish?: (args: {
+    isDirty: boolean
+    channel: Channel
+    onPublished: (updated: ContentItem) => void
+  }) => ReactNode
 }
 
 /**
  * The item editor, laid out like a document with an inspector:
  *
  * - main column: the title (edited in place, as the page heading), the copy,
- *   the media and the notes;
+ *   the designs, the media and the notes;
  * - a panel on the right (below on small screens, sticky on large ones) with
  *   the actions and every property: status, channel, format, assignee,
  *   dates and links.
@@ -203,7 +211,9 @@ export function ContentItemForm({
   defaults = {},
   members,
   from,
+  designs,
   media,
+  renderPublish,
 }: ContentItemFormProps) {
   const navigate = useNavigate()
   const createItem = useCreateContentItem()
@@ -394,6 +404,8 @@ export function ContentItemForm({
           )}
         </form.Subscribe>
 
+        {designs}
+
         {media ?? (
           <section className="bg-card text-muted-foreground flex items-center gap-3 rounded-xl border border-dashed p-5 text-sm">
             <ImageUp className="size-5 shrink-0" />
@@ -461,6 +473,40 @@ export function ContentItemForm({
         </form.Subscribe>
 
         <Separator className="hidden lg:block" />
+
+        {renderPublish ? (
+          <form.Subscribe
+            selector={(state) => [state.isDirty, state.values.channel] as const}
+          >
+            {([isDirty, channel]) => {
+              const section = renderPublish({
+                isDirty,
+                channel,
+                onPublished: (updated) => {
+                  const nextValues: FormValues = {
+                    ...form.state.values,
+                    status: updated.status,
+                    publishedAt: toDateTimeLocalValue(updated.publishedAt),
+                    publishedUrl: updated.publishedUrl ?? '',
+                  }
+                  if (!isDirty) {
+                    form.reset(nextValues)
+                  } else {
+                    form.setFieldValue('status', nextValues.status)
+                    form.setFieldValue('publishedAt', nextValues.publishedAt)
+                    form.setFieldValue('publishedUrl', nextValues.publishedUrl)
+                  }
+                },
+              })
+              return section ? (
+                <>
+                  {section}
+                  <Separator />
+                </>
+              ) : null
+            }}
+          </form.Subscribe>
+        ) : null}
 
         <div className="grid grid-cols-2 gap-4">
           <form.Field name="status">

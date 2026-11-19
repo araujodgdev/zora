@@ -12,12 +12,21 @@ import { z } from 'zod'
 // Enumerations and labels
 // ---------------------------------------------------------------------------
 
-export const CHANNELS = ['x', 'linkedin', 'instagram', 'blog'] as const
+export const CHANNELS = [
+  'x',
+  'linkedin',
+  'instagram',
+  'tiktok',
+  'youtube',
+  'blog',
+] as const
 export type Channel = (typeof CHANNELS)[number]
 export const CHANNEL_LABELS: Record<Channel, string> = {
   x: 'X',
   linkedin: 'LinkedIn',
   instagram: 'Instagram',
+  tiktok: 'TikTok',
+  youtube: 'YouTube',
   blog: 'Blog',
 }
 
@@ -27,6 +36,8 @@ export const FORMATS = [
   'carousel',
   'reel',
   'story',
+  'video',
+  'short',
   'article',
 ] as const
 export type ContentFormat = (typeof FORMATS)[number]
@@ -36,6 +47,8 @@ export const FORMAT_LABELS: Record<ContentFormat, string> = {
   carousel: 'Carrossel',
   reel: 'Reel',
   story: 'Story',
+  video: 'Vídeo',
+  short: 'Short',
   article: 'Artigo',
 }
 

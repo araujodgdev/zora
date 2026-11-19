@@ -2,8 +2,10 @@ import { requireMcpAuth } from '@better-auth/mcp'
 import { createFileRoute } from '@tanstack/react-router'
 import { mcpResourceUrl } from '@/lib/auth.server'
 import { getMediaBucket } from '@/lib/media-bucket.server'
+import { getStudioEngine } from '@/lib/studio-engine-container.server'
 import { createZoraMcpHandler, findMcpUser } from '@/lib/mcp.server'
 import { getRequestServices } from '@/lib/services.server'
+import { createTregClient } from '@/lib/treg.server'
 import { resolveMcpWorkspace } from '@/lib/workspace.server'
 
 /**
@@ -38,6 +40,12 @@ async function handle(request: Request): Promise<Response> {
         user,
         workspace,
         appUrl: env.BETTER_AUTH_URL,
+        images: { unsplashAccessKey: env.UNSPLASH_ACCESS_KEY, falKey: env.FAL_KEY },
+        engine: getStudioEngine(),
+        treg: createTregClient({
+          token: env.TREG_TOKEN,
+          baseUrl: env.TREG_BASE_URL,
+        }),
       })
       return handler.fetch(authorized)
     },

@@ -5,11 +5,15 @@ import type { Database } from '../src/db/client.server'
 import {
   account,
   contentAsset,
+  contentDesign,
+  contentDesignVersion,
   contentItem,
   invitation,
   member,
   organization,
   session,
+  socialConnection,
+  socialPublishJob,
   user,
   verification,
 } from '../src/db/schema'
@@ -67,6 +71,10 @@ export async function seedWorkspace(
 /** Empties every application and auth table (children before parents). */
 export async function resetDatabase(db: Database): Promise<void> {
   for (const table of [
+    socialPublishJob,
+    socialConnection,
+    contentDesignVersion,
+    contentDesign,
     contentAsset,
     contentItem,
     invitation,

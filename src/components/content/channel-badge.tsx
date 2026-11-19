@@ -1,7 +1,9 @@
 import type { ComponentProps } from 'react'
+import { ChannelIcon } from '@/components/content/channel-icon'
 import { Badge } from '@/components/ui/badge'
 import { CHANNEL_LABELS } from '@/lib/content'
 import type { Channel } from '@/lib/content'
+import type { SocialChannel } from '@/lib/social'
 import { cn } from '@/lib/utils'
 
 // The one place that decides how each channel looks: a solid fill in the
@@ -10,7 +12,18 @@ const CHANNEL_CLASS_NAMES: Record<Channel, string> = {
   x: 'bg-channel-x text-channel-x-foreground',
   linkedin: 'bg-channel-linkedin text-ink',
   instagram: 'bg-channel-instagram text-ink',
+  tiktok: 'bg-channel-tiktok text-ink',
+  youtube: 'bg-channel-youtube text-ink',
   blog: 'bg-channel-blog text-ink',
+}
+
+// Saturated brand swatches with white icons for social connection tiles.
+const CHANNEL_TILE_CLASS_NAMES: Record<SocialChannel, string> = {
+  x: 'bg-channel-tile-x text-channel-tile-foreground dark:ring-1 dark:ring-foreground/15',
+  linkedin: 'bg-channel-tile-linkedin text-channel-tile-foreground',
+  instagram: 'bg-channel-tile-instagram text-channel-tile-foreground',
+  tiktok: 'bg-channel-tile-tiktok text-channel-tile-foreground',
+  youtube: 'bg-channel-tile-youtube text-channel-tile-foreground',
 }
 
 type ChannelBadgeProps = Omit<ComponentProps<'span'>, 'children'> & {
@@ -58,5 +71,30 @@ export function ChannelBadge({
     >
       {label}
     </Badge>
+  )
+}
+
+/**
+ * A square icon tile in the social channel's token colour with its real brand
+ * mark. Kept here so channel colours stay defined in one place only.
+ */
+export function ChannelIconTile({
+  channel,
+  className,
+  ...props
+}: Omit<ComponentProps<'span'>, 'children'> & { channel: SocialChannel }) {
+  return (
+    <span
+      data-channel={channel}
+      aria-hidden="true"
+      className={cn(
+        'inline-flex size-9 shrink-0 items-center justify-center rounded-lg',
+        CHANNEL_TILE_CLASS_NAMES[channel],
+        className,
+      )}
+      {...props}
+    >
+      <ChannelIcon channel={channel} className="size-[1.125rem]" />
+    </span>
   )
 }

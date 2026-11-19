@@ -2,8 +2,11 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { PageHeader } from '@/components/app-shell'
 import { ContentAssets } from '@/components/content/content-assets'
+import { ContentDesigns } from '@/components/content/content-designs'
 import { ContentItemForm } from '@/components/content/content-item-form'
+import { ContentPublish } from '@/components/content/content-publish'
 import { contentItemIdSchema } from '@/lib/content'
+import { contentDesignsQueryOptions } from '@/lib/content-designs.queries'
 import {
   contentAssetsQueryOptions,
   contentItemQueryOptions,
@@ -11,6 +14,10 @@ import {
 } from '@/lib/content.queries'
 import { editItemSearchSchema, editorReturnPath } from '@/lib/editor-search'
 import { loadQuery } from '@/lib/route-query'
+import {
+  itemPublishJobsQueryOptions,
+  socialConnectionsQueryOptions,
+} from '@/lib/social.queries'
 
 export const Route = createFileRoute('/_app/content/$itemId')({
   validateSearch: editItemSearchSchema,
@@ -26,6 +33,9 @@ export const Route = createFileRoute('/_app/content/$itemId')({
       loadQuery(context.queryClient, contentItemQueryOptions(params.itemId)),
       loadQuery(context.queryClient, teamMembersQueryOptions()),
       loadQuery(context.queryClient, contentAssetsQueryOptions(params.itemId)),
+      loadQuery(context.queryClient, contentDesignsQueryOptions(params.itemId)),
+      loadQuery(context.queryClient, socialConnectionsQueryOptions()),
+      loadQuery(context.queryClient, itemPublishJobsQueryOptions(params.itemId)),
     ])
     return { title: item.title }
   },
@@ -48,7 +58,16 @@ function EditContentItemPage() {
       item={item}
       members={members}
       from={search.from}
+      designs={<ContentDesigns itemId={item.id} channel={item.channel} from={search.from} />}
       media={<ContentAssets itemId={item.id} />}
+      renderPublish={({ isDirty, channel, onPublished }) => (
+        <ContentPublish
+          item={item}
+          currentChannel={channel}
+          isDirty={isDirty}
+          onPublished={onPublished}
+        />
+      )}
     />
   )
 }

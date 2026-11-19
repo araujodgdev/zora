@@ -18,9 +18,12 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as DotwellKnownSplatRouteImport } from './routes/[.]well-known/$'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
+import { Route as AppConnectionsRouteImport } from './routes/_app/connections'
 import { Route as AppPipelineRouteImport } from './routes/_app/pipeline'
 import { Route as AppTeamRouteImport } from './routes/_app/team'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
+import { Route as StudioFontsSplatRouteImport } from './routes/studio-fonts/$'
+import { Route as StudioSplatRouteImport } from './routes/studio/$'
 import { Route as WorkspacesNewRouteImport } from './routes/workspaces/new'
 import { Route as AppContentIndexRouteImport } from './routes/_app/content/index'
 import { Route as AppContentItemIdRouteImport } from './routes/_app/content/$itemId'
@@ -28,6 +31,11 @@ import { Route as AppContentNewRouteImport } from './routes/_app/content/new'
 import { Route as ApiAssetsAssetIdRouteImport } from './routes/api/assets/$assetId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiContentItemIdAssetsRouteImport } from './routes/api/content/$itemId/assets'
+import { Route as ApiDesignsDesignIdIndexRouteImport } from './routes/api/designs/$designId/index'
+import { Route as ApiDesignsDesignIdPreviewRouteImport } from './routes/api/designs/$designId/preview'
+import { Route as ApiDesignsDesignIdSourceRouteImport } from './routes/api/designs/$designId/source'
+import { Route as ApiDesignsDesignIdVersionsRouteImport } from './routes/api/designs/$designId/versions'
+import { Route as AppContentItemIdDesignsDesignIdRouteImport } from './routes/_app/content/$itemId_.designs.$designId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -73,6 +81,11 @@ const AppCalendarRoute = AppCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AppRoute,
 } as any)
+const AppConnectionsRoute = AppConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPipelineRoute = AppPipelineRouteImport.update({
   id: '/pipeline',
   path: '/pipeline',
@@ -86,6 +99,16 @@ const AppTeamRoute = AppTeamRouteImport.update({
 const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   id: '/invite/$invitationId',
   path: '/invite/$invitationId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudioFontsSplatRoute = StudioFontsSplatRouteImport.update({
+  id: '/studio-fonts/$',
+  path: '/studio-fonts/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudioSplatRoute = StudioSplatRouteImport.update({
+  id: '/studio/$',
+  path: '/studio/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkspacesNewRoute = WorkspacesNewRouteImport.update({
@@ -123,6 +146,35 @@ const ApiContentItemIdAssetsRoute = ApiContentItemIdAssetsRouteImport.update({
   path: '/api/content/$itemId/assets',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDesignsDesignIdIndexRoute = ApiDesignsDesignIdIndexRouteImport.update({
+  id: '/api/designs/$designId/',
+  path: '/api/designs/$designId/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDesignsDesignIdPreviewRoute =
+  ApiDesignsDesignIdPreviewRouteImport.update({
+    id: '/api/designs/$designId/preview',
+    path: '/api/designs/$designId/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDesignsDesignIdSourceRoute =
+  ApiDesignsDesignIdSourceRouteImport.update({
+    id: '/api/designs/$designId/source',
+    path: '/api/designs/$designId/source',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiDesignsDesignIdVersionsRoute =
+  ApiDesignsDesignIdVersionsRouteImport.update({
+    id: '/api/designs/$designId/versions',
+    path: '/api/designs/$designId/versions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AppContentItemIdDesignsDesignIdRoute =
+  AppContentItemIdDesignsDesignIdRouteImport.update({
+    id: '/content/$itemId_/designs/$designId',
+    path: '/content/$itemId/designs/$designId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -133,9 +185,12 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/.well-known/$': typeof DotwellKnownSplatRoute
   '/calendar': typeof AppCalendarRoute
+  '/connections': typeof AppConnectionsRoute
   '/pipeline': typeof AppPipelineRoute
   '/team': typeof AppTeamRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/studio-fonts/$': typeof StudioFontsSplatRoute
+  '/studio/$': typeof StudioSplatRoute
   '/workspaces/new': typeof WorkspacesNewRoute
   '/content/$itemId': typeof AppContentItemIdRoute
   '/content/new': typeof AppContentNewRoute
@@ -143,6 +198,11 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/content/': typeof AppContentIndexRoute
   '/api/content/$itemId/assets': typeof ApiContentItemIdAssetsRoute
+  '/api/designs/$designId/preview': typeof ApiDesignsDesignIdPreviewRoute
+  '/api/designs/$designId/source': typeof ApiDesignsDesignIdSourceRoute
+  '/api/designs/$designId/versions': typeof ApiDesignsDesignIdVersionsRoute
+  '/api/designs/$designId/': typeof ApiDesignsDesignIdIndexRoute
+  '/content/$itemId/designs/$designId': typeof AppContentItemIdDesignsDesignIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -153,9 +213,12 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/.well-known/$': typeof DotwellKnownSplatRoute
   '/calendar': typeof AppCalendarRoute
+  '/connections': typeof AppConnectionsRoute
   '/pipeline': typeof AppPipelineRoute
   '/team': typeof AppTeamRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/studio-fonts/$': typeof StudioFontsSplatRoute
+  '/studio/$': typeof StudioSplatRoute
   '/workspaces/new': typeof WorkspacesNewRoute
   '/content/$itemId': typeof AppContentItemIdRoute
   '/content/new': typeof AppContentNewRoute
@@ -163,6 +226,11 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/content': typeof AppContentIndexRoute
   '/api/content/$itemId/assets': typeof ApiContentItemIdAssetsRoute
+  '/api/designs/$designId/preview': typeof ApiDesignsDesignIdPreviewRoute
+  '/api/designs/$designId/source': typeof ApiDesignsDesignIdSourceRoute
+  '/api/designs/$designId/versions': typeof ApiDesignsDesignIdVersionsRoute
+  '/api/designs/$designId': typeof ApiDesignsDesignIdIndexRoute
+  '/content/$itemId/designs/$designId': typeof AppContentItemIdDesignsDesignIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -175,9 +243,12 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/.well-known/$': typeof DotwellKnownSplatRoute
   '/_app/calendar': typeof AppCalendarRoute
+  '/_app/connections': typeof AppConnectionsRoute
   '/_app/pipeline': typeof AppPipelineRoute
   '/_app/team': typeof AppTeamRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/studio-fonts/$': typeof StudioFontsSplatRoute
+  '/studio/$': typeof StudioSplatRoute
   '/workspaces/new': typeof WorkspacesNewRoute
   '/_app/content/$itemId': typeof AppContentItemIdRoute
   '/_app/content/new': typeof AppContentNewRoute
@@ -185,6 +256,11 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_app/content/': typeof AppContentIndexRoute
   '/api/content/$itemId/assets': typeof ApiContentItemIdAssetsRoute
+  '/api/designs/$designId/preview': typeof ApiDesignsDesignIdPreviewRoute
+  '/api/designs/$designId/source': typeof ApiDesignsDesignIdSourceRoute
+  '/api/designs/$designId/versions': typeof ApiDesignsDesignIdVersionsRoute
+  '/api/designs/$designId/': typeof ApiDesignsDesignIdIndexRoute
+  '/_app/content/$itemId_/designs/$designId': typeof AppContentItemIdDesignsDesignIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -197,9 +273,12 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/.well-known/$'
     | '/calendar'
+    | '/connections'
     | '/pipeline'
     | '/team'
     | '/invite/$invitationId'
+    | '/studio-fonts/$'
+    | '/studio/$'
     | '/workspaces/new'
     | '/content/$itemId'
     | '/content/new'
@@ -207,6 +286,11 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/content/'
     | '/api/content/$itemId/assets'
+    | '/api/designs/$designId/preview'
+    | '/api/designs/$designId/source'
+    | '/api/designs/$designId/versions'
+    | '/api/designs/$designId/'
+    | '/content/$itemId/designs/$designId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -217,9 +301,12 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/.well-known/$'
     | '/calendar'
+    | '/connections'
     | '/pipeline'
     | '/team'
     | '/invite/$invitationId'
+    | '/studio-fonts/$'
+    | '/studio/$'
     | '/workspaces/new'
     | '/content/$itemId'
     | '/content/new'
@@ -227,6 +314,11 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/content'
     | '/api/content/$itemId/assets'
+    | '/api/designs/$designId/preview'
+    | '/api/designs/$designId/source'
+    | '/api/designs/$designId/versions'
+    | '/api/designs/$designId'
+    | '/content/$itemId/designs/$designId'
   id:
     | '__root__'
     | '/'
@@ -238,9 +330,12 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/.well-known/$'
     | '/_app/calendar'
+    | '/_app/connections'
     | '/_app/pipeline'
     | '/_app/team'
     | '/invite/$invitationId'
+    | '/studio-fonts/$'
+    | '/studio/$'
     | '/workspaces/new'
     | '/_app/content/$itemId'
     | '/_app/content/new'
@@ -248,6 +343,11 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/_app/content/'
     | '/api/content/$itemId/assets'
+    | '/api/designs/$designId/preview'
+    | '/api/designs/$designId/source'
+    | '/api/designs/$designId/versions'
+    | '/api/designs/$designId/'
+    | '/_app/content/$itemId_/designs/$designId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -260,10 +360,16 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   DotwellKnownSplatRoute: typeof DotwellKnownSplatRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
+  StudioFontsSplatRoute: typeof StudioFontsSplatRoute
+  StudioSplatRoute: typeof StudioSplatRoute
   WorkspacesNewRoute: typeof WorkspacesNewRoute
   ApiAssetsAssetIdRoute: typeof ApiAssetsAssetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiContentItemIdAssetsRoute: typeof ApiContentItemIdAssetsRoute
+  ApiDesignsDesignIdPreviewRoute: typeof ApiDesignsDesignIdPreviewRoute
+  ApiDesignsDesignIdSourceRoute: typeof ApiDesignsDesignIdSourceRoute
+  ApiDesignsDesignIdVersionsRoute: typeof ApiDesignsDesignIdVersionsRoute
+  ApiDesignsDesignIdIndexRoute: typeof ApiDesignsDesignIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -331,6 +437,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCalendarRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/connections': {
+      id: '/_app/connections'
+      path: '/connections'
+      fullPath: '/connections'
+      preLoaderRoute: typeof AppConnectionsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/pipeline': {
       id: '/_app/pipeline'
       path: '/pipeline'
@@ -350,6 +463,20 @@ declare module '@tanstack/react-router' {
       path: '/invite/$invitationId'
       fullPath: '/invite/$invitationId'
       preLoaderRoute: typeof InviteInvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/studio-fonts/$': {
+      id: '/studio-fonts/$'
+      path: '/studio-fonts/$'
+      fullPath: '/studio-fonts/$'
+      preLoaderRoute: typeof StudioFontsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/studio/$': {
+      id: '/studio/$'
+      path: '/studio/$'
+      fullPath: '/studio/$'
+      preLoaderRoute: typeof StudioSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/workspaces/new': {
@@ -401,25 +528,64 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiContentItemIdAssetsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/designs/$designId/': {
+      id: '/api/designs/$designId/'
+      path: '/api/designs/$designId'
+      fullPath: '/api/designs/$designId/'
+      preLoaderRoute: typeof ApiDesignsDesignIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/designs/$designId/preview': {
+      id: '/api/designs/$designId/preview'
+      path: '/api/designs/$designId/preview'
+      fullPath: '/api/designs/$designId/preview'
+      preLoaderRoute: typeof ApiDesignsDesignIdPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/designs/$designId/source': {
+      id: '/api/designs/$designId/source'
+      path: '/api/designs/$designId/source'
+      fullPath: '/api/designs/$designId/source'
+      preLoaderRoute: typeof ApiDesignsDesignIdSourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/designs/$designId/versions': {
+      id: '/api/designs/$designId/versions'
+      path: '/api/designs/$designId/versions'
+      fullPath: '/api/designs/$designId/versions'
+      preLoaderRoute: typeof ApiDesignsDesignIdVersionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/content/$itemId_/designs/$designId': {
+      id: '/_app/content/$itemId_/designs/$designId'
+      path: '/content/$itemId/designs/$designId'
+      fullPath: '/content/$itemId/designs/$designId'
+      preLoaderRoute: typeof AppContentItemIdDesignsDesignIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
   AppCalendarRoute: typeof AppCalendarRoute
+  AppConnectionsRoute: typeof AppConnectionsRoute
   AppPipelineRoute: typeof AppPipelineRoute
   AppTeamRoute: typeof AppTeamRoute
   AppContentItemIdRoute: typeof AppContentItemIdRoute
   AppContentNewRoute: typeof AppContentNewRoute
   AppContentIndexRoute: typeof AppContentIndexRoute
+  AppContentItemIdDesignsDesignIdRoute: typeof AppContentItemIdDesignsDesignIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppCalendarRoute: AppCalendarRoute,
+  AppConnectionsRoute: AppConnectionsRoute,
   AppPipelineRoute: AppPipelineRoute,
   AppTeamRoute: AppTeamRoute,
   AppContentItemIdRoute: AppContentItemIdRoute,
   AppContentNewRoute: AppContentNewRoute,
   AppContentIndexRoute: AppContentIndexRoute,
+  AppContentItemIdDesignsDesignIdRoute: AppContentItemIdDesignsDesignIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -434,10 +600,16 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   DotwellKnownSplatRoute: DotwellKnownSplatRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
+  StudioFontsSplatRoute: StudioFontsSplatRoute,
+  StudioSplatRoute: StudioSplatRoute,
   WorkspacesNewRoute: WorkspacesNewRoute,
   ApiAssetsAssetIdRoute: ApiAssetsAssetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiContentItemIdAssetsRoute: ApiContentItemIdAssetsRoute,
+  ApiDesignsDesignIdPreviewRoute: ApiDesignsDesignIdPreviewRoute,
+  ApiDesignsDesignIdSourceRoute: ApiDesignsDesignIdSourceRoute,
+  ApiDesignsDesignIdVersionsRoute: ApiDesignsDesignIdVersionsRoute,
+  ApiDesignsDesignIdIndexRoute: ApiDesignsDesignIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

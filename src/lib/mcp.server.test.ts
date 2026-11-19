@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { closeTestDb, createTestDb, resetDatabase, seedWorkspace } from '../../test/db'
 import { user } from '../db/schema'
 import type { MediaBucket, MediaObject } from './content-assets.server'
+import { saveDesignVersion } from './content-designs.server'
 import {
   createZoraMcpHandler,
   findMcpUser,
@@ -88,7 +89,7 @@ describe('tools', () => {
     expect(noDate.result.isError).toBe(true)
     expect(noDate.text).toMatch(/data e hora de agendamento/i)
 
-    const badChannel = await call('create_content_item', { title: 'T', channel: 'tiktok', format: 'post' })
+    const badChannel = await call('create_content_item', { title: 'T', channel: 'bluesky', format: 'post' })
     expect(badChannel.result.isError).toBe(true)
 
     const noOffset = await call('reschedule_content_item', {
@@ -123,6 +124,70 @@ describe('tools', () => {
 
     expect((await call('delete_content_asset', { assetId: uploaded.data.id })).data).toBeTruthy()
     expect(objects.size).toBe(0)
+  })
+
+  it('creates, shows, restores and publishes a design', async () => {
+    const item = (await call('create_content_item', { title: 'T', channel: 'instagram', format: 'post' })).data
+    const created = await call('create_design', { itemId: item.id })
+    expect(created.data).toMatchObject({
+      name: 'Post do Instagram',
+      widthPx: 1080,
+      heightPx: 1080,
+      preset: 'Instagram Post 1080×1080',
+      currentVersionId: null,
+    })
+    expect(created.data.url).toBe(`https://zora.test/content/${item.id}/designs/${created.data.id}`)
+    const designId = created.data.id as string
+
+    const custom = await call('create_design', { itemId: item.id, name: 'Banner', width: 2000, height: 500 })
+    expect(custom.data).toMatchObject({ widthPx: 2000, heightPx: 500, preset: null })
+    const half = await call('create_design', { itemId: item.id, width: 2000 })
+    expect(half.result.isError).toBe(true)
+
+    // Nothing to show or publish before the first save.
+    const empty = await call('get_design', { designId })
+    expect(empty.data.shownVersion).toBeNull()
+    expect(empty.result.content).toHaveLength(1)
+    const early = await call('publish_design', { designId })
+    expect(early.result.isError).toBe(true)
+    expect(early.text).toMatch(/Salve o design/)
+
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7])
+    const versionFile = (bytes: Uint8Array) => ({ body: bytes.slice().buffer, size: bytes.length, head: bytes.subarray(0, 8) })
+    const first = (await saveDesignVersion(db, bucket, {
+      organizationId: workspace.id, designId, createdById: ana.id, authorKind: 'user', baseVersionId: null,
+      source: versionFile(new TextEncoder().encode('{"v":1}')), preview: versionFile(png),
+    }))!
+    await saveDesignVersion(db, bucket, {
+      organizationId: workspace.id, designId, createdById: ana.id, authorKind: 'user', baseVersionId: first.versionId,
+      source: versionFile(new TextEncoder().encode('{"v":2}')), preview: versionFile(png),
+    })
+
+    const listed = await call('list_designs', { itemId: item.id })
+    expect(listed.data.count).toBe(2)
+    expect(listed.data.designs[0]).toMatchObject({ id: designId, currentVersionNumber: 2 })
+
+    const shown = await call('get_design', { designId, versionId: first.versionId })
+    expect(shown.data.shownVersion).toMatchObject({ number: 1 })
+    expect(shown.result.content[1]).toMatchObject({ type: 'image', mimeType: 'image/png' })
+
+    const restored = await call('restore_design_version', { designId, versionId: first.versionId })
+    expect(restored.data.number).toBe(3)
+    const versions = await call('list_design_versions', { designId })
+    expect(versions.data.versions.map((v: { number: number; authorKind: string }) => [v.number, v.authorKind])).toEqual([
+      [3, 'agent'], [2, 'user'], [1, 'user'],
+    ])
+
+    const published = await call('publish_design', { designId })
+    expect(published.data).toMatchObject({ filename: 'Post do Instagram.png', contentType: 'image/png', kind: 'image' })
+    expect((await call('get_content_item', { id: item.id })).data.media).toHaveLength(1)
+
+    const missing = await call('get_design', { designId: '00000000-0000-4000-8000-000000000000' })
+    expect(missing.text).toContain('No design')
+
+    // Deleting the item takes the design files with it.
+    await call('delete_content_item', { id: item.id })
+    expect([...objects.keys()].some((key) => key.startsWith('designs/'))).toBe(false)
   })
 
   it('finds the token user and nobody else', async () => {
