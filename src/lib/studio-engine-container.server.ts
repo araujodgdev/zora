@@ -33,13 +33,15 @@ const ENGINE_START_TIMEOUT_MS = 40_000
 /** Durable Object instances requests are spread over (each runs one container). */
 const ENGINE_POOL_SIZE = 2
 
-const NOT_CONFIGURED = Response.json(
-  {
-    error: 'not-configured',
-    message: 'The StudioEngine Durable Object has no container (wrangler.jsonc `containers`).',
-  },
-  { status: 503 },
-)
+function notConfiguredResponse(): Response {
+  return Response.json(
+    {
+      error: 'not-configured',
+      message: 'The StudioEngine Durable Object has no container (wrangler.jsonc `containers`).',
+    },
+    { status: 503 },
+  )
+}
 
 /** One engine container, started on the first request and stopped after a quiet period. */
 export class StudioEngine extends DurableObject {
@@ -58,7 +60,7 @@ export class StudioEngine extends DurableObject {
 
   async fetch(request: Request): Promise<Response> {
     const container = this.ctx.container
-    if (!container || !container.images?.engine) return NOT_CONFIGURED.clone()
+    if (!container || !container.images?.engine) return notConfiguredResponse()
     this.starting ??= this.startAndWaitForPort().finally(() => {
       this.starting = undefined
     })
