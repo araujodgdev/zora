@@ -309,3 +309,22 @@ export const socialPublishJob = sqliteTable(
     check('social_publish_job_status_valid', oneOf(table.status, SOCIAL_PUBLISH_STATUSES)),
   ],
 )
+
+/**
+ * Remembers which workspace an authenticated user selected through MCP
+ * (`switch_workspace` / `create_workspace`), because MCP requests are
+ * stateless and carry a user-scoped OAuth token rather than a browser session.
+ */
+export const mcpWorkspaceState = sqliteTable(
+  'mcp_workspace_state',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+    updatedAt: instant('updated_at').notNull().default(now),
+  },
+  (table) => [index('mcp_workspace_state_org_idx').on(table.organizationId)],
+)

@@ -229,7 +229,7 @@ describe('over JSON-RPC', () => {
     const { body } = await rpc('tools/call', { name: 'get_current_user', arguments: {} })
     expect(JSON.parse(body.result.content[0].text)).toEqual({
       ...ana,
-      workspace: { id: workspace.id, name: 'Signum' },
+      workspace: { id: workspace.id, name: 'Signum', slug: workspace.slug, role: 'owner' },
     })
   })
 })

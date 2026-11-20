@@ -65,7 +65,7 @@ export const agentActions = {
   get_current_user: {
     title: 'Who am I',
     description:
-      'The Zora team member you are acting for (id, name, email) and the workspace you act in.',
+      'The Zora team member you are acting for (id, name, email) and the active workspace (or null if none).',
     input: z.object({}),
   },
   list_team_members: {
@@ -133,7 +133,7 @@ export type AgentActionName = keyof typeof agentActions
 /** Shared guidance for agents, used as MCP server instructions. */
 export const AGENT_INSTRUCTIONS = `Zora is a three-person team's planner for a product launch's social media and blog content.
 Each content item has a channel, a format and a pipeline status (${STATUSES.join(' -> ')}), optionally a scheduled date, an assignee and uploaded media.
-Content belongs to a workspace; you act in the workspace the user has open in the app (get_current_user names it), and every member of it sees and edits all of its content. Dates are UTC instants: always send an offset, and show times to the user in their time zone.
+Authentication is per user across all workspaces the user belongs to. Content, team members and social connections belong to the active workspace (get_current_user names it); use list_workspaces to see all of the user's workspaces, switch_workspace to change the active workspace (persisted across calls), create_workspace to create a new one, and rename_workspace to rename one (owners and admins only; workspace deletion is disabled). Every member of a workspace sees and edits all of its content. Dates are UTC instants: always send an offset, and show times to the user in their time zone.
 Text (body) is Markdown for the blog and plain text for X, LinkedIn, Instagram, TikTok and YouTube: never put Markdown in a social post.
 An item can be published directly to connected social accounts (Instagram, TikTok, YouTube, LinkedIn, X) with publish_content_item (check list_social_connections first and get_publish_status for async video uploads). Always confirm with the user before calling publish_content_item because it posts publicly to a real social network. Items with status "scheduled" on a connected channel are also published automatically at scheduledAt.
 An item can have designs (Zora Studio documents, each save a numbered version); people polish them in Studio (the design's url), and you compose them with Studio's engine. To make a post image:

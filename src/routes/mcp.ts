@@ -28,12 +28,6 @@ async function handle(request: Request): Promise<Response> {
         )
       }
       const workspace = await resolveMcpWorkspace(db, user.id)
-      if (!workspace) {
-        return Response.json(
-          { error: 'The user of this token is not a member of any workspace.' },
-          { status: 403 },
-        )
-      }
       const handler = createZoraMcpHandler({
         db,
         bucket: getMediaBucket(),

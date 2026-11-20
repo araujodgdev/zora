@@ -724,8 +724,10 @@ function Column({ status, children }) {
   their oldest one; 403 without any). Every service function in
   `content.server.ts` / `content-assets.server.ts` takes `organizationId`
   and only touches that workspace's rows. The HTTP media routes resolve it
-  with `findSessionState`; MCP with `resolveMcpWorkspace` (the workspace of
-  the user's most recently used session).
+  with `findSessionState`; MCP with `resolveMcpWorkspace` (persisted per user
+  in `mcp_workspace_state` when switched via `switch_workspace` /
+  `create_workspace`, falling back to the user's most recently used browser
+  session, then their oldest workspace, else `null`).
 - **Route context.** The root route loads `user` and `workspace`; `_app`
   sends users without a workspace to `/workspaces/new` and exposes a
   non-null `workspace`. The sidebar switcher calls

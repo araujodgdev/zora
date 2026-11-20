@@ -9,6 +9,7 @@ import {
   contentDesignVersion,
   contentItem,
   invitation,
+  mcpWorkspaceState,
   member,
   organization,
   session,
@@ -71,6 +72,7 @@ export async function seedWorkspace(
 /** Empties every application and auth table (children before parents). */
 export async function resetDatabase(db: Database): Promise<void> {
   for (const table of [
+    mcpWorkspaceState,
     socialPublishJob,
     socialConnection,
     contentDesignVersion,

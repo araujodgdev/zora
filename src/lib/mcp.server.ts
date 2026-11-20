@@ -50,6 +50,7 @@ import { STUDIO_FONTS_BUNDLE, STUDIO_FONTS_MANIFEST } from './studio-hosting'
 import { SocialPublishingError } from './treg.server'
 import type { TregClient } from './treg.server'
 import type { Workspace } from './workspace'
+import * as workspaces from './workspace.server'
 
 /** Uploads through MCP arrive as base64 in the JSON-RPC body. */
 export const MAX_MCP_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -70,8 +71,8 @@ export type McpDeps = {
   bucket: MediaBucket
   /** The team member the access token was issued to. */
   user: TeamMember
-  /** The workspace the tools act in (see `resolveMcpWorkspace`). */
-  workspace: Workspace
+  /** The active workspace the tools act in (see `resolveMcpWorkspace`), or null if none exists yet. */
+  workspace: Workspace | null
   /** Public base URL, for links back to the app. */
   appUrl: string
   /** Keys of the image providers; without a key, that provider's tools return an error. */
@@ -109,6 +110,15 @@ class ToolError extends Error {}
 
 function notFound(what: string, id: string): never {
   throw new ToolError(`No ${what} with id ${id}.`)
+}
+
+function requireWorkspace(workspace: Workspace | null): Workspace {
+  if (!workspace) {
+    throw new ToolError(
+      'No active workspace. Call list_workspaces and switch_workspace, or create_workspace to create one.',
+    )
+  }
+  return workspace
 }
 
 function withLink(item: ContentItem, appUrl: string) {
@@ -216,8 +226,9 @@ function pngContent(png: Uint8Array): CallToolResult['content'] {
 
 /** The design and the version a tool works on (the current one by default). */
 async function designAndVersion(deps: McpDeps, designId: string, versionId: string | undefined) {
+  const active = requireWorkspace(deps.workspace)
   const design =
-    (await designs.getContentDesign(deps.db, deps.workspace.id, designId)) ??
+    (await designs.getContentDesign(deps.db, active.id, designId)) ??
     notFound('design', designId)
   const shownId = versionId ?? design.currentVersionId
   if (!shownId) {
@@ -226,7 +237,7 @@ async function designAndVersion(deps: McpDeps, designId: string, versionId: stri
     )
   }
   const version =
-    (await designs.getDesignVersion(deps.db, deps.workspace.id, designId, shownId)) ??
+    (await designs.getDesignVersion(deps.db, active.id, designId, shownId)) ??
     notFound('version of this design', shownId)
   return { design, version }
 }
@@ -242,6 +253,7 @@ async function readEditImages(
   deps: McpDeps,
   wanted: Record<string, string>,
 ): Promise<Record<string, Uint8Array>> {
+  const active = requireWorkspace(deps.workspace)
   const entries = Object.entries(wanted)
   if (entries.length > engine.MAX_ENGINE_IMAGES) {
     throw new ToolError(`At most ${engine.MAX_ENGINE_IMAGES} images per edit.`)
@@ -250,7 +262,7 @@ async function readEditImages(
   let total = 0
   for (const [name, assetId] of entries) {
     const asset =
-      (await assets.getContentAsset(deps.db, deps.workspace.id, assetId)) ??
+      (await assets.getContentAsset(deps.db, active.id, assetId)) ??
       notFound('media file', assetId)
     if (assetKind(asset.contentType) !== 'image') {
       throw new ToolError(`Media file ${assetId} (image "${name}") is not an image.`)
@@ -360,21 +372,126 @@ export const zoraTools = [
     ...action('get_current_user'),
     annotations: readOnly,
     run: async (_args, { user, workspace }) =>
-      ok({ ...user, workspace: { id: workspace.id, name: workspace.name } }),
+      ok({
+        ...user,
+        workspace: workspace
+          ? {
+              id: workspace.id,
+              name: workspace.name,
+              slug: workspace.slug,
+              role: workspace.role,
+            }
+          : null,
+      }),
+  }),
+  defineTool({
+    name: 'list_workspaces',
+    title: 'List workspaces',
+    description:
+      'Lists every workspace the signed-in user belongs to, marking which one is currently active for MCP calls.',
+    inputSchema: z.object({}),
+    annotations: readOnly,
+    run: async (_args, { db, user, workspace }) => {
+      const list = await workspaces.listUserWorkspaces(db, user.id)
+      const activeId = workspace?.id ?? null
+      return ok({
+        count: list.length,
+        activeWorkspaceId: activeId,
+        workspaces: list.map((item) => ({ ...item, active: item.id === activeId })),
+      })
+    },
+  }),
+  defineTool({
+    name: 'switch_workspace',
+    title: 'Switch active workspace',
+    description:
+      'Switches the active workspace for subsequent MCP calls (persisted per user). Pass a workspace id or slug from list_workspaces.',
+    inputSchema: z.object({
+      workspaceId: z
+        .string()
+        .trim()
+        .min(1)
+        .describe('Workspace id or slug (see list_workspaces).'),
+    }),
+    annotations: { ...writes, idempotentHint: true },
+    run: async ({ workspaceId }, deps) => {
+      const selected = await workspaces.setMcpActiveWorkspace(
+        deps.db,
+        deps.user.id,
+        workspaceId,
+      )
+      deps.workspace = selected
+      return ok({ workspace: selected })
+    },
+  }),
+  defineTool({
+    name: 'create_workspace',
+    title: 'Create a workspace',
+    description:
+      'Creates a new workspace owned by the signed-in user. By default switches the active MCP workspace to it.',
+    inputSchema: z.object({
+      name: z
+        .string()
+        .trim()
+        .min(1)
+        .max(80)
+        .describe('Workspace name (1 to 80 characters).'),
+      switchTo: z
+        .boolean()
+        .default(true)
+        .describe('Switch the active MCP workspace to the newly created one (default true).'),
+    }),
+    annotations: writes,
+    run: async ({ name, switchTo }, deps) => {
+      const created = await workspaces.createWorkspace(deps.db, deps.user.id, name)
+      if (switchTo) {
+        await workspaces.setMcpActiveWorkspace(deps.db, deps.user.id, created.id)
+        deps.workspace = created
+      }
+      return ok({ workspace: created, active: deps.workspace?.id === created.id })
+    },
+  }),
+  defineTool({
+    name: 'rename_workspace',
+    title: 'Rename a workspace',
+    description:
+      'Renames a workspace (defaults to the active workspace; or pass workspaceId / slug). Owners and admins only.',
+    inputSchema: z.object({
+      name: z
+        .string()
+        .trim()
+        .min(1)
+        .max(80)
+        .describe('New workspace name (1 to 80 characters).'),
+      workspaceId: z
+        .string()
+        .trim()
+        .min(1)
+        .optional()
+        .describe('Workspace id or slug to rename; defaults to the active workspace.'),
+    }),
+    annotations: { ...writes, idempotentHint: true },
+    run: async ({ name, workspaceId }, deps) => {
+      const target = workspaceId ?? requireWorkspace(deps.workspace).id
+      const renamed = await workspaces.renameWorkspace(deps.db, deps.user.id, target, name)
+      if (deps.workspace?.id === renamed.id) deps.workspace = renamed
+      return ok({ workspace: renamed })
+    },
   }),
   defineTool({
     ...action('list_team_members'),
     annotations: readOnly,
     run: async (_args, { db, workspace }) =>
-      ok(await content.listTeamMembers(db, workspace.id)),
+      ok(await content.listTeamMembers(db, requireWorkspace(workspace).id)),
   }),
   defineTool({
     ...action('list_content_items'),
     annotations: readOnly,
     run: async (args, { db, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
       const items = await content.listContentItems(
         db,
-        workspace.id,
+        active.id,
         contentListFiltersSchema.parse(args),
       )
       return ok({ count: items.length, items: items.map((item) => withLink(item, appUrl)) })
@@ -384,10 +501,11 @@ export const zoraTools = [
     ...action('get_content_item'),
     annotations: readOnly,
     run: async ({ id: itemId }, { db, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
       const item =
-        (await content.getContentItem(db, workspace.id, itemId)) ??
+        (await content.getContentItem(db, active.id, itemId)) ??
         notFound('content item', itemId)
-      const media = await assets.listContentAssets(db, workspace.id, itemId)
+      const media = await assets.listContentAssets(db, active.id, itemId)
       return ok({ ...withLink(item, appUrl), media: media.map(describeAsset) })
     },
   }),
@@ -395,9 +513,10 @@ export const zoraTools = [
     ...action('create_content_item'),
     annotations: writes,
     run: async (args, { db, user, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
       const item = await content.createContentItem(
         db,
-        workspace.id,
+        active.id,
         user.id,
         createContentItemSchema.parse(args),
       )
@@ -408,8 +527,9 @@ export const zoraTools = [
     ...action('update_content_item'),
     annotations: { ...writes, idempotentHint: true },
     run: async (args, { db, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
       const item =
-        (await content.updateContentItem(db, workspace.id, updateContentItemSchema.parse(args))) ??
+        (await content.updateContentItem(db, active.id, updateContentItemSchema.parse(args))) ??
         notFound('content item', args.id)
       return ok(withLink(item, appUrl))
     },
@@ -418,9 +538,10 @@ export const zoraTools = [
     ...action('reschedule_content_item'),
     annotations: { ...writes, idempotentHint: true },
     run: async (args, { db, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
       const data = rescheduleContentItemSchema.parse(args)
       const item =
-        (await content.rescheduleContentItem(db, workspace.id, data.id, data.scheduledAt)) ??
+        (await content.rescheduleContentItem(db, active.id, data.id, data.scheduledAt)) ??
         notFound('content item', data.id)
       return ok(withLink(item, appUrl))
     },
@@ -429,9 +550,10 @@ export const zoraTools = [
     ...action('change_content_item_status'),
     annotations: { ...writes, idempotentHint: true },
     run: async (args, { db, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
       const data = changeContentItemStatusSchema.parse(args)
       const item =
-        (await content.changeContentItemStatus(db, workspace.id, data.id, data.status)) ??
+        (await content.changeContentItemStatus(db, active.id, data.id, data.status)) ??
         notFound('content item', data.id)
       return ok(withLink(item, appUrl))
     },
@@ -440,7 +562,8 @@ export const zoraTools = [
     ...action('delete_content_item'),
     annotations: deletes,
     run: async ({ id: itemId }, { db, bucket, workspace }) => {
-      if (!(await assets.deleteContentItemWithAssets(db, bucket, workspace.id, itemId))) {
+      const active = requireWorkspace(workspace)
+      if (!(await assets.deleteContentItemWithAssets(db, bucket, active.id, itemId))) {
         notFound('content item', itemId)
       }
       return ok({ deleted: itemId })
@@ -460,12 +583,13 @@ export const zoraTools = [
     }),
     annotations: writes,
     run: async (args, { db, bucket, user, workspace }) => {
+      const active = requireWorkspace(workspace)
       if (args.dataBase64.length > Math.ceil(MAX_MCP_UPLOAD_BYTES / 3) * 4 + 64) {
         throw new ToolError(`The file is larger than ${formatBytes(MAX_MCP_UPLOAD_BYTES)}.`)
       }
       const bytes = fromBase64(args.dataBase64)
       const asset = await assets.createContentAsset(db, bucket, {
-        organizationId: workspace.id,
+        organizationId: active.id,
         contentItemId: args.itemId,
         createdById: user.id,
         file: {
@@ -485,7 +609,8 @@ export const zoraTools = [
     inputSchema: z.object({ assetId: z.uuid().describe('Media file id.') }),
     annotations: readOnly,
     run: async ({ assetId }, { db, bucket, workspace }) => {
-      const asset = (await assets.getContentAsset(db, workspace.id, assetId)) ?? notFound('media file', assetId)
+      const active = requireWorkspace(workspace)
+      const asset = (await assets.getContentAsset(db, active.id, assetId)) ?? notFound('media file', assetId)
       const result = ok(describeAsset(asset))
       if (assetKind(asset.contentType) !== 'image' || asset.size > MAX_MCP_IMAGE_PREVIEW_BYTES) {
         return result
@@ -504,7 +629,8 @@ export const zoraTools = [
     inputSchema: z.object({ assetId: z.uuid().describe('Media file id.') }),
     annotations: deletes,
     run: async ({ assetId }, { db, bucket, workspace }) => {
-      if (!(await assets.deleteContentAsset(db, bucket, workspace.id, assetId))) {
+      const active = requireWorkspace(workspace)
+      if (!(await assets.deleteContentAsset(db, bucket, active.id, assetId))) {
         notFound('media file', assetId)
       }
       return ok({ deleted: assetId })
@@ -529,9 +655,10 @@ export const zoraTools = [
     }),
     annotations: writes,
     run: async (args, { db, user, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
       const design = await designs.createContentDesign(
         db,
-        workspace.id,
+        active.id,
         user.id,
         createContentDesignSchema.parse(args),
       )
@@ -546,8 +673,9 @@ export const zoraTools = [
     inputSchema: z.object({ itemId: z.uuid().describe('Content item id (UUID).') }),
     annotations: readOnly,
     run: async ({ itemId: id }, { db, workspace, appUrl }) => {
-      if (!(await content.getContentItem(db, workspace.id, id))) notFound('content item', id)
-      const list = await designs.listContentDesigns(db, workspace.id, id)
+      const active = requireWorkspace(workspace)
+      if (!(await content.getContentItem(db, active.id, id))) notFound('content item', id)
+      const list = await designs.listContentDesigns(db, active.id, id)
       return ok({ count: list.length, designs: list.map((d) => describeDesign(d, appUrl)) })
     },
   }),
@@ -561,11 +689,12 @@ export const zoraTools = [
     }),
     annotations: readOnly,
     run: async ({ designId, versionId }, { db, bucket, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
       const design =
-        (await designs.getContentDesign(db, workspace.id, designId)) ?? notFound('design', designId)
+        (await designs.getContentDesign(db, active.id, designId)) ?? notFound('design', designId)
       const shownId = versionId ?? design.currentVersionId
       const version = shownId
-        ? ((await designs.getDesignVersion(db, workspace.id, designId, shownId)) ??
+        ? ((await designs.getDesignVersion(db, active.id, designId, shownId)) ??
           notFound('version of this design', shownId))
         : null
       const result = ok({ ...describeDesign(design, appUrl), shownVersion: version })
@@ -585,8 +714,9 @@ export const zoraTools = [
     inputSchema: z.object({ designId: z.uuid().describe('Design id.') }),
     annotations: readOnly,
     run: async ({ designId }, { db, workspace }) => {
+      const active = requireWorkspace(workspace)
       const versions =
-        (await designs.listDesignVersions(db, workspace.id, designId)) ??
+        (await designs.listDesignVersions(db, active.id, designId)) ??
         notFound('design', designId)
       return ok({ count: versions.length, versions })
     },
@@ -602,9 +732,10 @@ export const zoraTools = [
     }),
     annotations: writes,
     run: async ({ designId, versionId }, { db, bucket, user, workspace }) => {
+      const active = requireWorkspace(workspace)
       const saved =
         (await designs.restoreDesignVersion(db, bucket, {
-          organizationId: workspace.id,
+          organizationId: active.id,
           designId,
           versionId,
           createdById: user.id,
@@ -621,8 +752,9 @@ export const zoraTools = [
     inputSchema: z.object({ designId: z.uuid().describe('Design id.') }),
     annotations: writes,
     run: async ({ designId }, { db, bucket, user, workspace }) => {
+      const active = requireWorkspace(workspace)
       const asset =
-        (await designs.publishDesignPreview(db, bucket, workspace.id, user.id, designId)) ??
+        (await designs.publishDesignPreview(db, bucket, active.id, user.id, designId)) ??
         notFound('design', designId)
       return ok(describeAsset(asset))
     },
@@ -654,8 +786,9 @@ export const zoraTools = [
     run: async (args, { db, workspace, images: config = {} }) => {
       let orientation = args.orientation
       if (!orientation && args.designId) {
+        const active = requireWorkspace(workspace)
         const design =
-          (await designs.getContentDesign(db, workspace.id, args.designId)) ??
+          (await designs.getContentDesign(db, active.id, args.designId)) ??
           notFound('design', args.designId)
         orientation = orientationOf(design.widthPx, design.heightPx)
       }
@@ -715,7 +848,8 @@ export const zoraTools = [
     }),
     annotations: fetchesAndWrites,
     run: async (args, { db, bucket, user, workspace, images: config = {} }) => {
-      if (!(await content.getContentItem(db, workspace.id, args.itemId))) {
+      const active = requireWorkspace(workspace)
+      if (!(await content.getContentItem(db, active.id, args.itemId))) {
         notFound('content item', args.itemId)
       }
       const photo = await images.getUnsplashPhoto(config, args.photoId)
@@ -735,7 +869,7 @@ export const zoraTools = [
       const name = slug(photo.user.name) || slug(photo.user.username) || 'photo'
       const asset =
         (await assets.createContentAsset(db, bucket, {
-          organizationId: workspace.id,
+          organizationId: active.id,
           contentItemId: args.itemId,
           createdById: user.id,
           file: {
@@ -806,13 +940,14 @@ export const zoraTools = [
     }),
     annotations: fetchesAndWrites,
     run: async (args, { db, bucket, user, workspace, images: config = {} }) => {
-      if (!(await content.getContentItem(db, workspace.id, args.itemId))) {
+      const active = requireWorkspace(workspace)
+      if (!(await content.getContentItem(db, active.id, args.itemId))) {
         notFound('content item', args.itemId)
       }
       let size: { width: number; height: number } | null = null
       if (args.designId) {
         const design =
-          (await designs.getContentDesign(db, workspace.id, args.designId)) ??
+          (await designs.getContentDesign(db, active.id, args.designId)) ??
           notFound('design', args.designId)
         if (design.contentItemId !== args.itemId) {
           throw new ToolError(`Design ${args.designId} belongs to another content item.`)
@@ -843,7 +978,7 @@ export const zoraTools = [
           })
           const asset =
             (await assets.createContentAsset(db, bucket, {
-              organizationId: workspace.id,
+              organizationId: active.id,
               contentItemId: args.itemId,
               createdById: user.id,
               file: {
@@ -982,9 +1117,10 @@ export const zoraTools = [
     }),
     annotations: writes,
     run: async (args, deps) => {
+      const active = requireWorkspace(deps.workspace)
       const transport = requireEngine(deps.engine)
       const design =
-        (await designs.getContentDesign(deps.db, deps.workspace.id, args.designId)) ??
+        (await designs.getContentDesign(deps.db, active.id, args.designId)) ??
         notFound('design', args.designId)
       const conflict = (currentId: string | null, currentNumber: number | null) =>
         new ToolError(
@@ -1029,7 +1165,7 @@ export const zoraTools = [
       let saved: designs.SavedDesignVersion | null
       try {
         saved = await designs.saveDesignVersion(deps.db, deps.bucket, {
-          organizationId: deps.workspace.id,
+          organizationId: active.id,
           designId: design.id,
           createdById: deps.user.id,
           authorKind: 'agent',
@@ -1131,7 +1267,8 @@ export const zoraTools = [
     inputSchema: z.object({}),
     annotations: readOnly,
     run: async (_args, { db, workspace, appUrl, treg }) => {
-      const connections = await socialConnections.listWorkspaceConnections(db, workspace.id)
+      const active = requireWorkspace(workspace)
+      const connections = await socialConnections.listWorkspaceConnections(db, active.id)
       const base = appUrl.replace(/\/+$/, '')
       return ok({
         configured: Boolean(treg),
@@ -1163,10 +1300,11 @@ export const zoraTools = [
     }),
     annotations: publishes,
     run: async ({ id, options }, { db, bucket, user, workspace, appUrl, treg }) => {
+      const active = requireWorkspace(workspace)
       const outcome = await socialPublish.publishContentItemNow(
         { db, bucket, treg: treg ?? null },
         {
-          organizationId: workspace.id,
+          organizationId: active.id,
           itemId: id,
           userId: user.id,
           trigger: 'mcp',
@@ -1202,10 +1340,11 @@ export const zoraTools = [
     }),
     annotations: fetchesAndWrites,
     run: async ({ id, jobId }, { db, bucket, workspace, appUrl, treg }) => {
-      const existing = await content.getContentItem(db, workspace.id, id)
+      const active = requireWorkspace(workspace)
+      const existing = await content.getContentItem(db, active.id, id)
       if (!existing) notFound('content item', id)
 
-      let jobs = await socialPublish.listItemPublishJobs(db, workspace.id, id)
+      let jobs = await socialPublish.listItemPublishJobs(db, active.id, id)
       const target = jobId
         ? jobs.find((job) => job.id === jobId)
         : jobs.find((job) => job.status === 'processing')
@@ -1214,11 +1353,11 @@ export const zoraTools = [
       if (target && target.status === 'processing' && treg) {
         const polled = await socialPublish.pollPublishJob(
           { db, bucket, treg },
-          workspace.id,
+          active.id,
           target.id,
         )
         if (polled?.item) updatedItem = polled.item
-        jobs = await socialPublish.listItemPublishJobs(db, workspace.id, id)
+        jobs = await socialPublish.listItemPublishJobs(db, active.id, id)
       }
 
       return ok({
@@ -1252,6 +1391,7 @@ export async function runZoraTool(
   } catch (error) {
     if (
       error instanceof ToolError ||
+      error instanceof workspaces.WorkspaceRuleError ||
       error instanceof content.ContentRuleError ||
       error instanceof assets.AssetUploadError ||
       error instanceof designs.DesignRuleError ||

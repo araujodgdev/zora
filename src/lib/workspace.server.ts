@@ -6,8 +6,20 @@
  */
 import { and, asc, desc, eq, gt, sql } from 'drizzle-orm'
 import type { Database } from '../db/client.server'
-import { invitation, member, organization, session, user } from '../db/schema'
+import {
+  invitation,
+  mcpWorkspaceState,
+  member,
+  organization,
+  session,
+  user,
+} from '../db/schema'
 import { normalizeEmail } from './allowlist'
+import {
+  canManageMembers,
+  workspaceNameSchema,
+  workspaceSlug,
+} from './workspace'
 import type {
   InvitationPreview,
   InvitationStatus,
@@ -21,6 +33,14 @@ export class NoWorkspaceError extends Error {
   constructor() {
     super('Você ainda não faz parte de nenhum workspace.')
     this.name = 'NoWorkspaceError'
+  }
+}
+
+/** A workspace rule or permission check failed (message shown to the user/agent). */
+export class WorkspaceRuleError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'WorkspaceRuleError'
   }
 }
 
@@ -87,21 +107,136 @@ export async function resolveWorkspace(
 }
 
 /**
- * The workspace an MCP client acts in. Access tokens carry no workspace, so
- * this is the one the user has open in the app (their most recently used
- * session), falling back to their oldest workspace.
+ * The workspace an MCP client acts in. Access tokens authenticate the user
+ * across all their workspaces, so MCP remembers the workspace selected via
+ * `switch_workspace` / `create_workspace` in `mcp_workspace_state`, falling
+ * back to the user's most recently used browser session, then their oldest
+ * workspace, else `null`.
  */
 export async function resolveMcpWorkspace(
   db: Database,
   userId: string,
 ): Promise<Workspace | null> {
+  const workspaces = await listUserWorkspaces(db, userId)
+  if (workspaces.length === 0) return null
+
+  const [saved] = await db
+    .select({ organizationId: mcpWorkspaceState.organizationId })
+    .from(mcpWorkspaceState)
+    .where(eq(mcpWorkspaceState.userId, userId))
+    .limit(1)
+  if (saved) {
+    const match = workspaces.find((workspace) => workspace.id === saved.organizationId)
+    if (match) return match
+  }
+
   const [latest] = await db
     .select({ activeOrganizationId: session.activeOrganizationId })
     .from(session)
     .where(eq(session.userId, userId))
     .orderBy(desc(session.updatedAt))
     .limit(1)
-  return resolveWorkspace(db, userId, latest?.activeOrganizationId)
+  return (
+    workspaces.find((workspace) => workspace.id === latest?.activeOrganizationId) ??
+    workspaces[0] ??
+    null
+  )
+}
+
+function findUserWorkspaceByRef(
+  workspaces: ReadonlyArray<Workspace>,
+  workspaceRef: string,
+): Workspace {
+  const key = workspaceRef.trim()
+  const found =
+    workspaces.find((workspace) => workspace.id === key) ??
+    workspaces.find((workspace) => workspace.slug === key)
+  if (!found) {
+    throw new WorkspaceRuleError('Workspace não encontrado ou você não faz parte dele.')
+  }
+  return found
+}
+
+function parseWorkspaceName(rawName: string): string {
+  const parsed = workspaceNameSchema.safeParse(rawName)
+  if (!parsed.success) {
+    throw new WorkspaceRuleError(
+      parsed.error.issues[0]?.message ?? 'Informe um nome válido para o workspace.',
+    )
+  }
+  return parsed.data
+}
+
+/**
+ * Persists which workspace `userId` acts in across stateless MCP calls.
+ * Accepts either a workspace id or slug and verifies membership first.
+ */
+export async function setMcpActiveWorkspace(
+  db: Database,
+  userId: string,
+  workspaceRef: string,
+  now: Date = new Date(),
+): Promise<Workspace> {
+  const workspaces = await listUserWorkspaces(db, userId)
+  const target = findUserWorkspaceByRef(workspaces, workspaceRef)
+  await db
+    .insert(mcpWorkspaceState)
+    .values({ userId, organizationId: target.id, updatedAt: now })
+    .onConflictDoUpdate({
+      target: mcpWorkspaceState.userId,
+      set: { organizationId: target.id, updatedAt: now },
+    })
+  return target
+}
+
+/**
+ * Creates a workspace owned by `userId`. Uses a single D1 batch so the
+ * organization and its owner membership are committed atomically.
+ */
+export async function createWorkspace(
+  db: Database,
+  userId: string,
+  rawName: string,
+  now: Date = new Date(),
+): Promise<Workspace> {
+  const name = parseWorkspaceName(rawName)
+  const id = crypto.randomUUID()
+  const slug = workspaceSlug(name, crypto.randomUUID().slice(0, 6))
+  const memberId = crypto.randomUUID()
+  await db.batch([
+    db.insert(organization).values({ id, name, slug, createdAt: now }),
+    db.insert(member).values({
+      id: memberId,
+      organizationId: id,
+      userId,
+      role: 'owner',
+      createdAt: now,
+    }),
+  ])
+  return { id, name, slug, role: 'owner' }
+}
+
+/**
+ * Renames a workspace (accepts id or slug). Only owners and admins may rename;
+ * the slug stays stable so existing references do not break.
+ */
+export async function renameWorkspace(
+  db: Database,
+  userId: string,
+  workspaceRef: string,
+  rawName: string,
+): Promise<Workspace> {
+  const name = parseWorkspaceName(rawName)
+  const workspaces = await listUserWorkspaces(db, userId)
+  const target = findUserWorkspaceByRef(workspaces, workspaceRef)
+  if (!canManageMembers(target.role)) {
+    throw new WorkspaceRuleError('Só donos e admins podem renomear o workspace.')
+  }
+  await db
+    .update(organization)
+    .set({ name })
+    .where(eq(organization.id, target.id))
+  return { ...target, name }
 }
 
 export async function isWorkspaceMember(
