@@ -11,6 +11,7 @@ import type { SQLiteColumn } from 'drizzle-orm/sqlite-core'
 import { CHANNELS, FORMATS, STATUSES } from '../lib/content'
 import type { AssetAttribution } from '../lib/content-assets'
 import { DESIGN_AUTHOR_KINDS } from '../lib/content-designs'
+import { PHOTO_EDIT_AUTHOR_KINDS } from '../lib/content-photo-edits'
 import {
   SOCIAL_CHANNELS,
   SOCIAL_CONNECTION_STATUSES,
@@ -196,6 +197,85 @@ export const contentDesignVersion = sqliteTable(
     check(
       'content_design_version_sizes_valid',
       sql`${table.sourceSize} > 0 AND ${table.previewSize} > 0`,
+    ),
+  ],
+)
+
+/**
+ * A LightCraft photo edit of a content item: develop settings applied to an
+ * original photo. The edit owns a copy of the original in R2
+ * (`photo-edits/<id>/original.<ext>`, `originalKey`), also when it came from
+ * an image of the item's media (`sourceAssetId`, provenance only). Each save
+ * is an immutable row in `content_photo_edit_version`; `currentVersionId`
+ * names the latest one (null until the first save). Every write moves
+ * `updatedAt` strictly forward (see `src/lib/content-photo-edits.server.ts`).
+ */
+export const contentPhotoEdit = sqliteTable(
+  'content_photo_edit',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    contentItemId: text('content_item_id')
+      .notNull()
+      .references(() => contentItem.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    // Provenance only: the edit keeps working when that media is deleted.
+    sourceAssetId: text('source_asset_id').references(() => contentAsset.id, {
+      onDelete: 'set null',
+    }),
+    originalKey: text('original_key').notNull(),
+    originalName: text('original_name').notNull(),
+    originalSize: integer('original_size').notNull(),
+    // No foreign key, as for designs: the version row references the edit and
+    // the two are written together in one batch.
+    currentVersionId: text('current_version_id'),
+    createdById: text('created_by_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    createdAt: instant('created_at').notNull().default(now),
+    updatedAt: instant('updated_at').notNull().default(now),
+  },
+  (table) => [
+    index('content_photo_edit_content_item_id_idx').on(table.contentItemId),
+    index('content_photo_edit_source_asset_id_idx').on(table.sourceAssetId),
+    check('content_photo_edit_name_valid', sql`length(${table.name}) BETWEEN 1 AND 200`),
+    check('content_photo_edit_original_size_valid', sql`${table.originalSize} > 0`),
+  ],
+)
+
+/**
+ * One saved state of a photo edit. The bytes are in the R2 bucket under
+ * `photo-edits/<editId>/<id>/settings.json` and `.../preview.jpg`.
+ */
+export const contentPhotoEditVersion = sqliteTable(
+  'content_photo_edit_version',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    editId: text('edit_id')
+      .notNull()
+      .references(() => contentPhotoEdit.id, { onDelete: 'cascade' }),
+    number: integer('number').notNull(),
+    authorKind: text('author_kind', { enum: PHOTO_EDIT_AUTHOR_KINDS }).notNull(),
+    createdById: text('created_by_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    settingsSize: integer('settings_size').notNull(),
+    previewSize: integer('preview_size').notNull(),
+    createdAt: instant('created_at').notNull().default(now),
+  },
+  (table) => [
+    uniqueIndex('content_photo_edit_version_edit_number_idx').on(table.editId, table.number),
+    check(
+      'content_photo_edit_version_author_kind_valid',
+      oneOf(table.authorKind, PHOTO_EDIT_AUTHOR_KINDS),
+    ),
+    check('content_photo_edit_version_number_valid', sql`${table.number} >= 1`),
+    check(
+      'content_photo_edit_version_sizes_valid',
+      sql`${table.settingsSize} > 0 AND ${table.previewSize} > 0`,
     ),
   ],
 )

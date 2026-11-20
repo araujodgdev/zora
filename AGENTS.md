@@ -62,7 +62,8 @@ pnpm db:migrate:remote  # apply migrations to the production D1 database
 pnpm auth:generate # regenerate src/db/auth-schema.ts after changing auth config
 pnpm studio:publish [--dir <build>]  # Zora Studio's web build -> local R2 studio/ (see "Zora Studio hosting")
 pnpm fonts:sync    # Studio's font library -> local R2 studio-fonts/ (downloads once into .cache/)
-# --remote on the last two writes the production bucket: owner's step only, agents never run it
+pnpm lightcraft:publish [--dir <build>]  # LightCraft's web build -> local R2 lightcraft/ (see "LightCraft hosting")
+# --remote on the last three writes the production bucket: owner's step only, agents never run it
 ```
 
 No Docker and no Cloudflare account are needed locally: D1 and R2 are
@@ -96,8 +97,11 @@ src/
     api/content/$itemId/assets.ts  POST: upload a file of an item (raw body)
     api/assets/$assetId.ts   GET: serve an uploaded file (session required, range support)
     api/designs/$designId/   index (GET metadata), source + preview (GET files), versions (POST save); see "Designs"
+    api/photo-edits/$editId/ index (GET metadata), original + settings + preview (GET files), versions (POST save); see "Photo edits"
+    api/content/$itemId/photo-edits.ts  POST: upload an original, creating a photo edit (raw body)
     studio/$.ts              GET/HEAD /studio/*: Zora Studio's web build from R2 `studio/` (session required)
     studio-fonts/$.ts        GET/HEAD /studio-fonts/*: Studio's font library from R2 `studio-fonts/` (session required)
+    lightcraft/$.ts          GET/HEAD /lightcraft/*: LightCraft's web build from R2 `lightcraft/` (session required)
   lib/
     content.ts               SHARED content module (enums, labels, schemas, rules, types)
     content.functions.ts     content server functions (RPC contract)
@@ -125,8 +129,14 @@ src/
     content-designs.http.server.ts  the /api/designs handlers (session-free, unit-tested)
     content-designs.functions.ts    design server functions
     content-designs.queries.ts      query options + mutation hooks for designs
-    studio-hosting.ts        SHARED Studio hosting: bundles, path safety, types, cache rules, postMessage parsing
-    studio-hosting.server.ts serveBundleFile (R2 -> Response; unit-tested)
+    content-photo-edits.ts   SHARED photo edits module (accepted originals, signatures, limits, schemas, URLs, R2 keys)
+    content-photo-edits.server.ts  photo edit + version service functions (server-only, unit-tested)
+    content-photo-edits.http.server.ts  the /api/photo-edits handlers + original upload (session-free, unit-tested)
+    content-photo-edits.functions.ts    photo edit server functions
+    content-photo-edits.queries.ts      query options + mutation hooks for photo edits
+    content-photo-edits.upload.ts       browser upload of an original with progress (XMLHttpRequest)
+    studio-hosting.ts        SHARED hosting of Studio, its fonts and LightCraft: bundle map, path safety, types, cache rules, publish filter, postMessage parsing
+    studio-hosting.server.ts serveBundleFile (R2 -> Response), handleBundleRequest (308 + session + serve; unit-tested)
     studio-fonts.ts          font library: curated families, pinned commit, METADATA.pb parser, manifest builder
     studio-engine.server.ts  design engine client: run/commands/health, limits, timeouts (unit-tested)
     studio-engine-container.server.ts  StudioEngine Durable Object (container) + getStudioEngine()
@@ -155,7 +165,8 @@ src/
   assets/brand/              generated clay artwork (see scripts/brand/README.md)
     content/                 shared content UI kit: channel-badge, status-badge,
                              assignee-avatar, content-item-card, content-filters,
-                             content-assets, content-designs (the item page sections)
+                             content-assets, content-designs, content-photo-edits
+                             (the item page sections)
 test/                        in-memory D1 for tests (db.ts, wrangler.jsonc)
 drizzle/                     committed SQL migrations
 better-auth.config.ts        entry point for the Better Auth CLI only
@@ -541,6 +552,73 @@ first save) and `content_design_version` (`number` 1, 2, 3 per design, unique;
   `restore_design_version`, `publish_design`, plus the engine tools (see
   "Design engine"). Agent saves use `authorKind: 'agent'`.
 
+### Photo edits: `@/lib/content-photo-edits`
+
+A photo edit is a LightCraft development of one original photo belonging to a
+content item (the plan is `docs/LIGHTCRAFT-PLAN.md`; its "Contracts" section is
+binding). It copies the designs feature's shape; the differences are below.
+
+- **The original is always the edit's own copy**, in R2 at
+  `photo-edits/<editId>/original.<ext>` (`photoEditOriginalKey`), also when
+  the edit starts from an image of the item's media: the media's id is kept
+  only as provenance (`source_asset_id`, `on delete set null`), so deleting or
+  replacing media never breaks an edit. Tables: `content_photo_edit` (name,
+  `original_key`/`original_name`/`original_size`, `current_version_id`, null
+  until the first save) and `content_photo_edit_version` (`number` unique per
+  edit, `author_kind` `user` | `agent`, `settings_size`, `preview_size`). Both
+  cascade with the item.
+- **Accepted originals** (`PHOTO_ORIGINAL_EXTENSIONS`, the one list): the
+  image types of `MEDIA_TYPES` except GIF, plus TIFF and the camera raws
+  LightCraft imports that have a checkable signature (CR2, CR3, CRW, NEF, NRW,
+  ARW, SRF, SR2, RAF, ORF, RW2, RWL, PEF, SRW, MRW, X3F, 3FR, FFF, IIQ, ERF,
+  KDC, MEF, MOS, DNG). Recognised **by extension** (browsers send no useful
+  type for raws), then checked **by signature** after it is stored (a ranged
+  read of the first 16 bytes; refused objects are deleted):
+  `hasPhotoOriginalSignature` follows LightCraft's `crates/codecs/src/sniff.rs`
+  (TIFF `II*\0`/`MM\0*`, ORF `IIRO`/`IIRS`/`MMOR`, RW2 `IIU\0`, RAF
+  `FUJIFILMCCD-RAW`, MRW, X3F, CRW, CR3 `ftypcrx `). Originals ≤ 100 MB
+  (`MAX_PHOTO_ORIGINAL_BYTES` = `MAX_ASSET_BYTES`). Raws never become media
+  (`MEDIA_TYPES` is unchanged).
+- **Creating:** from an image asset of the same item (`createPhotoEditFromAsset`,
+  an R2-to-R2 copy: the `get` body goes through a `FixedLengthStream` because
+  R2 `put` needs a known length), or from an upload: `POST
+  /api/content/<itemId>/photo-edits?filename=...[&name=...]` with the file as
+  the raw body (`Content-Length` required, streamed into R2; the edit id is
+  generated before streaming, since it names the key) -> `201 {edit}`. Use
+  `useUploadPhotoEditOriginal(itemId)` (progress callback).
+- **Versions** = develop settings JSON (`settings.json`, what LightCraft's
+  `develop.get` returns, ≤ 1 MB, must start with `{`) + a rendered preview
+  (`preview.jpg`, JPEG or PNG by signature, ≤ 20 MB; the R2 object keeps the
+  real type, served as that type). `POST /api/photo-edits/<id>/versions`,
+  multipart `settings`, `preview`, `baseVersionId` -> `201 {versionId,
+  number}`, `409 {error, currentVersionId, currentVersionNumber}`, 411/413/415/
+  422 exactly as designs; `savePhotoEditVersion` uses the same guarded
+  `db.batch` as `saveDesignVersion`. Reads: `GET /api/photo-edits/<id>`
+  (metadata), `.../original`, `.../settings` (both `application/octet-stream`,
+  `attachment`, `private, no-store`) and `.../preview` (inline, `private`),
+  `?version=` for the last two; all carry `nosniff`, a `sandbox` CSP and
+  `X-Photo-Edit-Version`.
+- Server functions (`@/lib/content-photo-edits.functions`):
+  `listContentPhotoEdits`, `createContentPhotoEdit` (from an asset),
+  `renameContentPhotoEdit`, `deleteContentPhotoEdit` (with its R2 objects),
+  `listPhotoEditVersions`, `restorePhotoEditVersion`, `publishPhotoEditPreview`
+  (the current preview into the item's media as `<name>.jpg`, or `.png`).
+  Query keys `contentKeys.photoEdits(itemId)`,
+  `contentKeys.photoEditVersions(editId)`. `deleteContentItemWithAssets` also
+  deletes the photo edits' originals and versions.
+- UI: `ContentPhotoEdits` (`@/components/content/content-photo-edits`), the
+  "Fotos" section below "Designs" on `/content/$itemId`: cards with the
+  latest preview (the URL names the version), or the original's file name
+  and a placeholder before the first save (a browser cannot show a raw);
+  "Nova edição de foto" picks an image of the item's media or uploads a file;
+  per card: versions with restore, "Usar como mídia", rename, delete. "Abrir
+  no LightCraft" is disabled until the editor page
+  `/content/$itemId/photos/$editId` exists (task Z3).
+- MCP: `create_photo_edit` (from an image asset), `list_photo_edits`,
+  `get_photo_edit` (the preview as image content up to 4 MB),
+  `list_photo_edit_versions`, `restore_photo_edit_version`,
+  `publish_photo_edit`. No photo engine tools yet (task Z6).
+
 ### Design engine: `@/lib/studio-engine.server`
 
 Zora Studio's engine, headless, as a stateless HTTP service
@@ -625,6 +703,15 @@ uses the session cookie for `/api/designs/*`.
   font manifest, icons, licences) is `no-cache`. `resolveBundlePath`
   refuses `..`, dot-files, empty segments, encoded slashes and backslashes,
   and anything outside `[A-Za-z0-9._@+~-]`.
+- **Bundle map.** `HOSTED_BUNDLES` lists every bundle (`STUDIO_BUNDLE`,
+  `STUDIO_FONTS_BUNDLE`, `LIGHTCRAFT_BUNDLE`): URL prefix, R2 key prefix,
+  index file, `hashedNames` (whether the hash rule above may make a file
+  immutable) and `skipPrecompressed` (whether the publish script leaves out
+  `.gz`/`.br` copies). The routes are one line each over
+  `handleBundleRequest` (`studio-hosting.server.ts`): the bare prefix of a
+  bundle with an index redirects (308) to the slashed one, then 401 without
+  a session, then `serveBundleFile`. A new bundle is an entry here plus a
+  route, never a copy of this code; Studio's tests guard its behaviour.
 - **`pnpm studio:publish`** (`scripts/studio-publish.ts`) uploads every file
   of `../zora-vector/dist/web` (or `--dir`), `index.html` last, then deletes
   `studio/` objects of older builds. Locally it writes the simulated bucket
@@ -635,7 +722,11 @@ uses the session cookie for `/api/designs/*`.
   listed with Wrangler); owner's step only. The scripts are TypeScript run
   by Node's type stripping (imports with `.ts`, hence
   `allowImportingTsExtensions`); `src/lib` modules they import
-  (`studio-hosting.ts`, `studio-fonts.ts`) must stay free of imports.
+  (`studio-hosting.ts`, `studio-fonts.ts`) must stay free of imports. The
+  folder walk and the per-file filter (`collectBundleFiles` in
+  `scripts/lib/r2-store.ts`, over `bundleUploadEntry`) are shared by both
+  publish scripts: dot-files are skipped, and a name the route would not
+  serve is an error.
 - **Font library: `pnpm fonts:sync`** (`scripts/fonts-sync.ts`, logic in
   `@/lib/studio-fonts`). Downloads the curated families
   (`STUDIO_FONT_FAMILIES`) from google/fonts at `GOOGLE_FONTS_COMMIT`, only
@@ -671,6 +762,26 @@ uses the session cookie for `/api/designs/*`.
   `back` (navigates to `/content/$itemId` keeping `from`; the blocker asks
   first when dirty). Below `md` (phones) the page shows a "needs a larger
   screen" message instead.
+
+### LightCraft hosting
+
+LightCraft (the photo library and raw developer in `../zora-lightcraft`,
+built with `cargo xtask web` to `target/web-site/`) is hosted the same way
+(docs/LIGHTCRAFT-PLAN.md, D1 and Z1): `/lightcraft/*` serves R2
+`lightcraft/<path>` through the bundle map (`LIGHTCRAFT_BUNDLE`), with
+the same session gate, 308 from `/lightcraft`, path safety, ETag/304, HEAD
+and `nosniff`. The build is `index.html`, `worker.js`, `lightcraft_web.js`,
+`lightcraft_web_bg.wasm` (~13.5 MB, `application/wasm`) and, only when built
+with `CRAFT_FONTS_DIR`, `lightcraft_zh_hans.otf` with
+`OFL-noto-sans-cjk-sc.txt`. Its names are the same in every version, so
+every file is `no-cache` (`hashedNames: false`; the hash rule never applies).
+`pnpm lightcraft:publish` (`scripts/lightcraft-publish.ts`) uploads that
+folder (or `--dir`) like `studio:publish`, `index.html` last, with the
+stale-object cleanup, but **skips the `.gz`/`.br` copies** xtask writes: the
+route streams the raw file and Cloudflare compresses `application/wasm` on
+the way out. `--remote` is the owner's step. The COOP/COEP headers LightCraft
+documents are optional today (no shared memory) and are not sent. The photo
+editor page that embeds it is task Z3.
 
 ### Drag and drop: `@dnd-kit/react`
 
@@ -779,6 +890,10 @@ handlers re-validate with the shared `@/lib/content` schemas).
   hotlinking rule does not fit a design that embeds the photo: Zora stores a
   copy (that is the "download" the tracking call reports) and keeps the
   credit with it.
+- **Photo edit tools** (MCP only, no engine): `create_photo_edit`,
+  `list_photo_edits`, `get_photo_edit`, `list_photo_edit_versions`,
+  `restore_photo_edit_version`, `publish_photo_edit`; see "Photo edits"
+  (tested in `mcp.photo-edit-tools.test.ts`).
 - **Design engine tools** (MCP only): `list_design_commands`,
   `list_design_fonts`, `edit_design`, `render_design`, `inspect_design`; see
   "Design engine". `AGENT_INSTRUCTIONS` gives agents the design workflow.

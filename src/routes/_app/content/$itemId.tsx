@@ -4,9 +4,11 @@ import { PageHeader } from '@/components/app-shell'
 import { ContentAssets } from '@/components/content/content-assets'
 import { ContentDesigns } from '@/components/content/content-designs'
 import { ContentItemForm } from '@/components/content/content-item-form'
+import { ContentPhotoEdits } from '@/components/content/content-photo-edits'
 import { ContentPublish } from '@/components/content/content-publish'
 import { contentItemIdSchema } from '@/lib/content'
 import { contentDesignsQueryOptions } from '@/lib/content-designs.queries'
+import { contentPhotoEditsQueryOptions } from '@/lib/content-photo-edits.queries'
 import {
   contentAssetsQueryOptions,
   contentItemQueryOptions,
@@ -34,6 +36,7 @@ export const Route = createFileRoute('/_app/content/$itemId')({
       loadQuery(context.queryClient, teamMembersQueryOptions()),
       loadQuery(context.queryClient, contentAssetsQueryOptions(params.itemId)),
       loadQuery(context.queryClient, contentDesignsQueryOptions(params.itemId)),
+      loadQuery(context.queryClient, contentPhotoEditsQueryOptions(params.itemId)),
       loadQuery(context.queryClient, socialConnectionsQueryOptions()),
       loadQuery(context.queryClient, itemPublishJobsQueryOptions(params.itemId)),
     ])
@@ -58,7 +61,12 @@ function EditContentItemPage() {
       item={item}
       members={members}
       from={search.from}
-      designs={<ContentDesigns itemId={item.id} channel={item.channel} from={search.from} />}
+      designs={
+        <>
+          <ContentDesigns itemId={item.id} channel={item.channel} from={search.from} />
+          <ContentPhotoEdits itemId={item.id} />
+        </>
+      }
       media={<ContentAssets itemId={item.id} />}
       renderPublish={({ isDirty, channel, onPublished }) => (
         <ContentPublish

@@ -17,3 +17,11 @@ export function getMediaBucket(): MediaBucket {
 export function getStudioBucket(): BundleBucket {
   return env.MEDIA
 }
+
+/**
+ * The same bucket, typed for serving LightCraft's web build (`lightcraft/`;
+ * see `@/lib/studio-hosting`). Call it per request.
+ */
+export function getBundleBucket(): BundleBucket {
+  return env.MEDIA
+}

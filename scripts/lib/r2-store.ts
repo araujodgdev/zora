@@ -1,5 +1,5 @@
 // Writes a folder of files to the `MEDIA` R2 bucket under a prefix, for
-// `pnpm studio:publish` and `pnpm fonts:sync`.
+// `pnpm studio:publish`, `pnpm lightcraft:publish` and `pnpm fonts:sync`.
 //
 // - Local (default): the simulated bucket under `.wrangler/state/v3`, the one
 //   `pnpm dev` reads, through Wrangler's `getPlatformProxy` (one workerd for
@@ -10,12 +10,13 @@
 //   (the keys it uploaded) and deletes the keys of the previous one that are
 //   gone. Owner's step only; agents never run it (docs/STUDIO-PLAN.md).
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join, relative, resolve, sep } from 'node:path'
 import { getPlatformProxy } from 'wrangler'
-import { PUBLISH_INDEX_FILE } from '../../src/lib/studio-hosting.ts'
+import { PUBLISH_INDEX_FILE, bundleUploadEntry } from '../../src/lib/studio-hosting.ts'
+import type { HostedBundle } from '../../src/lib/studio-hosting.ts'
 
 export type UploadFile = {
   /** Key relative to the prefix, e.g. `index.html`. */
@@ -184,6 +185,27 @@ export async function publishFiles(options: {
   } finally {
     await store.close()
   }
+}
+
+/**
+ * The files of a build folder to upload for `bundle`, with their type and
+ * caching rule. Dot-files and dot-folders are left out, and so are
+ * precompressed copies when the bundle skips them (`bundleUploadEntry`);
+ * a name the bundle's route would not serve is an error.
+ */
+export function collectBundleFiles(bundle: HostedBundle, buildDir: string): Array<UploadFile> {
+  function walk(dir: string): Array<string> {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      if (entry.name.startsWith('.')) return []
+      const full = join(dir, entry.name)
+      return entry.isDirectory() ? walk(full) : entry.isFile() ? [full] : []
+    })
+  }
+  return walk(buildDir).flatMap((source) => {
+    const path = relative(buildDir, source).split(sep).join('/')
+    const entry = bundleUploadEntry(bundle, path)
+    return entry ? [{ path, source, ...entry }] : []
+  })
 }
 
 export function formatBytes(bytes: number): string {

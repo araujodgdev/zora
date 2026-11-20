@@ -60,7 +60,9 @@ under a new `zora-lightcraft-backups` folder (see "Working rules").
     `lightcraft:response {ok, value}` (the JSON result of a `cmd`).
   - Parent → LightCraft: `lightcraft:open {name, bytes}` (add a photo; refused above the library
     backup cap, ~4 GiB − 64 MiB, `backup::MAX_BYTES`), `lightcraft:cmd {id, params}` (run any
-    engine/UI command by id; params a JSON object).
+    engine/UI command by id). **`params` is a JSON *string*** (`JSON.stringify({...})`): the bridge
+    reads it with `as_string()` (`host.rs`), so an object is silently taken as `{}`. The response's
+    `value` is likewise JSON text (or the error text when `ok` is false).
   - `lightcraft:open` gets **no answer** and is **asynchronous**: the bytes are stored
     (`spawn_local(store_file…)`, `web.rs` `run_host`), queued (`Originals::added`, `store.rs`) and
     imported with `library.import` on a later frame. A `cmd` sent right after an `open` runs before
@@ -144,7 +146,7 @@ machinery exists as code, not that it runs in production.
 
 | # | Topic | Recommendation | Alternative |
 | --- | --- | --- | --- |
-| D1 | Hosting | **R2 + a `/lightcraft/*` Worker route**, reusing `studio-hosting` generalised to a bundle map, published by `pnpm lightcraft:publish`. | Workers Static Assets (the 13.5 MB wasm fits the 25 MiB limit) with `run_worker_first` scoped to `/lightcraft/*` for the session gate. |
+| D1 | Hosting | **R2 + a `/lightcraft/*` Worker route**, reusing `studio-hosting` generalised to a bundle map, published by `pnpm lightcraft:publish`. | Workers Static Assets: **ruled out**, the real release wasm is 34 MB (L1), over the 25 MiB limit with `run_worker_first` scoped to `/lightcraft/*` for the session gate. |
 | D2 | Data model | **New tables** `content_photo_edit` + `content_photo_edit_version`, mirroring designs; the original is **always copied** once per edit into `photo-edits/<editId>/original.<ext>` (also when it comes from an image `content_asset`, which is then only recorded as provenance), so deleting or replacing media never breaks an edit; each version = develop settings JSON + a rendered preview. | Reuse `content_design` with a `kind` column (its `width_px`/`height_px`/`preset` are artboard concepts and fit photos poorly). |
 | D3 | Bridge | **Parent-driven** (`?host=parent`, upstream, zero Rust for the MVP): the Zora page fetches the original, posts `lightcraft:open`, restores settings with `develop.merge`, and saves by running `develop.get` + `app.export` and uploading the results. | An embedded fetch mode (`?photo=<id>`, a `zora.rs`-style module in LightCraft) only if the owner wants Save/Ctrl+S/back **inside** the app with the 409 dialog there (task L3, phase 2). |
 | D4 | Browser library | **`?store=memory`** per editing session: nothing persists in the browser; the editable state lives in Zora's versions. Predictable storage, no OPFS growth under Zora's origin, no one-tab lock surprises. | A persistent OPFS library per user ("your photos in Zora"): storage quota/eviction notices, the Web Locks one-tab guard, originals kept after removal (`docs/web.md` data-safety gaps). |
@@ -202,7 +204,12 @@ exceed it and are refused with a pt-BR message), settings ≤ 1 MB, preview ≤ 
 Accepted originals: the image types of `MEDIA_TYPES` (JPEG, PNG, WebP, AVIF; GIF is refused) plus
 raw and TIFF files, **checked by extension** against an allowlist in the shared module (browsers
 send an empty or vendor MIME type for CR2/CR3/NEF/ARW/RAF/ORF/RW2/DNG), with a signature check where
-the format has one (TIFF-based raws: `II*\0`/`MM\0*`; CR3: ISO BMFF `ftypcrx`). Raws never become
+the format has one (TIFF-based raws: `II*\0`/`MM\0*`; ORF `IIRO`/`IIRS`/`MMOR`; RW2/RWL `IIU\0`;
+RAF `FUJIFILMCCD-RAW`; MRW `\0MRM`; X3F `FOVb`; CRW `II`+`HEAPCCDR`; CR3: ISO BMFF `ftypcrx`, as
+LightCraft's `crates/codecs/src/sniff.rs`). The allowlist (`PHOTO_ORIGINAL_EXTENSIONS`) is every
+raw LightCraft imports (`crates/engine/src/import/files.rs`) that has one of those signatures:
+tif, tiff, dng, cr2, cr3, crw, nef, nrw, arw, srf, sr2, raf, orf, rw2, rwl, pef, srw, mrw, x3f,
+3fr, fff, iiq, erf, kdc, mef, mos (`.raw`, PSD, HEIC, JXL, BMP are not offered). Raws never become
 item media (`MEDIA_TYPES` is unchanged); only an edit's preview does, through
 `publishPhotoEditPreview`.
 
@@ -217,11 +224,15 @@ The settings JSON is what `develop.get` returns (including `process`); it is app
 | `GET /api/photo-edits/<editId>` | | `200` JSON `{id, itemId, name, originalName, currentVersionId, currentVersionNumber, updatedAt}` |
 | `GET /api/photo-edits/<editId>/original` | | `200` bytes of the edit's own copy, `application/octet-stream`, `attachment`, `nosniff`, `private, no-store` |
 | `GET /api/photo-edits/<editId>/settings[?version=<versionId>]` | | `200` bytes, same safety headers as the original; `404` without a version |
-| `GET /api/photo-edits/<editId>/preview[?version=<versionId>]` | | `200` `image/jpeg`, inline, `private`; `404` without a version |
+| `GET /api/photo-edits/<editId>/preview[?version=<versionId>]` | | `200` `image/jpeg` (or `image/png` when a PNG was saved: the R2 object keeps the type its signature showed; the key is still `preview.jpg`), inline, `private`; `404` without a version |
 | `POST /api/photo-edits/<editId>/versions` | `multipart/form-data`: `settings` (file, ≤ 1 MB, starts with `{`), `preview` (file, JPEG or PNG magic, ≤ 20 MB), `baseVersionId` (empty for the first save) | `201` `{versionId, number}`; `409` `{error, currentVersionId, currentVersionNumber}` when the base is not current; `413`/`422` for bad files; `415` non-multipart, `411` missing length (as designs) |
 
 Uploading an original for a new edit is a raw-body `POST` like media uploads (streams into R2,
-`Content-Length` required, ≤ 100 MB). Server functions mirror designs: `listContentPhotoEdits`,
+`Content-Length` required, ≤ 100 MB): `POST /api/content/<itemId>/photo-edits?filename=<name.ext>[&name=<edit name>]`
+→ `201 {edit}`; `411` without a length, `413` too large, `422` for a refused extension or
+signature (the object is stored, its first bytes read back, and deleted when they do not match).
+Every file response (`original`, `settings`, `preview`) carries `nosniff`, a `sandbox` CSP and
+`X-Photo-Edit-Version` (for `original`, the current version, when there is one). Server functions mirror designs: `listContentPhotoEdits`,
 `createContentPhotoEdit` (from an image asset of the item, copied, or an uploaded original), `renameContentPhotoEdit`, `deleteContentPhotoEdit`,
 `listPhotoEditVersions`, `restorePhotoEditVersion` (copies the old objects into a new version),
 `publishPhotoEditPreview` (copies the current preview into the item's media). Concurrency without
@@ -242,8 +253,10 @@ transactions exactly as `saveDesignVersion`; every write moves `updated_at` stri
   1. Page fetches the original bytes (session) and, if there is a current version, its settings.
   2. On `lightcraft:ready`, posts `lightcraft:open {name, bytes}`. There is no answer and the
      import happens on a later frame.
-  3. Polls `develop.get` (no `id`: the active photo) every ~200 ms until it answers `ok: true`
-     (the import selected the photo), at most ~30 s for a large raw; then the error state
+  3. Polls `develop.get` (no `id`: the active photo) every ~200 ms until its `value` is not
+     `"null"` (`develop.get` always answers `ok: true`; with no active photo the value is JSON
+     `null`; a non-null value means the import selected the photo), at most ~30 s for a large raw;
+     then the error state
      ("Não foi possível abrir a foto"). `lightcraft:failed` (e.g. a refused open) ends it at once.
   4. If there is a current version: `develop.merge {settings, label: "Versão N"}` onto the freshly
      imported photo (defaults everywhere, so the partial merge restores the whole version).
@@ -251,9 +264,11 @@ transactions exactly as `saveDesignVersion`; every write moves `updated_at` stri
   `ok: false` at any step shows the error in the header state.
 - **Save flow** (the header's Salvar button):
   1. `develop.get` → settings JSON (the response's `value`).
-  2. `app.export` with at least `{path: "preview.jpg", format: "jpeg", quality: 85, resize:
-     <longest side 2048 or 4096, exact key confirmed in Z3>, metadata: <the smallest policy>}`
-     (`path` is mandatory on the web, see above). The render arrives as
+  2. `app.export` with `{path: "preview.jpg", format: "jpeg", quality: 85, longEdge: 2048,
+     dontEnlarge: true, metadata: "none"}` (keys checked against `ExportOptions::validate_as`,
+     `export/params.rs`: `longEdge` is a number, `quality` 1..100, `metadata` one of
+     `all|allExceptCamera|copyright|none`, unknown keys are refused; `path` is mandatory on the
+     web, see above; the saved name is `save_name(path)`, the file name). The render arrives as
      `lightcraft:save {name: "preview.jpg", bytes}` **before** the `lightcraft:response`; the page
      keeps the bytes of the save whose name matches and ignores any other `lightcraft:save`
      (e.g. a library backup the person started from the menu). Right after open an export can
@@ -359,7 +374,23 @@ final check (I) needs both.
 
 ### Z1. LightCraft hosted in Zora
 
-Status: not started. Depends on D1.
+Status (2026-11-20): **code done and tested; the real-build local publish is pending** (it waits
+for `cargo xtask web`, which the orchestrator runs). Done: `studio-hosting.ts` has a bundle map
+(`HOSTED_BUNDLES`: `STUDIO_BUNDLE`, `STUDIO_FONTS_BUNDLE`, `LIGHTCRAFT_BUNDLE`; each with
+`hashedNames` and `skipPrecompressed`), `bundleFileCacheControl` (always `no-cache` for LightCraft,
+unchanged for Studio), `bundleUploadEntry` + `isPrecompressedCopy` (the publish filter);
+`studio-hosting.server.ts` gained `handleBundleRequest` (308 bare prefix → 401 without session →
+`serveBundleFile`), now used by `/studio/*`, `/studio-fonts/*` and the new
+`src/routes/lightcraft/$.ts` (bucket via `getBundleBucket()`). `scripts/lib/r2-store.ts` gained
+`collectBundleFiles` (walk + filter, shared with `studio-publish.ts`); `scripts/lightcraft-publish.ts`
++ `pnpm lightcraft:publish` (default `../zora-lightcraft/target/web-site`, `--dir`, `--remote`
+owner only, `.gz`/`.br` skipped, `index.html` last, stale cleanup). AGENTS.md ("LightCraft
+hosting", Layout, Commands). Checked: `pnpm lint`, `pnpm test` (29 files, 281 tests; Studio's
+`studio-hosting.test.ts` unchanged and passing; new `lightcraft-hosting.test.ts`: bundle map,
+path safety, types, no-cache, 304/HEAD/404, 308/401, the file filter on a temp build folder),
+`pnpm build`; `pnpm typecheck` clean for these files (its only errors were in Z2's in-progress
+`api/photo-edits` routes). Left: `pnpm lightcraft:publish` of a real build into local R2 and a
+`/lightcraft/` fetch in `pnpm dev` (L1); COOP/COEP headers are not sent (optional upstream today).
 
 - Generalise `studio-hosting{.ts,.server.ts}` to a bundle map (`studio/`, `lightcraft/`) without
   changing Studio's behaviour (its tests must pass untouched); add the `/lightcraft/*` route
@@ -377,7 +408,22 @@ Status: not started. Depends on D1.
 
 ### Z2. Photo edits in Zora (data + API + item UI)
 
-Status: not started. Depends on D2.
+Status: **done 2026-11-20** (code + tests, local only). Migration
+`20261120172221_brave_hawkeye` (applied locally with `pnpm db:migrate`; test
+`src/db/photo-edits-migration.test.ts`), `src/lib/content-photo-edits{.ts,.server.ts,.http.server.ts,.functions.ts,.queries.ts,.upload.ts}`,
+routes `src/routes/api/photo-edits/$editId/{index,original,settings,preview,versions}.ts` and
+`src/routes/api/content/$itemId/photo-edits.ts`, `deleteContentItemWithAssets` extended, the
+"Fotos" section (`src/components/content/content-photo-edits.tsx`) on the item page, the six MCP
+tools + `AGENT_INSTRUCTIONS`, AGENTS.md "Photo edits". Checked with `pnpm typecheck && pnpm lint &&
+pnpm test && pnpm build` (32 files, 303 tests; new: `content-photo-edits.server.test.ts` 19,
+`mcp.photo-edit-tools.test.ts` 2, the migration test 1). Not verified: the UI in a browser (no
+`pnpm dev` session was run), the R2-to-R2 copy against real/simulated R2 (the
+`FixedLengthStream` path runs only in workerd; tests use an in-memory bucket), a real raw upload.
+Left for Z3: "Abrir no LightCraft" on the cards is disabled (with a TODO) until the route
+`/content/$itemId/photos/$editId` exists; MCP results already link to that URL. Contract
+deviations (folded into "Contracts" above): the extension allowlist is wider (every raw
+LightCraft imports that has a signature), the preview may be PNG, the original upload path is
+`POST /api/content/<itemId>/photo-edits`.
 
 - Schema + migration for the two tables (with a migration test), the service functions, server
   functions, query options/hooks, the shared client-safe module (limits, URLs, types), the HTTP
@@ -418,7 +464,13 @@ Status: not started. Depends on Z1, Z2, D3, D4, D5.
 
 ### L1. Web build + local publish verification
 
-Status: not started (orchestrator runs the build; no Rust code change expected).
+Status: build + local publish done 2026-11-20. `cargo xtask web` built in 7m19s (wasm-opt -O2 on
+PATH): `index.html` 2,329 B, `worker.js` 649 B, `lightcraft_web.js` 111,225 B,
+`lightcraft_web_bg.wasm` **34,023,371 B** (12,158,880 gzip / 7,944,566 brotli), plus
+`snippets/eframe-<hash>/inline0.js`. The wasm is 2.5× the 13.5 MB `docs/web.md` lists, so it is
+**over the 25 MiB static-asset limit**: D1's alternative is out, R2 is the only option.
+`pnpm lightcraft:publish` uploaded 5 files (32.6 MiB, `.gz`/`.br` skipped) to local R2. Left: the
+app starting in a browser at `?host=parent&store=memory` (bridge protocol test running).
 
 - `cargo xtask web` in `zora-lightcraft` (one Rust build at a time); record the bundle's actual
   sizes; `pnpm lightcraft:publish` into local R2; verify `/lightcraft/` serves index + wasm with

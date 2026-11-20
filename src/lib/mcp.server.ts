@@ -35,6 +35,13 @@ import {
 } from './content-designs'
 import type { ContentDesign } from './content-designs'
 import * as designs from './content-designs.server'
+import {
+  PHOTO_SIGNATURE_BYTES,
+  photoEditPreviewKey,
+  photoPreviewType,
+} from './content-photo-edits'
+import type { ContentPhotoEdit } from './content-photo-edits'
+import * as photoEdits from './content-photo-edits.server'
 import * as images from './image-providers.server'
 import type { ImageProviderConfig } from './image-providers.server'
 import {
@@ -129,6 +136,14 @@ function describeDesign(design: ContentDesign, appUrl: string) {
   return {
     ...design,
     url: `${appUrl.replace(/\/+$/, '')}/content/${design.contentItemId}/designs/${design.id}`,
+  }
+}
+
+function describePhotoEdit(edit: ContentPhotoEdit, appUrl: string) {
+  return {
+    ...edit,
+    // The LightCraft editor page (task Z3 of docs/LIGHTCRAFT-PLAN.md).
+    url: `${appUrl.replace(/\/+$/, '')}/content/${edit.contentItemId}/photos/${edit.id}`,
   }
 }
 
@@ -756,6 +771,124 @@ export const zoraTools = [
       const asset =
         (await designs.publishDesignPreview(db, bucket, active.id, user.id, designId)) ??
         notFound('design', designId)
+      return ok(describeAsset(asset))
+    },
+  }),
+  defineTool({
+    name: 'create_photo_edit',
+    title: 'Create a photo edit',
+    description:
+      "Starts a photo edit (a LightCraft development) from an image of a content item's media (JPEG, PNG, WebP or AVIF; not GIF). The image is copied into the edit, so the media can change or be deleted later without breaking it. The edit has no version until it is first saved: the person develops it in LightCraft (its url). Raw camera files are uploaded by the person in the app.",
+    inputSchema: z.object({
+      itemId: z.uuid().describe('Content item id (UUID).'),
+      assetId: z.uuid().describe("Media file id of an image of this item (see get_content_item's media)."),
+      name: z.string().min(1).max(200).optional().describe("Edit name; defaults to the image's file name."),
+    }),
+    annotations: writes,
+    run: async (args, { db, bucket, user, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
+      const edit = await photoEdits.createPhotoEditFromAsset(db, bucket, {
+        organizationId: active.id,
+        contentItemId: args.itemId,
+        assetId: args.assetId,
+        createdById: user.id,
+        name: args.name?.trim() || undefined,
+      })
+      return ok(edit ? describePhotoEdit(edit, appUrl) : notFound('content item', args.itemId))
+    },
+  }),
+  defineTool({
+    name: 'list_photo_edits',
+    title: 'List the photo edits of an item',
+    description:
+      'The photo edits of a content item, with their original file and current version (null when never saved).',
+    inputSchema: z.object({ itemId: z.uuid().describe('Content item id (UUID).') }),
+    annotations: readOnly,
+    run: async ({ itemId: id }, { db, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
+      if (!(await content.getContentItem(db, active.id, id))) notFound('content item', id)
+      const list = await photoEdits.listContentPhotoEdits(db, active.id, id)
+      return ok({ count: list.length, photoEdits: list.map((e) => describePhotoEdit(e, appUrl)) })
+    },
+  }),
+  defineTool({
+    name: 'get_photo_edit',
+    title: 'Get a photo edit',
+    description: `A photo edit's metadata. Its rendered preview (of the current version, or of versionId) is returned as an image when it is up to ${formatBytes(MAX_MCP_IMAGE_PREVIEW_BYTES)}, so you can look at it.`,
+    inputSchema: z.object({
+      editId: z.uuid().describe('Photo edit id.'),
+      versionId: z.uuid().optional().describe('A version to show instead of the current one.'),
+    }),
+    annotations: readOnly,
+    run: async ({ editId, versionId }, { db, bucket, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
+      const edit =
+        (await photoEdits.getContentPhotoEdit(db, active.id, editId)) ??
+        notFound('photo edit', editId)
+      const shownId = versionId ?? edit.currentVersionId
+      const version = shownId
+        ? ((await photoEdits.getPhotoEditVersion(db, active.id, editId, shownId)) ??
+          notFound('version of this photo edit', shownId))
+        : null
+      const result = ok({ ...describePhotoEdit(edit, appUrl), shownVersion: version })
+      if (!version || version.previewSize > MAX_MCP_IMAGE_PREVIEW_BYTES) return result
+      const bytes = await readBytes(bucket, photoEditPreviewKey(edit.id, version.id))
+      const type = bytes ? photoPreviewType(bytes.subarray(0, PHOTO_SIGNATURE_BYTES)) : null
+      if (!bytes || !type) return result
+      result.content.push({ type: 'image', data: toBase64(bytes), mimeType: type })
+      return result
+    },
+  }),
+  defineTool({
+    name: 'list_photo_edit_versions',
+    title: 'List the versions of a photo edit',
+    description:
+      'Every saved version of a photo edit, newest first, with who saved it (authorKind "user" in LightCraft, "agent" through tools).',
+    inputSchema: z.object({ editId: z.uuid().describe('Photo edit id.') }),
+    annotations: readOnly,
+    run: async ({ editId }, { db, workspace }) => {
+      const active = requireWorkspace(workspace)
+      const versions =
+        (await photoEdits.listPhotoEditVersions(db, active.id, editId)) ??
+        notFound('photo edit', editId)
+      return ok({ count: versions.length, versions })
+    },
+  }),
+  defineTool({
+    name: 'restore_photo_edit_version',
+    title: 'Restore a photo edit version',
+    description:
+      'Makes an older version of a photo edit current again by copying it into a new version; the history is kept.',
+    inputSchema: z.object({
+      editId: z.uuid().describe('Photo edit id.'),
+      versionId: z.uuid().describe('The version to restore.'),
+    }),
+    annotations: writes,
+    run: async ({ editId, versionId }, { db, bucket, user, workspace }) => {
+      const active = requireWorkspace(workspace)
+      const saved =
+        (await photoEdits.restorePhotoEditVersion(db, bucket, {
+          organizationId: active.id,
+          editId,
+          versionId,
+          createdById: user.id,
+          authorKind: 'agent',
+        })) ?? notFound('photo edit version', versionId)
+      return ok(saved)
+    },
+  }),
+  defineTool({
+    name: 'publish_photo_edit',
+    title: 'Use a photo edit as media',
+    description:
+      "Copies the photo edit's current rendered preview into its item's media files (named after the edit, .jpg). Do this once the user approved the photo.",
+    inputSchema: z.object({ editId: z.uuid().describe('Photo edit id.') }),
+    annotations: writes,
+    run: async ({ editId }, { db, bucket, user, workspace }) => {
+      const active = requireWorkspace(workspace)
+      const asset =
+        (await photoEdits.publishPhotoEditPreview(db, bucket, active.id, user.id, editId)) ??
+        notFound('photo edit', editId)
       return ok(describeAsset(asset))
     },
   }),
@@ -1397,6 +1530,9 @@ export async function runZoraTool(
       error instanceof designs.DesignRuleError ||
       error instanceof designs.DesignConflictError ||
       error instanceof designs.DesignFileError ||
+      error instanceof photoEdits.PhotoEditRuleError ||
+      error instanceof photoEdits.PhotoEditConflictError ||
+      error instanceof photoEdits.PhotoEditFileError ||
       error instanceof images.ImageProviderError ||
       error instanceof engine.StudioEngineError ||
       error instanceof SocialPublishingError

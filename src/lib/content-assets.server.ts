@@ -9,14 +9,23 @@
  * Bytes live in the R2 bucket under `content/<contentItemId>/<assetId>`; the
  * `content_asset` row holds the metadata. Deleting an item removes its rows
  * through the foreign key; `deleteContentItemWithAssets` removes its objects,
- * and those of the item's designs (`designs/<designId>/...`).
+ * and those of the item's designs (`designs/<designId>/...`) and photo edits
+ * (`photo-edits/<editId>/...`).
  */
 import { and, asc, eq } from 'drizzle-orm'
 import type { Database } from '../db/client.server'
-import { contentAsset, contentDesign, contentDesignVersion, contentItem } from '../db/schema'
+import {
+  contentAsset,
+  contentDesign,
+  contentDesignVersion,
+  contentItem,
+  contentPhotoEdit,
+  contentPhotoEditVersion,
+} from '../db/schema'
 import { assetUploadError } from './content-assets'
 import type { AssetAttribution, ContentAsset } from './content-assets'
 import { designPreviewKey, designSourceKey } from './content-designs'
+import { photoEditPreviewKey, photoEditSettingsKey } from './content-photo-edits'
 import { deleteContentItem } from './content.server'
 
 /** The part of an R2 bucket binding this app uses. */
@@ -38,6 +47,8 @@ export type MediaObject = {
   body?: ReadableStream
   size: number
   httpEtag: string
+  /** The metadata stored with `put` (R2 returns it; photo-edit previews read their type from it). */
+  httpMetadata?: { contentType?: string }
   range?: { offset?: number; length?: number; suffix?: number }
 }
 
@@ -203,9 +214,40 @@ async function listItemDesignObjectKeys(
   ])
 }
 
+/** R2 keys of the original and every version of every photo edit of an item. */
+async function listItemPhotoEditObjectKeys(
+  db: Database,
+  organizationId: string,
+  contentItemId: string,
+): Promise<Array<string>> {
+  const edits = await db
+    .select({ id: contentPhotoEdit.id, originalKey: contentPhotoEdit.originalKey })
+    .from(contentPhotoEdit)
+    .innerJoin(contentItem, eq(contentItem.id, contentPhotoEdit.contentItemId))
+    .where(
+      and(
+        eq(contentPhotoEdit.contentItemId, contentItemId),
+        eq(contentItem.organizationId, organizationId),
+      ),
+    )
+  if (edits.length === 0) return []
+  const versions = await db
+    .select({ editId: contentPhotoEditVersion.editId, versionId: contentPhotoEditVersion.id })
+    .from(contentPhotoEditVersion)
+    .innerJoin(contentPhotoEdit, eq(contentPhotoEdit.id, contentPhotoEditVersion.editId))
+    .where(eq(contentPhotoEdit.contentItemId, contentItemId))
+  return [
+    ...edits.map((edit) => edit.originalKey),
+    ...versions.flatMap(({ editId, versionId }) => [
+      photoEditSettingsKey(editId, versionId),
+      photoEditPreviewKey(editId, versionId),
+    ]),
+  ]
+}
+
 /**
  * Deletes an item and, once that succeeded, its files and the files of its
- * designs (the rows go with the item through the foreign keys). A failure to
+ * designs and photo edits (the rows go with the item through the foreign keys). A failure to
  * delete the files leaves unreachable objects behind, not a broken item.
  */
 export async function deleteContentItemWithAssets(
@@ -216,8 +258,13 @@ export async function deleteContentItemWithAssets(
 ): Promise<boolean> {
   const assets = await listContentAssets(db, organizationId, id)
   const designKeys = await listItemDesignObjectKeys(db, organizationId, id)
+  const photoEditKeys = await listItemPhotoEditObjectKeys(db, organizationId, id)
   const deleted = await deleteContentItem(db, organizationId, id)
-  const keys = [...assets.map((asset) => assetObjectKey(id, asset.id)), ...designKeys]
+  const keys = [
+    ...assets.map((asset) => assetObjectKey(id, asset.id)),
+    ...designKeys,
+    ...photoEditKeys,
+  ]
   if (deleted && keys.length > 0) {
     // R2 deletes up to 1000 keys per call.
     for (let start = 0; start < keys.length; start += 1000) {

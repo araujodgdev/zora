@@ -22,6 +22,7 @@ import { Route as AppConnectionsRouteImport } from './routes/_app/connections'
 import { Route as AppPipelineRouteImport } from './routes/_app/pipeline'
 import { Route as AppTeamRouteImport } from './routes/_app/team'
 import { Route as InviteInvitationIdRouteImport } from './routes/invite.$invitationId'
+import { Route as LightcraftSplatRouteImport } from './routes/lightcraft/$'
 import { Route as StudioFontsSplatRouteImport } from './routes/studio-fonts/$'
 import { Route as StudioSplatRouteImport } from './routes/studio/$'
 import { Route as WorkspacesNewRouteImport } from './routes/workspaces/new'
@@ -31,10 +32,16 @@ import { Route as AppContentNewRouteImport } from './routes/_app/content/new'
 import { Route as ApiAssetsAssetIdRouteImport } from './routes/api/assets/$assetId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiContentItemIdAssetsRouteImport } from './routes/api/content/$itemId/assets'
+import { Route as ApiContentItemIdPhotoEditsRouteImport } from './routes/api/content/$itemId/photo-edits'
 import { Route as ApiDesignsDesignIdIndexRouteImport } from './routes/api/designs/$designId/index'
 import { Route as ApiDesignsDesignIdPreviewRouteImport } from './routes/api/designs/$designId/preview'
 import { Route as ApiDesignsDesignIdSourceRouteImport } from './routes/api/designs/$designId/source'
 import { Route as ApiDesignsDesignIdVersionsRouteImport } from './routes/api/designs/$designId/versions'
+import { Route as ApiPhotoEditsEditIdIndexRouteImport } from './routes/api/photo-edits/$editId/index'
+import { Route as ApiPhotoEditsEditIdOriginalRouteImport } from './routes/api/photo-edits/$editId/original'
+import { Route as ApiPhotoEditsEditIdPreviewRouteImport } from './routes/api/photo-edits/$editId/preview'
+import { Route as ApiPhotoEditsEditIdSettingsRouteImport } from './routes/api/photo-edits/$editId/settings'
+import { Route as ApiPhotoEditsEditIdVersionsRouteImport } from './routes/api/photo-edits/$editId/versions'
 import { Route as AppContentItemIdDesignsDesignIdRouteImport } from './routes/_app/content/$itemId_.designs.$designId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -101,6 +108,11 @@ const InviteInvitationIdRoute = InviteInvitationIdRouteImport.update({
   path: '/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LightcraftSplatRoute = LightcraftSplatRouteImport.update({
+  id: '/lightcraft/$',
+  path: '/lightcraft/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudioFontsSplatRoute = StudioFontsSplatRouteImport.update({
   id: '/studio-fonts/$',
   path: '/studio-fonts/$',
@@ -146,6 +158,12 @@ const ApiContentItemIdAssetsRoute = ApiContentItemIdAssetsRouteImport.update({
   path: '/api/content/$itemId/assets',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiContentItemIdPhotoEditsRoute =
+  ApiContentItemIdPhotoEditsRouteImport.update({
+    id: '/api/content/$itemId/photo-edits',
+    path: '/api/content/$itemId/photo-edits',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiDesignsDesignIdIndexRoute = ApiDesignsDesignIdIndexRouteImport.update({
   id: '/api/designs/$designId/',
   path: '/api/designs/$designId/',
@@ -169,6 +187,36 @@ const ApiDesignsDesignIdVersionsRoute =
     path: '/api/designs/$designId/versions',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPhotoEditsEditIdIndexRoute =
+  ApiPhotoEditsEditIdIndexRouteImport.update({
+    id: '/api/photo-edits/$editId/',
+    path: '/api/photo-edits/$editId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPhotoEditsEditIdOriginalRoute =
+  ApiPhotoEditsEditIdOriginalRouteImport.update({
+    id: '/api/photo-edits/$editId/original',
+    path: '/api/photo-edits/$editId/original',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPhotoEditsEditIdPreviewRoute =
+  ApiPhotoEditsEditIdPreviewRouteImport.update({
+    id: '/api/photo-edits/$editId/preview',
+    path: '/api/photo-edits/$editId/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPhotoEditsEditIdSettingsRoute =
+  ApiPhotoEditsEditIdSettingsRouteImport.update({
+    id: '/api/photo-edits/$editId/settings',
+    path: '/api/photo-edits/$editId/settings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPhotoEditsEditIdVersionsRoute =
+  ApiPhotoEditsEditIdVersionsRouteImport.update({
+    id: '/api/photo-edits/$editId/versions',
+    path: '/api/photo-edits/$editId/versions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AppContentItemIdDesignsDesignIdRoute =
   AppContentItemIdDesignsDesignIdRouteImport.update({
     id: '/content/$itemId_/designs/$designId',
@@ -189,6 +237,7 @@ export interface FileRoutesByFullPath {
   '/pipeline': typeof AppPipelineRoute
   '/team': typeof AppTeamRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/lightcraft/$': typeof LightcraftSplatRoute
   '/studio-fonts/$': typeof StudioFontsSplatRoute
   '/studio/$': typeof StudioSplatRoute
   '/workspaces/new': typeof WorkspacesNewRoute
@@ -198,10 +247,16 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/content/': typeof AppContentIndexRoute
   '/api/content/$itemId/assets': typeof ApiContentItemIdAssetsRoute
+  '/api/content/$itemId/photo-edits': typeof ApiContentItemIdPhotoEditsRoute
   '/api/designs/$designId/preview': typeof ApiDesignsDesignIdPreviewRoute
   '/api/designs/$designId/source': typeof ApiDesignsDesignIdSourceRoute
   '/api/designs/$designId/versions': typeof ApiDesignsDesignIdVersionsRoute
+  '/api/photo-edits/$editId/original': typeof ApiPhotoEditsEditIdOriginalRoute
+  '/api/photo-edits/$editId/preview': typeof ApiPhotoEditsEditIdPreviewRoute
+  '/api/photo-edits/$editId/settings': typeof ApiPhotoEditsEditIdSettingsRoute
+  '/api/photo-edits/$editId/versions': typeof ApiPhotoEditsEditIdVersionsRoute
   '/api/designs/$designId/': typeof ApiDesignsDesignIdIndexRoute
+  '/api/photo-edits/$editId/': typeof ApiPhotoEditsEditIdIndexRoute
   '/content/$itemId/designs/$designId': typeof AppContentItemIdDesignsDesignIdRoute
 }
 export interface FileRoutesByTo {
@@ -217,6 +272,7 @@ export interface FileRoutesByTo {
   '/pipeline': typeof AppPipelineRoute
   '/team': typeof AppTeamRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/lightcraft/$': typeof LightcraftSplatRoute
   '/studio-fonts/$': typeof StudioFontsSplatRoute
   '/studio/$': typeof StudioSplatRoute
   '/workspaces/new': typeof WorkspacesNewRoute
@@ -226,10 +282,16 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/content': typeof AppContentIndexRoute
   '/api/content/$itemId/assets': typeof ApiContentItemIdAssetsRoute
+  '/api/content/$itemId/photo-edits': typeof ApiContentItemIdPhotoEditsRoute
   '/api/designs/$designId/preview': typeof ApiDesignsDesignIdPreviewRoute
   '/api/designs/$designId/source': typeof ApiDesignsDesignIdSourceRoute
   '/api/designs/$designId/versions': typeof ApiDesignsDesignIdVersionsRoute
+  '/api/photo-edits/$editId/original': typeof ApiPhotoEditsEditIdOriginalRoute
+  '/api/photo-edits/$editId/preview': typeof ApiPhotoEditsEditIdPreviewRoute
+  '/api/photo-edits/$editId/settings': typeof ApiPhotoEditsEditIdSettingsRoute
+  '/api/photo-edits/$editId/versions': typeof ApiPhotoEditsEditIdVersionsRoute
   '/api/designs/$designId': typeof ApiDesignsDesignIdIndexRoute
+  '/api/photo-edits/$editId': typeof ApiPhotoEditsEditIdIndexRoute
   '/content/$itemId/designs/$designId': typeof AppContentItemIdDesignsDesignIdRoute
 }
 export interface FileRoutesById {
@@ -247,6 +309,7 @@ export interface FileRoutesById {
   '/_app/pipeline': typeof AppPipelineRoute
   '/_app/team': typeof AppTeamRoute
   '/invite/$invitationId': typeof InviteInvitationIdRoute
+  '/lightcraft/$': typeof LightcraftSplatRoute
   '/studio-fonts/$': typeof StudioFontsSplatRoute
   '/studio/$': typeof StudioSplatRoute
   '/workspaces/new': typeof WorkspacesNewRoute
@@ -256,10 +319,16 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_app/content/': typeof AppContentIndexRoute
   '/api/content/$itemId/assets': typeof ApiContentItemIdAssetsRoute
+  '/api/content/$itemId/photo-edits': typeof ApiContentItemIdPhotoEditsRoute
   '/api/designs/$designId/preview': typeof ApiDesignsDesignIdPreviewRoute
   '/api/designs/$designId/source': typeof ApiDesignsDesignIdSourceRoute
   '/api/designs/$designId/versions': typeof ApiDesignsDesignIdVersionsRoute
+  '/api/photo-edits/$editId/original': typeof ApiPhotoEditsEditIdOriginalRoute
+  '/api/photo-edits/$editId/preview': typeof ApiPhotoEditsEditIdPreviewRoute
+  '/api/photo-edits/$editId/settings': typeof ApiPhotoEditsEditIdSettingsRoute
+  '/api/photo-edits/$editId/versions': typeof ApiPhotoEditsEditIdVersionsRoute
   '/api/designs/$designId/': typeof ApiDesignsDesignIdIndexRoute
+  '/api/photo-edits/$editId/': typeof ApiPhotoEditsEditIdIndexRoute
   '/_app/content/$itemId_/designs/$designId': typeof AppContentItemIdDesignsDesignIdRoute
 }
 export interface FileRouteTypes {
@@ -277,6 +346,7 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/team'
     | '/invite/$invitationId'
+    | '/lightcraft/$'
     | '/studio-fonts/$'
     | '/studio/$'
     | '/workspaces/new'
@@ -286,10 +356,16 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/content/'
     | '/api/content/$itemId/assets'
+    | '/api/content/$itemId/photo-edits'
     | '/api/designs/$designId/preview'
     | '/api/designs/$designId/source'
     | '/api/designs/$designId/versions'
+    | '/api/photo-edits/$editId/original'
+    | '/api/photo-edits/$editId/preview'
+    | '/api/photo-edits/$editId/settings'
+    | '/api/photo-edits/$editId/versions'
     | '/api/designs/$designId/'
+    | '/api/photo-edits/$editId/'
     | '/content/$itemId/designs/$designId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -305,6 +381,7 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/team'
     | '/invite/$invitationId'
+    | '/lightcraft/$'
     | '/studio-fonts/$'
     | '/studio/$'
     | '/workspaces/new'
@@ -314,10 +391,16 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/content'
     | '/api/content/$itemId/assets'
+    | '/api/content/$itemId/photo-edits'
     | '/api/designs/$designId/preview'
     | '/api/designs/$designId/source'
     | '/api/designs/$designId/versions'
+    | '/api/photo-edits/$editId/original'
+    | '/api/photo-edits/$editId/preview'
+    | '/api/photo-edits/$editId/settings'
+    | '/api/photo-edits/$editId/versions'
     | '/api/designs/$designId'
+    | '/api/photo-edits/$editId'
     | '/content/$itemId/designs/$designId'
   id:
     | '__root__'
@@ -334,6 +417,7 @@ export interface FileRouteTypes {
     | '/_app/pipeline'
     | '/_app/team'
     | '/invite/$invitationId'
+    | '/lightcraft/$'
     | '/studio-fonts/$'
     | '/studio/$'
     | '/workspaces/new'
@@ -343,10 +427,16 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/_app/content/'
     | '/api/content/$itemId/assets'
+    | '/api/content/$itemId/photo-edits'
     | '/api/designs/$designId/preview'
     | '/api/designs/$designId/source'
     | '/api/designs/$designId/versions'
+    | '/api/photo-edits/$editId/original'
+    | '/api/photo-edits/$editId/preview'
+    | '/api/photo-edits/$editId/settings'
+    | '/api/photo-edits/$editId/versions'
     | '/api/designs/$designId/'
+    | '/api/photo-edits/$editId/'
     | '/_app/content/$itemId_/designs/$designId'
   fileRoutesById: FileRoutesById
 }
@@ -360,16 +450,23 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   DotwellKnownSplatRoute: typeof DotwellKnownSplatRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
+  LightcraftSplatRoute: typeof LightcraftSplatRoute
   StudioFontsSplatRoute: typeof StudioFontsSplatRoute
   StudioSplatRoute: typeof StudioSplatRoute
   WorkspacesNewRoute: typeof WorkspacesNewRoute
   ApiAssetsAssetIdRoute: typeof ApiAssetsAssetIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiContentItemIdAssetsRoute: typeof ApiContentItemIdAssetsRoute
+  ApiContentItemIdPhotoEditsRoute: typeof ApiContentItemIdPhotoEditsRoute
   ApiDesignsDesignIdPreviewRoute: typeof ApiDesignsDesignIdPreviewRoute
   ApiDesignsDesignIdSourceRoute: typeof ApiDesignsDesignIdSourceRoute
   ApiDesignsDesignIdVersionsRoute: typeof ApiDesignsDesignIdVersionsRoute
+  ApiPhotoEditsEditIdOriginalRoute: typeof ApiPhotoEditsEditIdOriginalRoute
+  ApiPhotoEditsEditIdPreviewRoute: typeof ApiPhotoEditsEditIdPreviewRoute
+  ApiPhotoEditsEditIdSettingsRoute: typeof ApiPhotoEditsEditIdSettingsRoute
+  ApiPhotoEditsEditIdVersionsRoute: typeof ApiPhotoEditsEditIdVersionsRoute
   ApiDesignsDesignIdIndexRoute: typeof ApiDesignsDesignIdIndexRoute
+  ApiPhotoEditsEditIdIndexRoute: typeof ApiPhotoEditsEditIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -465,6 +562,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lightcraft/$': {
+      id: '/lightcraft/$'
+      path: '/lightcraft/$'
+      fullPath: '/lightcraft/$'
+      preLoaderRoute: typeof LightcraftSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/studio-fonts/$': {
       id: '/studio-fonts/$'
       path: '/studio-fonts/$'
@@ -528,6 +632,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiContentItemIdAssetsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/content/$itemId/photo-edits': {
+      id: '/api/content/$itemId/photo-edits'
+      path: '/api/content/$itemId/photo-edits'
+      fullPath: '/api/content/$itemId/photo-edits'
+      preLoaderRoute: typeof ApiContentItemIdPhotoEditsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/designs/$designId/': {
       id: '/api/designs/$designId/'
       path: '/api/designs/$designId'
@@ -554,6 +665,41 @@ declare module '@tanstack/react-router' {
       path: '/api/designs/$designId/versions'
       fullPath: '/api/designs/$designId/versions'
       preLoaderRoute: typeof ApiDesignsDesignIdVersionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/photo-edits/$editId/': {
+      id: '/api/photo-edits/$editId/'
+      path: '/api/photo-edits/$editId'
+      fullPath: '/api/photo-edits/$editId/'
+      preLoaderRoute: typeof ApiPhotoEditsEditIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/photo-edits/$editId/original': {
+      id: '/api/photo-edits/$editId/original'
+      path: '/api/photo-edits/$editId/original'
+      fullPath: '/api/photo-edits/$editId/original'
+      preLoaderRoute: typeof ApiPhotoEditsEditIdOriginalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/photo-edits/$editId/preview': {
+      id: '/api/photo-edits/$editId/preview'
+      path: '/api/photo-edits/$editId/preview'
+      fullPath: '/api/photo-edits/$editId/preview'
+      preLoaderRoute: typeof ApiPhotoEditsEditIdPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/photo-edits/$editId/settings': {
+      id: '/api/photo-edits/$editId/settings'
+      path: '/api/photo-edits/$editId/settings'
+      fullPath: '/api/photo-edits/$editId/settings'
+      preLoaderRoute: typeof ApiPhotoEditsEditIdSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/photo-edits/$editId/versions': {
+      id: '/api/photo-edits/$editId/versions'
+      path: '/api/photo-edits/$editId/versions'
+      fullPath: '/api/photo-edits/$editId/versions'
+      preLoaderRoute: typeof ApiPhotoEditsEditIdVersionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/content/$itemId_/designs/$designId': {
@@ -600,16 +746,23 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   DotwellKnownSplatRoute: DotwellKnownSplatRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
+  LightcraftSplatRoute: LightcraftSplatRoute,
   StudioFontsSplatRoute: StudioFontsSplatRoute,
   StudioSplatRoute: StudioSplatRoute,
   WorkspacesNewRoute: WorkspacesNewRoute,
   ApiAssetsAssetIdRoute: ApiAssetsAssetIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiContentItemIdAssetsRoute: ApiContentItemIdAssetsRoute,
+  ApiContentItemIdPhotoEditsRoute: ApiContentItemIdPhotoEditsRoute,
   ApiDesignsDesignIdPreviewRoute: ApiDesignsDesignIdPreviewRoute,
   ApiDesignsDesignIdSourceRoute: ApiDesignsDesignIdSourceRoute,
   ApiDesignsDesignIdVersionsRoute: ApiDesignsDesignIdVersionsRoute,
+  ApiPhotoEditsEditIdOriginalRoute: ApiPhotoEditsEditIdOriginalRoute,
+  ApiPhotoEditsEditIdPreviewRoute: ApiPhotoEditsEditIdPreviewRoute,
+  ApiPhotoEditsEditIdSettingsRoute: ApiPhotoEditsEditIdSettingsRoute,
+  ApiPhotoEditsEditIdVersionsRoute: ApiPhotoEditsEditIdVersionsRoute,
   ApiDesignsDesignIdIndexRoute: ApiDesignsDesignIdIndexRoute,
+  ApiPhotoEditsEditIdIndexRoute: ApiPhotoEditsEditIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,7 +1,8 @@
 /**
- * Zora Studio, hosted by Zora: where its files live and how they are served,
- * and the messages the embedded Studio posts to the editor page. Client-safe
- * and dependency-free (the publish scripts in `scripts/` import it with Node).
+ * Sibling web apps hosted by Zora from R2 (Zora Studio, its font library and
+ * LightCraft): where their files live and how they are served, and the
+ * messages the embedded Studio posts to the editor page. Client-safe and
+ * dependency-free (the publish scripts in `scripts/` import it with Node).
  *
  * Studio's web build is too big for Workers static assets (the wasm is about
  * 73 MB; the limit is 25 MiB a file), so `pnpm studio:publish` uploads it to
@@ -9,30 +10,73 @@
  * (same origin as Zora, so the iframe shares the session). The font library
  * (`pnpm fonts:sync`) lives under `studio-fonts/` and is served at
  * `/studio-fonts/*`. See docs/STUDIO-PLAN.md, "Studio in Zora" and "Font
- * library".
+ * library". LightCraft's web build (`pnpm lightcraft:publish`) lives under
+ * `lightcraft/` and is served at `/lightcraft/*` the same way
+ * (docs/LIGHTCRAFT-PLAN.md, D1 and Z1).
  */
 
 /** A bundle served from R2: the URL prefix and the R2 key prefix. */
-export type StudioBundle = {
+export type HostedBundle = {
   /** URL path prefix, with both slashes, e.g. `/studio/`. */
   urlPrefix: string
   /** R2 key prefix, e.g. `studio/`. */
   keyPrefix: string
   /** The file served for the bundle's root URL, or null for none. */
   index: string | null
+  /**
+   * Whether a 16-digit hex hash in a name means the file never changes under
+   * that name (Trunk's and the font sync's names), so it may be cached for a
+   * year. False for builds whose names stay the same across versions
+   * (LightCraft): every file is then revalidated.
+   */
+  hashedNames: boolean
+  /**
+   * Whether the publish script leaves out precompressed copies (`*.gz`,
+   * `*.br`) of the build: the route streams the raw file and Cloudflare
+   * compresses it on the way out.
+   */
+  skipPrecompressed: boolean
 }
+
+/** The older name of `HostedBundle`, from when only Studio was hosted. */
+export type StudioBundle = HostedBundle
 
 export const STUDIO_BUNDLE = {
   urlPrefix: '/studio/',
   keyPrefix: 'studio/',
   index: 'index.html',
-} as const satisfies StudioBundle
+  hashedNames: true,
+  skipPrecompressed: false,
+} as const satisfies HostedBundle
 
 export const STUDIO_FONTS_BUNDLE = {
   urlPrefix: '/studio-fonts/',
   keyPrefix: 'studio-fonts/',
   index: null,
-} as const satisfies StudioBundle
+  hashedNames: true,
+  skipPrecompressed: false,
+} as const satisfies HostedBundle
+
+/**
+ * LightCraft's web build (`cargo xtask web` -> `target/web-site/`: index.html,
+ * worker.js, lightcraft_web.js, lightcraft_web_bg.wasm, optionally
+ * lightcraft_zh_hans.otf and its OFL text). Its file names carry no content
+ * hash, so everything is `no-cache`.
+ */
+export const LIGHTCRAFT_BUNDLE = {
+  urlPrefix: '/lightcraft/',
+  keyPrefix: 'lightcraft/',
+  index: 'index.html',
+  hashedNames: false,
+  skipPrecompressed: true,
+} as const satisfies HostedBundle
+
+/** Every bundle Zora hosts, by name. Their key prefixes never overlap. */
+export const HOSTED_BUNDLES = {
+  studio: STUDIO_BUNDLE,
+  'studio-fonts': STUDIO_FONTS_BUNDLE,
+  lightcraft: LIGHTCRAFT_BUNDLE,
+} as const satisfies Record<string, HostedBundle>
 
 /** The font library's manifest, relative to the fonts bundle. */
 export const STUDIO_FONTS_MANIFEST = 'manifest.json'
@@ -68,7 +112,7 @@ const SAFE_SEGMENT = /^[A-Za-z0-9._@+~-]+$/
  * slash), backslashes, encoded slashes, control characters, and anything
  * outside a conservative character set.
  */
-export function resolveBundlePath(bundle: StudioBundle, rest: string): string | null {
+export function resolveBundlePath(bundle: HostedBundle, rest: string): string | null {
   if (rest === '') return bundle.index
   if (rest.length > MAX_BUNDLE_PATH_LENGTH) return null
   const segments = rest.split('/')
@@ -87,7 +131,7 @@ export function resolveBundlePath(bundle: StudioBundle, rest: string): string | 
 }
 
 /** The R2 key of a bundle file (`path` from `resolveBundlePath`). */
-export function bundleObjectKey(bundle: StudioBundle, path: string): string {
+export function bundleObjectKey(bundle: HostedBundle, path: string): string {
   return `${bundle.keyPrefix}${path}`
 }
 
@@ -147,6 +191,42 @@ export const REVALIDATE_CACHE_CONTROL = 'no-cache'
  */
 export function bundleCacheControl(path: string): string {
   return isHashedBundlePath(path) ? IMMUTABLE_CACHE_CONTROL : REVALIDATE_CACHE_CONTROL
+}
+
+/**
+ * The caching rule of a file of `bundle`: `bundleCacheControl` for bundles
+ * with hashed names, always `no-cache` for the others.
+ */
+export function bundleFileCacheControl(bundle: HostedBundle, path: string): string {
+  return bundle.hashedNames ? bundleCacheControl(path) : REVALIDATE_CACHE_CONTROL
+}
+
+// --- publishing -----------------------------------------------------------------------
+
+/** A precompressed copy of another build file (`lightcraft_web_bg.wasm.br`). */
+export function isPrecompressedCopy(path: string): boolean {
+  return /\.(?:gz|br)$/i.test(path)
+}
+
+/**
+ * What the publish scripts do with a file of a build folder (`path` relative
+ * to it, `/`-separated): leave it out (dot-files and dot-folders such as
+ * `.trunk-lock`; precompressed copies when the bundle skips them), or upload
+ * it with its type and caching rule. Throws for a name the bundle's route
+ * would not serve: uploading it would be dead weight, and a build that needs
+ * it would break.
+ */
+export function bundleUploadEntry(
+  bundle: HostedBundle,
+  path: string,
+): { contentType: string; cacheControl: string } | null {
+  const segments = path.split('/')
+  if (segments.some((segment) => segment.startsWith('.'))) return null
+  if (bundle.skipPrecompressed && isPrecompressedCopy(path)) return null
+  if (resolveBundlePath(bundle, segments.map(encodeURIComponent).join('/')) !== path) {
+    throw new Error(`${path}: the ${bundle.urlPrefix} route would not serve this name`)
+  }
+  return { contentType: bundleContentType(path), cacheControl: bundleFileCacheControl(bundle, path) }
 }
 
 // --- messages from the embedded Studio -------------------------------------------------

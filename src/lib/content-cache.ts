@@ -27,6 +27,11 @@ export const contentKeys = {
   /** The saved versions of one design. */
   designVersions: (designId: string) =>
     [...contentKeys.all, 'design-versions', designId] as const,
+  /** The photo edits of one item. */
+  photoEdits: (itemId: string) => [...contentKeys.all, 'photo-edits', itemId] as const,
+  /** The saved versions of one photo edit. */
+  photoEditVersions: (editId: string) =>
+    [...contentKeys.all, 'photo-edit-versions', editId] as const,
 }
 
 /** Fields a drag-and-drop move can change. */
