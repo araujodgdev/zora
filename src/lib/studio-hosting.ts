@@ -201,6 +201,29 @@ export function bundleFileCacheControl(bundle: HostedBundle, path: string): stri
   return bundle.hashedNames ? bundleCacheControl(path) : REVALIDATE_CACHE_CONTROL
 }
 
+/** One entity tag (RFC 9110 8.8.3): `"opaque"` or `W/"opaque"`, etagc = %x21 / %x23-7E / obs-text. */
+const ENTITY_TAG = String.raw`(?:W/)?"[\x21\x23-\x7e\x80-\xff]*"`
+/** `#entity-tag`: tags separated by commas with optional whitespace; empty elements allowed. */
+const ENTITY_TAG_LIST = new RegExp(
+  String.raw`^(?:,[ \t]*)*${ENTITY_TAG}(?:[ \t]*,(?:[ \t]*,)*[ \t]*${ENTITY_TAG})*(?:[ \t]*,)*$`,
+)
+
+/**
+ * The `If-None-Match` value to hand to R2, or null when the header is absent
+ * or malformed. Valid is `*` or a comma-separated list of entity tags
+ * (strong or `W/` weak, optional whitespace around the commas, empty list
+ * elements allowed as RFC 9110 5.6.1 says; a comma inside the quotes belongs
+ * to the tag). R2 throws on an invalid list, which would turn a client's bad
+ * header into a 500; ignoring it serves the file instead, as for a request
+ * without the header.
+ */
+export function validIfNoneMatch(value: string | null): string | null {
+  if (value === null) return null
+  const text = value.trim()
+  if (text === '*') return text
+  return ENTITY_TAG_LIST.test(text) ? text : null
+}
+
 // --- publishing -----------------------------------------------------------------------
 
 /** A precompressed copy of another build file (`lightcraft_web_bg.wasm.br`). */

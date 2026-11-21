@@ -1,4 +1,5 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import {
   Aperture,
   Bot,
@@ -59,6 +60,7 @@ import {
   useUploadPhotoEditOriginal,
 } from '@/lib/content-photo-edits.queries'
 import { contentAssetsQueryOptions } from '@/lib/content.queries'
+import type { EditorOrigin } from '@/lib/editor-search'
 import { cn } from '@/lib/utils'
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -78,10 +80,18 @@ function submitOnly(handler: () => void) {
  * The photo edits of a content item (LightCraft developments): preview cards
  * (the latest saved render, or the original's file name before the first
  * save, since browsers cannot show a raw), a new edit from an image of the
- * item's media or an uploaded original, and per edit: open, versions
- * (restore), use as media, rename and delete.
+ * item's media or an uploaded original, and per edit: open in LightCraft
+ * (the card links to the photo editor page), versions (restore), use as
+ * media, rename and delete. `from` is the item page's origin, kept for the
+ * way back.
  */
-export function ContentPhotoEdits({ itemId }: { itemId: string }) {
+export function ContentPhotoEdits({
+  itemId,
+  from,
+}: {
+  itemId: string
+  from?: EditorOrigin | undefined
+}) {
   const { data: edits } = useSuspenseQuery(contentPhotoEditsQueryOptions(itemId))
   const publish = usePublishPhotoEditPreview(itemId)
   const [creating, setCreating] = useState(false)
@@ -133,6 +143,7 @@ export function ContentPhotoEdits({ itemId }: { itemId: string }) {
               <li key={edit.id}>
                 <PhotoEditCard
                   edit={edit}
+                  from={from}
                   publishing={publish.isPending && publish.variables === edit.id}
                   onVersions={() => setVersionsOf(edit)}
                   onPublish={() => publishEdit(edit)}
@@ -164,6 +175,7 @@ export function ContentPhotoEdits({ itemId }: { itemId: string }) {
 
 function PhotoEditCard({
   edit,
+  from,
   publishing,
   onVersions,
   onPublish,
@@ -171,6 +183,7 @@ function PhotoEditCard({
   onDelete,
 }: {
   edit: ContentPhotoEdit
+  from: EditorOrigin | undefined
   publishing: boolean
   onVersions: () => void
   onPublish: () => void
@@ -178,35 +191,39 @@ function PhotoEditCard({
   onDelete: () => void
 }) {
   const saved = edit.currentVersionId !== null
-  // TODO(Z3): the card and "Abrir" link to /content/$itemId/photos/$editId
-  // (the LightCraft editor page) once that route exists; until then, opening
-  // is disabled so the type-checked router never points at a missing route.
   return (
     <div className="bg-muted relative overflow-hidden rounded-lg">
-      <div className="bg-background/40 flex aspect-video items-center justify-center overflow-hidden">
-        {saved ? (
-          <img
-            // The URL names the version, so a new save shows a new image.
-            src={photoEditPreviewUrl(edit.id, edit.currentVersionId)}
-            alt={`Prévia de ${edit.name}`}
-            loading="lazy"
-            className="size-full object-contain"
-          />
-        ) : (
-          <span className="text-muted-foreground flex min-w-0 flex-col items-center gap-1 px-3 text-center text-xs">
-            <Aperture className="size-6" />
-            <span className="max-w-full truncate">{edit.originalName}</span>
-            Ainda não revelada.
-          </span>
-        )}
-      </div>
-      <div className="p-2 pr-9 text-left">
-        <p className="truncate text-xs font-medium">{edit.name}</p>
-        <p className="text-muted-foreground truncate text-xs">
-          {formatBytes(edit.originalSize)}
-          {edit.currentVersionNumber !== null ? ` · v${edit.currentVersionNumber}` : ''}
-        </p>
-      </div>
+      <Link
+        to="/content/$itemId/photos/$editId"
+        params={{ itemId: edit.contentItemId, editId: edit.id }}
+        search={{ from }}
+        className="focus-visible:ring-ring/50 block rounded-lg outline-none focus-visible:ring-3"
+      >
+        <div className="bg-background/40 flex aspect-video items-center justify-center overflow-hidden">
+          {saved ? (
+            <img
+              // The URL names the version, so a new save shows a new image.
+              src={photoEditPreviewUrl(edit.id, edit.currentVersionId)}
+              alt={`Prévia de ${edit.name}`}
+              loading="lazy"
+              className="size-full object-contain"
+            />
+          ) : (
+            <span className="text-muted-foreground flex min-w-0 flex-col items-center gap-1 px-3 text-center text-xs">
+              <Aperture className="size-6" />
+              <span className="max-w-full truncate">{edit.originalName}</span>
+              Ainda não revelada. Abra para editar.
+            </span>
+          )}
+        </div>
+        <div className="p-2 pr-9 text-left">
+          <p className="truncate text-xs font-medium">{edit.name}</p>
+          <p className="text-muted-foreground truncate text-xs">
+            {formatBytes(edit.originalSize)}
+            {edit.currentVersionNumber !== null ? ` · v${edit.currentVersionNumber}` : ''}
+          </p>
+        </div>
+      </Link>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -220,9 +237,15 @@ function PhotoEditCard({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem disabled>
-            <SlidersHorizontal />
-            Abrir no LightCraft (em breve)
+          <DropdownMenuItem asChild>
+            <Link
+              to="/content/$itemId/photos/$editId"
+              params={{ itemId: edit.contentItemId, editId: edit.id }}
+              search={{ from }}
+            >
+              <SlidersHorizontal />
+              Abrir no LightCraft
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem disabled={!saved} onSelect={onVersions}>
             <History />

@@ -64,7 +64,7 @@ function EditContentItemPage() {
       designs={
         <>
           <ContentDesigns itemId={item.id} channel={item.channel} from={search.from} />
-          <ContentPhotoEdits itemId={item.id} />
+          <ContentPhotoEdits itemId={item.id} from={search.from} />
         </>
       }
       media={<ContentAssets itemId={item.id} />}

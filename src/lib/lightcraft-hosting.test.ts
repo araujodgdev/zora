@@ -16,6 +16,7 @@ import {
   bundleUploadEntry,
   isPrecompressedCopy,
   resolveBundlePath,
+  validIfNoneMatch,
 } from './studio-hosting'
 import { handleBundleRequest, serveBundleFile } from './studio-hosting.server'
 import type { BundleBucket, BundleObject } from './studio-hosting.server'
@@ -177,6 +178,41 @@ describe('the publish file filter', () => {
   })
 })
 
+// --- If-None-Match parsing -----------------------------------------------------------
+
+describe('validIfNoneMatch', () => {
+  it('accepts *, strong and weak tags and lists of them', () => {
+    expect(validIfNoneMatch('*')).toBe('*')
+    expect(validIfNoneMatch('"abc"')).toBe('"abc"')
+    expect(validIfNoneMatch('W/"abc"')).toBe('W/"abc"')
+    expect(validIfNoneMatch('""')).toBe('""')
+    expect(validIfNoneMatch('"a", W/"b",\t"c"')).toBe('"a", W/"b",\t"c"')
+    expect(validIfNoneMatch(', "a",, "b" ,')).toBe(', "a",, "b" ,')
+    expect(validIfNoneMatch('"a,b"')).toBe('"a,b"')
+  })
+
+  it('refuses everything else', () => {
+    for (const value of [
+      null,
+      '',
+      ' , ',
+      'invalid-tag',
+      'abc',
+      'w/"abc"',
+      'W/abc',
+      '"abc',
+      'abc"',
+      '"a"b"',
+      '"a" "b"',
+      '"a", *',
+      '"a b"',
+      '"a", bare',
+    ]) {
+      expect(validIfNoneMatch(value), String(value)).toBeNull()
+    }
+  })
+})
+
 // --- serveBundleFile for /lightcraft/ ----------------------------------------------------
 
 function fakeBucket(objects: Record<string, string>): BundleBucket & { calls: Array<string> } {
@@ -193,8 +229,17 @@ function fakeBucket(objects: Record<string, string>): BundleBucket & { calls: Ar
       const text = objects[key]
       if (text === undefined) return null
       const object: BundleObject = { size: text.length, httpEtag: `"etag-${key}"` }
-      // Like R2: a matching If-None-Match leaves the body out.
-      if (options?.onlyIf?.get('if-none-match') === object.httpEtag) return object
+      // Like R2: a malformed If-None-Match throws ("Invalid ETag in
+      // if-none-match header"); a match (weak comparison, `*`, any list
+      // member) leaves the body out.
+      const ifNoneMatch = options?.onlyIf?.get('if-none-match')
+      if (ifNoneMatch != null) {
+        const tags = ifNoneMatch.split(',').map((tag) => tag.trim()).filter(Boolean)
+        if (tags.some((tag) => tag !== '*' && !/^(?:W\/)?".*"$/.test(tag))) {
+          throw new Error('Invalid ETag in if-none-match header')
+        }
+        if (tags.some((tag) => tag === '*' || tag.replace(/^W\//, '') === object.httpEtag)) return object
+      }
       return { ...object, body: new Response(text).body! }
     },
   }
@@ -249,6 +294,60 @@ describe('serveBundleFile for LightCraft', () => {
     expect(response.status).toBe(304)
     expect(response.headers.get('cache-control')).toBe('no-cache')
     expect(await response.text()).toBe('')
+  })
+
+  it('answers 304 for a weak ETag and for a list holding the ETag', async () => {
+    for (const value of [
+      'W/"etag-lightcraft/index.html"',
+      '"other", W/"etag-lightcraft/index.html"',
+      '*',
+    ]) {
+      const response = await serveBundleFile(
+        LIGHTCRAFT_BUNDLE,
+        fakeBucket(objects),
+        request('/lightcraft/index.html', { headers: { 'If-None-Match': value } }),
+      )
+      expect(response.status, value).toBe(304)
+      expect(response.headers.get('etag'), value).toBe('"etag-lightcraft/index.html"')
+    }
+  })
+
+  it('serves 200 for a non-matching ETag list', async () => {
+    const response = await serveBundleFile(
+      LIGHTCRAFT_BUNDLE,
+      fakeBucket(objects),
+      request('/lightcraft/index.html', { headers: { 'If-None-Match': '"a", W/"b"' } }),
+    )
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe(objects['lightcraft/index.html'])
+  })
+
+  it('ignores a malformed If-None-Match and serves the file (R2 would throw on it)', async () => {
+    for (const value of ['invalid-tag', '"etag-lightcraft/index.html", bare', 'W/bare', '"unterminated']) {
+      const response = await serveBundleFile(
+        LIGHTCRAFT_BUNDLE,
+        fakeBucket(objects),
+        request('/lightcraft/index.html', { headers: { 'If-None-Match': value } }),
+      )
+      expect(response.status, value).toBe(200)
+      expect(response.headers.get('etag'), value).toBe('"etag-lightcraft/index.html"')
+      expect(await response.text(), value).toBe(objects['lightcraft/index.html'])
+    }
+  })
+
+  it('serves dot segments collapsed by URL parsing inside the same bundle only', async () => {
+    const bucket = fakeBucket(objects)
+    // `new URL` collapses `..` and `%2e%2e` before the handler sees the path
+    // (what `curl --path-as-is` sends), so these are `/lightcraft/index.html`.
+    for (const path of ['/lightcraft/snippets/../index.html', '/lightcraft/a/%2e%2e/index.html']) {
+      const response = await serveBundleFile(LIGHTCRAFT_BUNDLE, bucket, request(path))
+      expect(response.status, path).toBe(200)
+      expect(await response.text(), path).toBe(objects['lightcraft/index.html'])
+    }
+    // Climbing above the prefix leaves the bundle's URL space: 404, no read.
+    const escaped = await serveBundleFile(LIGHTCRAFT_BUNDLE, bucket, request('/lightcraft/../studio/index.html'))
+    expect(escaped.status).toBe(404)
+    expect(bucket.calls).toEqual(['get lightcraft/index.html', 'get lightcraft/index.html'])
   })
 
   it('answers HEAD from the metadata only', async () => {

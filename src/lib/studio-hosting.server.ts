@@ -3,6 +3,7 @@ import {
   bundleFileCacheControl,
   bundleObjectKey,
   resolveBundlePath,
+  validIfNoneMatch,
 } from './studio-hosting'
 import type { HostedBundle } from './studio-hosting'
 
@@ -22,7 +23,8 @@ export type BundleBucket = {
 /**
  * Serves one file of a hosted bundle (Studio, its fonts, LightCraft) from
  * R2, for `GET` and `HEAD`. The caller checks the session first. Answers 404
- * for unsafe or missing paths, 304 when `If-None-Match` matches, and otherwise streams the
+ * for unsafe or missing paths, 304 when a well-formed `If-None-Match` matches (a malformed
+ * one is ignored), and otherwise streams the
  * object with its type, caching rule and ETag.
  */
 export async function serveBundleFile(
@@ -41,9 +43,12 @@ export async function serveBundleFile(
   const object =
     request.method === 'HEAD'
       ? await bucket.head(key)
-      : // R2 evaluates If-None-Match / If-Modified-Since itself and leaves
-        // the body out when the cached copy is still good.
-        await bucket.get(key, { onlyIf: request.headers })
+      : // R2 evaluates If-None-Match itself and leaves the body out when the
+        // cached copy is still good. Only a well-formed If-None-Match is
+        // passed on: R2 throws on a malformed one (a 500 for a client's bad
+        // header), and the other conditional headers are not forwarded (no
+        // Last-Modified is sent, and If-Match failing would read as a 304).
+        await bucket.get(key, conditionalGet(request.headers))
   if (!object) return notFound()
 
   const headers = new Headers({
@@ -83,6 +88,11 @@ export async function handleBundleRequest(
     return new Response('Unauthorized', { status: 401 })
   }
   return serveBundleFile(bundle, deps.bucket(), request)
+}
+
+function conditionalGet(headers: Headers): { onlyIf?: Headers } {
+  const ifNoneMatch = validIfNoneMatch(headers.get('If-None-Match'))
+  return ifNoneMatch === null ? {} : { onlyIf: new Headers({ 'If-None-Match': ifNoneMatch }) }
 }
 
 function notFound() {

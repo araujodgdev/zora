@@ -89,6 +89,7 @@ src/
     _app/content/new.tsx     /content/new: editor form, presets from the search
     _app/content/$itemId.tsx /content/$itemId: editor form (loader + not-found state)
     _app/content/$itemId_.designs.$designId.tsx  design editor: Zora header + Studio iframe (see "Zora Studio hosting")
+    _app/content/$itemId_.photos.$editId.tsx     photo editor: thin header + LightCraft iframe (see "Photo edits")
     api/auth/$.ts            Better Auth HTTP handler
     mcp.ts                   POST /mcp: MCP server behind OAuth (see "Agents")
     consent.tsx              OAuth consent page for MCP clients
@@ -134,7 +135,8 @@ src/
     content-photo-edits.http.server.ts  the /api/photo-edits handlers + original upload (session-free, unit-tested)
     content-photo-edits.functions.ts    photo edit server functions
     content-photo-edits.queries.ts      query options + mutation hooks for photo edits
-    content-photo-edits.upload.ts       browser upload of an original with progress (XMLHttpRequest)
+    content-photo-edits.upload.ts       browser upload of an original with progress (XMLHttpRequest); savePhotoEditVersion (the editor's multipart save)
+    lightcraft-bridge.ts     LightCraft's parent bridge: message parsing, the command queue, open/save/dirty flows (no React; unit-tested)
     studio-hosting.ts        SHARED hosting of Studio, its fonts and LightCraft: bundle map, path safety, types, cache rules, publish filter, postMessage parsing
     studio-hosting.server.ts serveBundleFile (R2 -> Response), handleBundleRequest (308 + session + serve; unit-tested)
     studio-fonts.ts          font library: curated families, pinned commit, METADATA.pb parser, manifest builder
@@ -611,9 +613,49 @@ binding). It copies the designs feature's shape; the differences are below.
   latest preview (the URL names the version), or the original's file name
   and a placeholder before the first save (a browser cannot show a raw);
   "Nova edição de foto" picks an image of the item's media or uploads a file;
-  per card: versions with restore, "Usar como mídia", rename, delete. "Abrir
-  no LightCraft" is disabled until the editor page
-  `/content/$itemId/photos/$editId` exists (task Z3).
+  per card (the card itself opens the editor): "Abrir no LightCraft",
+  versions with restore, "Usar como mídia", rename, delete.
+- **Editor page** `/content/$itemId/photos/$editId` (file
+  `$itemId_.photos.$editId.tsx`; `ssr: 'data-only'`, `staticData: {
+  fullBleed: true }`, search `from` kept for the way back). A thin Zora
+  header (decision D5): "Voltar", the edit's name, the save state ("Abrindo…",
+  "Salvo (versão N)", "Alterações não salvas", "Salvando…", errors) and a lime
+  "Salvar"; below it the iframe `LIGHTCRAFT_EDITOR_URL`
+  (`/lightcraft/?host=parent&store=memory`) fills the rest of `--page-h`. It
+  first sends `HEAD /lightcraft/` (404 / 401 / network error: a pt-BR
+  explanation with "Voltar ao item", like Studio's page); phones (below
+  `md`) get the "needs a larger screen" message. Messages are accepted only
+  when `event.origin` is Zora's and `event.source` is the frame.
+- **The bridge is parent-driven** (`@/lib/lightcraft-bridge`; contract in
+  docs/LIGHTCRAFT-PLAN.md, "Editor page"). `LightcraftBridge` is the single
+  command queue: `lightcraft:cmd` params are a JSON **string**, and
+  `lightcraft:response` has no id, so one command is in flight at a time and
+  answers resolve in order (`failed` and dispose reject everything pending;
+  a command with no answer in 60 s stalls the bridge for good). Open
+  (`openLightcraftPhoto`, one fresh iframe per open): wait for `ready`, empty
+  the 24 demo photos the memory store starts with (`catalog.query` ->
+  `photo.deletePermanently`, else `library.select {ids: []}`), post
+  `lightcraft:open` with the original (fetched with the session), poll
+  `develop.get` every 200 ms until `photo.inspect`'s `file_name` is the
+  original's (30 s at most), `develop.merge` the current version's settings
+  ("Versão N"), and keep `develop.get`'s text as the baseline. Save
+  (`saveLightcraftPhoto` + `savePhotoEditVersion`): `develop.get`, then
+  `app.export` with `LIGHTCRAFT_PREVIEW_EXPORT` (JPEG 85, long edge 2048,
+  no metadata), keeping the `lightcraft:save` named `preview.jpg` (it comes
+  just before the response; other saves are ignored; "still loading" is
+  retried once after 1 s), then the multipart POST. 201: new baseline,
+  header shows the version, `contentKeys.photoEdits(itemId)` and
+  `photoEditVersions(editId)` are invalidated. 409: a dialog, "Abrir a versão
+  mais recente" (asks before discarding, then reloads the iframe with a new
+  key and opens the newest version) or "Continuar editando" (the next Salvar
+  asks to save over version N, then bases on it). Other errors: a toast.
+- **Dirty** comes from polling `develop.get` every 1.5 s while the tab is
+  visible (skipped while the queue is busy), compared with the baseline as
+  canonical JSON (`settingsDiffer`); LightCraft's own `lightcraft:dirty` is
+  ignored (it only reports pending browser-storage writes). It drives a
+  router blocker (whose `shouldBlockFn` runs one fresh poll first) and
+  `beforeunload` (the last poll result). Ctrl/Cmd+S inside the frame is
+  LightCraft's own shortcut, not a Zora save.
 - MCP: `create_photo_edit` (from an image asset), `list_photo_edits`,
   `get_photo_edit` (the preview as image content up to 4 MB),
   `list_photo_edit_versions`, `restore_photo_edit_version`,
@@ -693,7 +735,10 @@ uses the session cookie for `/api/designs/*`.
   index loads its files by relative URL) and `/studio-fonts/*` serves R2
   `studio-fonts/<path>`. Both need a session (401 otherwise, like
   `/api/assets`), answer `GET` and `HEAD`, set `nosniff`, an ETag and 304 on
-  `If-None-Match`, and stream the body. `bundleContentType` picks the type
+  `If-None-Match` (strong, weak `W/`, lists, `*`), and stream the body.
+  Only a well-formed `If-None-Match` is passed to R2 (`validIfNoneMatch`;
+  R2 throws on a malformed one, so it is ignored and the file served 200);
+  other conditional headers are not forwarded. `bundleContentType` picks the type
   by extension (`application/wasm`, `text/javascript`, `text/html`, PNG,
   fonts; no extension = plain text for licence files; SVG and unknown =
   `application/octet-stream`). Names carrying a 16-digit hex hash in a file
@@ -702,7 +747,11 @@ uses the session cookie for `/api/designs/*`.
   `public, max-age=31536000, immutable`; everything else (index.html, the
   font manifest, icons, licences) is `no-cache`. `resolveBundlePath`
   refuses `..`, dot-files, empty segments, encoded slashes and backslashes,
-  and anything outside `[A-Za-z0-9._@+~-]`.
+  and anything outside `[A-Za-z0-9._@+~-]`. That `..` refusal is a second
+  line: URL parsing already collapses dot segments (`..`, `%2e%2e`) before
+  the handler sees the path, so `/lightcraft/snippets/../index.html` serves
+  the normalized `/lightcraft/index.html` from the same bundle, and a path
+  that climbs above the prefix no longer matches it (404).
 - **Bundle map.** `HOSTED_BUNDLES` lists every bundle (`STUDIO_BUNDLE`,
   `STUDIO_FONTS_BUNDLE`, `LIGHTCRAFT_BUNDLE`): URL prefix, R2 key prefix,
   index file, `hashedNames` (whether the hash rule above may make a file
@@ -781,7 +830,7 @@ stale-object cleanup, but **skips the `.gz`/`.br` copies** xtask writes: the
 route streams the raw file and Cloudflare compresses `application/wasm` on
 the way out. `--remote` is the owner's step. The COOP/COEP headers LightCraft
 documents are optional today (no shared memory) and are not sent. The photo
-editor page that embeds it is task Z3.
+editor page that embeds it is described in "Photo edits".
 
 ### Drag and drop: `@dnd-kit/react`
 
@@ -946,9 +995,10 @@ scroll, primary actions reachable without hunting.
   sidebar's `lg:` classes follow this. `lg` and up: the fixed sidebar.
 - **`--page-h`** (set in `AppShell`) is the height a page can use without the
   window scrolling. Full-height pages use `h-(--page-h)`: the calendar from
-  `md`, the item editor from `lg`, the design editor (Studio) from `md`.
+  `md`, the item editor from `lg`, the design editor (Studio) and the photo
+  editor (LightCraft) from `md`.
   A route with `staticData: { fullBleed: true }` gets no shell padding and a
-  `--page-h` of the full height (the design editor); it pads its own
+  `--page-h` of the full height (the design and photo editors); it pads its own
   fallback states with `PAGE_PADDING`.
 - **Different component per breakpoint** where a layout cannot shrink:
   `CalendarAgenda` (list of days) replaces the month/week grid below `md`

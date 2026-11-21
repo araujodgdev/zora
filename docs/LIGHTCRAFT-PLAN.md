@@ -249,18 +249,29 @@ transactions exactly as `saveDesignVersion`; every write moves `updated_at` stri
 - **Commands go through one page-side queue**: send a `lightcraft:cmd`, wait for its
   `lightcraft:response`, then send the next (responses carry no request id). The open flow, the
   dirty poll and the save flow all use it; the poll skips a tick while anything else is queued.
-- **Open flow** (one fresh iframe per open; the library is `?store=memory`, so it starts empty):
+- **Open flow** (one fresh iframe per open). Measured 2026-11-20 (bridge test, headless
+  Chromium, v0.21.1): **`?store=memory` does not start empty**: a newly created library is seeded
+  with **24 procedural demo photos and one of them is selected**, so `develop.get` answers the
+  demo's settings and `app.export` exports the demo until the import lands. Hence:
   1. Page fetches the original bytes (session) and, if there is a current version, its settings.
-  2. On `lightcraft:ready`, posts `lightcraft:open {name, bytes}`. There is no answer and the
-     import happens on a later frame.
-  3. Polls `develop.get` (no `id`: the active photo) every ~200 ms until its `value` is not
-     `"null"` (`develop.get` always answers `ok: true`; with no active photo the value is JSON
-     `null`; a non-null value means the import selected the photo), at most ~30 s for a large raw;
-     then the error state
-     ("Não foi possível abrir a foto"). `lightcraft:failed` (e.g. a refused open) ends it at once.
-  4. If there is a current version: `develop.merge {settings, label: "Versão N"}` onto the freshly
-     imported photo (defaults everywhere, so the partial merge restores the whole version).
-  5. `develop.get` again → its `value` is the **clean baseline** for dirty tracking.
+  2. On `lightcraft:ready` (~0.2–0.6 s after the iframe loads): **clear the demo library**:
+     `catalog.query {}` → the photo ids, then `photo.deletePermanently {ids}` (falls back to
+     `library.select {ids: []}` if that is refused), so the person sees only their photo and
+     nothing is selected. Then `develop.get` answers `ok: false` ("no photo").
+  3. Post `lightcraft:open {name, bytes}`. There is no answer; the import happens on a later
+     frame and selects the new photo.
+  4. Poll `develop.get` (no `id`) every ~200 ms until it answers `ok: true`, **and** check with
+     `photo.inspect` (no `id`, the active photo) that the active photo is the one opened (its file
+     name), at most ~30 s; then the error state ("Não foi possível abrir a foto").
+     `lightcraft:failed` ends it at once. Measured: ~1.8 s for a 3000×2000 JPEG, ~3.2 s for a
+     30 MP CR2.
+  5. If there is a current version: `develop.merge {settings, label: "Versão N"}` onto the freshly
+     imported photo. Measured: merging a full `develop.get` result onto a fresh import of the same
+     original reproduces it **byte for byte** (27 top-level keys: `bw_mix`, `calibration`, `color`,
+     `crop`, `curve`, `detail`, `disabled_sections`, `effects`, `enhance`, `geometry`, `grading`,
+     `grain`, `lens_blur`, `light`, `masks`, `mixer`, `optics`, `orientation`, `point_colors`,
+     `process`, `profile`, `red_eye`, `spots`, `treatment`, `version`, `vignette`, `wb`).
+  6. `develop.get` again → its `value` is the **clean baseline** for dirty tracking.
   `ok: false` at any step shows the error in the header state.
 - **Save flow** (the header's Salvar button):
   1. `develop.get` → settings JSON (the response's `value`).
@@ -271,8 +282,11 @@ transactions exactly as `saveDesignVersion`; every write moves `updated_at` stri
      web, see above; the saved name is `save_name(path)`, the file name). The render arrives as
      `lightcraft:save {name: "preview.jpg", bytes}` **before** the `lightcraft:response`; the page
      keeps the bytes of the save whose name matches and ignores any other `lightcraft:save`
-     (e.g. a library backup the person started from the menu). Right after open an export can
-     answer "still loading" (upstream limitation): retry once after ~1 s, then fail.
+     (e.g. a library backup the person started from the menu). Measured: the save arrives first,
+     the response ~0.1 ms later (`value` `{"files":[{"bytes","height","path","sidecars","width"}]}`),
+     ~0.9 s for a 3000×2000 JPEG → a 2048×1365 JPEG. With no photo selected it answers
+     `ok: false` "no photo selected"; a "still loading" answer right after open is an upstream
+     possibility not seen in the test: retry once after ~1 s, then fail.
   3. `POST /api/photo-edits/<id>/versions` with `settings`, `preview`, `baseVersionId`.
   4. `201` → header "Salvo (versão N)", the settings from step 1 become the new baseline,
      invalidate the item's edits/versions queries. `409` → a Zora dialog: "Abrir a versão mais
@@ -284,11 +298,13 @@ transactions exactly as `saveDesignVersion`; every write moves `updated_at` stri
   A second Salvar while one is in flight is ignored (the button shows "Salvando…").
 - **Dirty**: edits made in LightCraft's own UI send **nothing** to the page, and upstream
   `lightcraft:dirty` only means "a write to browser storage is pending or was refused"
-  (`dirty_for_host` in `web.rs`), which with `?store=memory` is effectively never true. So the
+  (`dirty_for_host` in `web.rs`); measured: with `?store=memory` it is sent once as `true` at
+  startup and never again (a slider drag sent no message at all). So the
   page polls `develop.get` (every ~1.5 s while the tab is visible, and right before a navigation
   it controls) and compares the JSON with the baseline; different = dirty. That flag drives the
   router blocker and `beforeunload` (which uses the last poll result, since it must answer
-  synchronously). `lightcraft:dirty` is ignored.
+  synchronously). `lightcraft:dirty` is ignored. Measured cost of `develop.get` on a 30 MP raw:
+  ~16 ms per round trip, 2.7 KB of JSON.
 - **Known UX gap (accepted for the MVP)**: Ctrl/Cmd+S inside the iframe runs LightCraft's own
   `photo.saveMetadataToFile` (an OPFS sidecar), **not** a Zora save; keyboard shortcuts belong to
   the iframe. The header's Salvar is the save path. Closing it is task L3's embedded mode, which
@@ -444,7 +460,31 @@ LightCraft imports that has a signature), the preview may be PNG, the original u
 
 ### Z3. Editor page + parent-driven bridge
 
-Status: not started. Depends on Z1, Z2, D3, D4, D5.
+Status: **code done 2026-11-20** (code + unit tests, local only; the browser end-to-end check is
+the separate tester's). `src/lib/lightcraft-bridge.ts` (no React: `parseLightcraftMessage`, the
+`LightcraftBridge` command queue, `openLightcraftPhoto`, `saveLightcraftPhoto`,
+`pollLightcraftDirty`/`settingsDiffer`, `LIGHTCRAFT_EDITOR_URL`, `LIGHTCRAFT_PREVIEW_EXPORT`),
+`savePhotoEditVersion` in `content-photo-edits.upload.ts`, the route
+`src/routes/_app/content/$itemId_.photos.$editId.tsx`, the cards and "Abrir no LightCraft" in
+`content-photo-edits.tsx` now link to it (TODO removed), AGENTS.md ("Photo edits", Layout,
+"Responsive layout"). The active photo's file name is `file_name` in `photo.inspect` (it serialises
+the catalog `Photo`, `crates/catalog/src/model.rs`; `fileName` is accepted too, as
+`catalog.query`'s summaries spell it). Checked with `pnpm typecheck && pnpm lint && pnpm test &&
+pnpm build` (33 files, 334 tests; new: `lightcraft-bridge.test.ts` 25, covering parsing, the queue
+(FIFO, one in flight, `failed`/dispose/timeout rejection, busy skip), the open sequence (demo
+clearing and its `library.select` fallback, poll until the right photo, merge, baseline, timeout,
+`failed`, a refused merge), the save sequence (pinned export params, the preview save kept and
+others ignored, the "still loading" retry once), dirty by canonical JSON, and the multipart save's
+201/409/error results). `pnpm dev --port 3100` smoke: the route is registered (signed-out it
+redirects to `/sign-in?redirect=...`) and `HEAD /lightcraft/` answers 401 without a session; a
+signed-in render was not possible (sign-up is allowlisted and no test account exists). Not
+verified: anything against the real frame (open/merge/save timings, the 409 dialog, the blocker),
+which is the tester's end-to-end check and Z4. Choices beyond the contract: a command with no
+answer in 60 s stalls the bridge (a late answer would be taken for the next command's), and the
+page then offers "Tentar de novo" (a fresh iframe); `ready` is awaited up to 120 s (34 MB wasm);
+the blocker's `shouldBlockFn` runs the fresh poll for every navigation, not only Voltar (2 s cap),
+and blocks while a save is in flight; an overlay covers the frame while opening (the demo library
+is visible until it is cleared) and on an open error.
 
 - The route, the thin header (Voltar, name, save state, Salvar), the iframe, `parseLightcraftMessage`
   + tests, the single command queue, the open/save flows and the 409 dialog per the contract

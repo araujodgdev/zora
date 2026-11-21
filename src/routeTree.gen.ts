@@ -43,6 +43,7 @@ import { Route as ApiPhotoEditsEditIdPreviewRouteImport } from './routes/api/pho
 import { Route as ApiPhotoEditsEditIdSettingsRouteImport } from './routes/api/photo-edits/$editId/settings'
 import { Route as ApiPhotoEditsEditIdVersionsRouteImport } from './routes/api/photo-edits/$editId/versions'
 import { Route as AppContentItemIdDesignsDesignIdRouteImport } from './routes/_app/content/$itemId_.designs.$designId'
+import { Route as AppContentItemIdPhotosEditIdRouteImport } from './routes/_app/content/$itemId_.photos.$editId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -223,6 +224,12 @@ const AppContentItemIdDesignsDesignIdRoute =
     path: '/content/$itemId/designs/$designId',
     getParentRoute: () => AppRoute,
   } as any)
+const AppContentItemIdPhotosEditIdRoute =
+  AppContentItemIdPhotosEditIdRouteImport.update({
+    id: '/content/$itemId_/photos/$editId',
+    path: '/content/$itemId/photos/$editId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -258,6 +265,7 @@ export interface FileRoutesByFullPath {
   '/api/designs/$designId/': typeof ApiDesignsDesignIdIndexRoute
   '/api/photo-edits/$editId/': typeof ApiPhotoEditsEditIdIndexRoute
   '/content/$itemId/designs/$designId': typeof AppContentItemIdDesignsDesignIdRoute
+  '/content/$itemId/photos/$editId': typeof AppContentItemIdPhotosEditIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -293,6 +301,7 @@ export interface FileRoutesByTo {
   '/api/designs/$designId': typeof ApiDesignsDesignIdIndexRoute
   '/api/photo-edits/$editId': typeof ApiPhotoEditsEditIdIndexRoute
   '/content/$itemId/designs/$designId': typeof AppContentItemIdDesignsDesignIdRoute
+  '/content/$itemId/photos/$editId': typeof AppContentItemIdPhotosEditIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -330,6 +339,7 @@ export interface FileRoutesById {
   '/api/designs/$designId/': typeof ApiDesignsDesignIdIndexRoute
   '/api/photo-edits/$editId/': typeof ApiPhotoEditsEditIdIndexRoute
   '/_app/content/$itemId_/designs/$designId': typeof AppContentItemIdDesignsDesignIdRoute
+  '/_app/content/$itemId_/photos/$editId': typeof AppContentItemIdPhotosEditIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -367,6 +377,7 @@ export interface FileRouteTypes {
     | '/api/designs/$designId/'
     | '/api/photo-edits/$editId/'
     | '/content/$itemId/designs/$designId'
+    | '/content/$itemId/photos/$editId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -402,6 +413,7 @@ export interface FileRouteTypes {
     | '/api/designs/$designId'
     | '/api/photo-edits/$editId'
     | '/content/$itemId/designs/$designId'
+    | '/content/$itemId/photos/$editId'
   id:
     | '__root__'
     | '/'
@@ -438,6 +450,7 @@ export interface FileRouteTypes {
     | '/api/designs/$designId/'
     | '/api/photo-edits/$editId/'
     | '/_app/content/$itemId_/designs/$designId'
+    | '/_app/content/$itemId_/photos/$editId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -709,6 +722,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContentItemIdDesignsDesignIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/content/$itemId_/photos/$editId': {
+      id: '/_app/content/$itemId_/photos/$editId'
+      path: '/content/$itemId/photos/$editId'
+      fullPath: '/content/$itemId/photos/$editId'
+      preLoaderRoute: typeof AppContentItemIdPhotosEditIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -721,6 +741,7 @@ interface AppRouteChildren {
   AppContentNewRoute: typeof AppContentNewRoute
   AppContentIndexRoute: typeof AppContentIndexRoute
   AppContentItemIdDesignsDesignIdRoute: typeof AppContentItemIdDesignsDesignIdRoute
+  AppContentItemIdPhotosEditIdRoute: typeof AppContentItemIdPhotosEditIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -732,6 +753,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppContentNewRoute: AppContentNewRoute,
   AppContentIndexRoute: AppContentIndexRoute,
   AppContentItemIdDesignsDesignIdRoute: AppContentItemIdDesignsDesignIdRoute,
+  AppContentItemIdPhotosEditIdRoute: AppContentItemIdPhotosEditIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
