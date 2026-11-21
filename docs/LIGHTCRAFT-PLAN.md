@@ -241,8 +241,10 @@ transactions exactly as `saveDesignVersion`; every write moves `updated_at` stri
 ### Editor page (iframe, parent-driven)
 
 - Zora page `/content/$itemId/photos/$editId` (file `$itemId_.photos.$editId.tsx`), session guard,
-  thin header per D5, iframe `src="/lightcraft/?host=parent&store=memory"` (plus `&workers=` if a
-  cap is wanted). The page first sends `HEAD /lightcraft/`; 404/401/network show the pt-BR
+  thin header per D5, iframe `src="/lightcraft/?host=parent&store=memory&workers=0"` (L1b: with
+  the memory store a render worker has no storage to read an imported original from, so its
+  renders of the photo fail and LightCraft flags a photo it shows; Zora's library is one photo, so
+  the main thread renders it). The page first sends `HEAD /lightcraft/`; 404/401/network show the pt-BR
   "not published" state with a back link, like Studio's.
 - Messages are accepted only when `event.origin` is Zora's and `event.source` is the frame
   (a `parseLightcraftMessage` beside `parseStudioMessage`, with tests).
@@ -271,7 +273,16 @@ transactions exactly as `saveDesignVersion`; every write moves `updated_at` stri
      `crop`, `curve`, `detail`, `disabled_sections`, `effects`, `enhance`, `geometry`, `grading`,
      `grain`, `lens_blur`, `light`, `masks`, `mixer`, `optics`, `orientation`, `point_colors`,
      `process`, `profile`, `red_eye`, `spots`, `treatment`, `version`, `vignette`, `wb`).
-  6. `develop.get` again → its `value` is the **clean baseline** for dirty tracking.
+  6. `develop.get` again → its `value` is the **clean baseline** for dirty tracking. After a
+     merge it is compared with the version's settings (`settingsDifferences`, key order
+     ignored): a difference is logged as a console warning naming the paths, and the post-merge
+     state stays the baseline (the header then says "saved" for what LightCraft shows, and the
+     next save stores exactly that; marking it dirty would make the blocker ask about changes the
+     person never made). L1b found the case step 5's byte-for-byte claim missed: a **raw** imports
+     with Remove Hot Pixels on (`DevelopSettings::for_raw`), and the stored JSON omitted
+     `detail.nr_outliers` when off, so the merge kept it on. Since L1b `develop.get` answers
+     LightCraft's `to_json_for_merge()` (that key always stated), and the round trip is exact
+     for raws too. Versions saved before L1b without the key reopen with it on (and warn).
   `ok: false` at any step shows the error in the header state.
 - **Save flow** (the header's Salvar button):
   1. `develop.get` → settings JSON (the response's `value`).
@@ -518,6 +529,89 @@ app starting in a browser at `?host=parent&store=memory` (bridge protocol test r
   check or the owner's eyes). If the build fails on this machine, report the error; do not "fix"
   upstream code to make it pass without a task of its own.
 - Optional, owner's call: rebuild with `CRAFT_FONTS_DIR` for CJK glyphs.
+
+### L1b. Fixes from the first browser end-to-end check
+
+Status: **done 2026-11-21** (code, unit tests, release web build, local publish, a headless check
+against the published build; the next tester repeats the browser end-to-end). Four bugs the
+tester found, plus a console error:
+
+1. **Saving a raw panicked the wasm** ("time not implemented on this platform", in `app.export`).
+   Cause: the hot-pixel pass in `crates/engine/src/files/load.rs` read `std::time::Instant::now()`
+   unconditionally, for a profiling line; wasm32-unknown-unknown has no std clock. Fix: that clock is
+   `web_time::Instant` (as the demosaic timing in the same file). Audit of the whole web path: a
+   temporary `clippy::disallowed_methods` pass (`std::time::Instant::now`/`elapsed`,
+   `SystemTime::now`) over `cargo clippy -p lightcraft-web --target wasm32-unknown-unknown`
+   listed 37 sites in workspace crates; every other one is behind `profiling()` (an env var, never
+   set on the web), refused on wasm (`availability.rs` background checks), or desktop-only
+   (`guard::install_hook`, launch-argument probes, Lightroom backup, the disk preview cache, face
+   detection's model folder, the headless host). Test: `files::load::web_clock_tests` (fails with
+   the std clock in the file's code).
+2. **Reopening a raw turned Remove Hot Pixels back on.** Cause: `detail.nr_outliers` is
+   `skip_serializing_if` false (kept so old settings keep their hash), a raw imports with it on,
+   and `develop.merge` keeps what the partial leaves out. No `develop.*` command replaces settings
+   (`develop.reset` goes back to the raw defaults, i.e. on). Fix (option b, narrowly): `develop.get`
+   answers `to_json_for_merge()`, which LightCraft already uses for copy/paste, presets and Auto Sync
+   and which states that one key; the stored JSON and hashes are unchanged. Other omitted keys were
+   checked: of the import defaults (`camera_defaults`/`for_raw`) only `nr_outliers` is omitted when
+   off; `process` is already stated by `develop.get`, and `wb.scale` is Kelvin (stated) on the raws
+   that use it. Test: `tests::develop_get_merged_onto_fresh_defaults_turns_remove_hot_pixels_off`.
+   Zora: the open flow now verifies the merge (see the contract, step 6).
+3. **False "Não foi possível abrir esta foto" over a rendered photo.** Cause: in memory mode the
+   render workers have no backend (`workers.rs`), so a file photo's original is "not found in
+   browser storage" there. Fix: `LIGHTCRAFT_EDITOR_URL` adds `&workers=0` (no Rust change; it also
+   saves starting up to four extra 34 MB wasm instances). Measured below.
+4. **The welcome tour on every open.** No bridge command can dismiss it reliably (`ui.set` and
+   `ui.dialog.cancel` are control-channel only; `view.back` only closes a dialog already shown,
+   and the tour opens on a frame of its own). Fix: `lightcraft_ui_egui::startup::framed`, called
+   by `web.rs` when a host bridge exists: an unset `seenVersion` becomes the running version, so a
+   framed app never opens the tour (What's New still shows once for a kept library). Test:
+   `startup::tests::a_framed_app_never_opens_the_tour_but_keeps_whats_new`.
+5. **React hydration mismatch** (every SSR load in the shell, not the photo route):
+   `NavigationProgress` rendered `data-pending=""` while the router hydrated a `ssr: 'data-only'`
+   route; the server's HTML had none. Fix: the bar waits for `useHydrated()` (`app-shell.tsx`).
+   Checked with the captured React diff before, and no mismatch after, on `/content/new` and
+   `/content`.
+
+Measurements (2026-11-21, headless Chromium 156, SwiftShader, the L1b build served by `pnpm dev`
+on :3100, a same-origin page driving the bridge exactly as Zora does; two runs each; "open" = from
+`lightcraft:open` until `photo.inspect` names the file, "export" = `app.export` with
+`LIGHTCRAFT_PREVIEW_EXPORT` 1.5 s after the open):
+
+| URL | 30 MP CR2 (Canon 40D, 5.8 MB) open / export | 3000×2000 JPEG open / export | "original not found" warnings |
+| --- | --- | --- | --- |
+| `?host=parent&store=memory` | 2.74 s, 2.76 s / 3.33 s, 3.24 s | 2.63 s, 2.84 s / 0.74 s, 0.79 s | 2 (CR2), 4 (JPEG) per run pair; filmstrip `!` |
+| `…&workers=0` | 5.20 s, 4.41 s / 3.45 s, 3.18 s | 2.72 s, 2.65 s / 1.59 s, 1.41 s | none |
+
+`ready` came 0.47–0.70 s after the iframe was added in both. Cost of `workers=0`: about +2 s to
+open a 30 MP raw (the thumbnail and loupe decode now run on the main thread, which also answers
+the open poll) and +0.7 s to export a 3000×2000 JPEG; a raw's export is unchanged. The default
+URL's faster numbers are the photo whose worker renders failed. Raw save (outliers on, the
+default) exported a 361,485 B preview in every run, no panic. Round trip on the CR2: merge
+`{detail: {nr_outliers: false}, light: {exposure: 0.3}}`, `develop.get` (states `false`), a fresh
+iframe, open, merge that → `develop.get` identical by canonical JSON, `nr_outliers` still `false`.
+No tour in any screenshot.
+
+Files. LightCraft (backups in `zora-lightcraft-backups\L1b\<path>`):
+`crates/engine/src/files/load.rs`, `crates/engine/src/cmd/query.rs`, `crates/engine/src/tests.rs`,
+`crates/ui-egui/src/startup.rs`, `apps/lightcraft-web/src/web.rs`, `docs/web.md` (`clippy.toml` was
+backed up for the temporary audit lint and restored byte for byte). Zora:
+`src/lib/lightcraft-bridge.ts` (+ test), `src/components/app-shell.tsx`, AGENTS.md, this file.
+Checks: LightCraft `cargo fmt --check`, `cargo check -p lightcraft-web --target
+wasm32-unknown-unknown`, `cargo clippy -p lightcraft-engine -p lightcraft-ui-egui -p
+lightcraft-web --all-targets -D warnings`, `cargo test -p lightcraft-engine --lib` (1690 passed, 8
+ignored), `cargo test -p lightcraft-ui-egui --lib startup` (21 passed); the full `cargo xtask ci`
+was not run (no git, so its changed-package logic does not apply, and the full gate takes hours on
+this machine). Zora `pnpm typecheck && pnpm lint && pnpm test && pnpm build` (33 files, 338
+tests). `cargo xtask web` 354 s: `index.html` 2,329 B, `worker.js` 649 B, `lightcraft_web.js`
+111,225 B, `lightcraft_web_bg.wasm` **34,023,545 B** (12,158,907 gzip / 7,944,893 brotli; sha256
+`1c52dbb7…4456991`); `pnpm lightcraft:publish` put 5 files, 32.6 MiB, into local R2.
+
+Left: the tester's browser end-to-end of the Zora editor page with this build (save a raw, reopen
+it clean, no tour, no warning); old local versions saved without `nr_outliers` reopen with it on
+(the warning names it); a permanent guard against std clocks on the web path would need a
+wasm-only clippy setting LightCraft does not have (the audit lint was temporary); upstream memory
+mode still fails worker renders of file photos for pages that keep the default workers.
 
 ### Phase 2 — polish and (optionally) the embedded mode
 

@@ -4,6 +4,7 @@ import {
   Outlet,
   getRouteApi,
   useMatchRoute,
+  useHydrated,
   useMatches,
   useRouter,
   useRouterState,
@@ -128,10 +129,14 @@ declare module '@tanstack/react-router' {
  */
 function NavigationProgress() {
   const pending = useRouterState({ select: (state) => state.status === 'pending' })
+  // The router is still pending while it hydrates a route the server rendered
+  // without its markup (`ssr: 'data-only'`), but the server's HTML had no bar:
+  // shown before hydration ends, the attribute was a hydration mismatch.
+  const hydrated = useHydrated()
   return (
     <div
       aria-hidden="true"
-      data-pending={pending ? '' : undefined}
+      data-pending={hydrated && pending ? '' : undefined}
       className="zora-nav-progress"
     />
   )

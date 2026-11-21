@@ -18,8 +18,15 @@
 
 import { LIGHTCRAFT_BUNDLE } from './studio-hosting'
 
-/** The iframe's URL: the parent bridge on, the memory store (nothing kept in the browser). */
-export const LIGHTCRAFT_EDITOR_URL = `${LIGHTCRAFT_BUNDLE.urlPrefix}?host=parent&store=memory`
+/**
+ * The iframe's URL: the parent bridge on, the memory store (nothing kept in
+ * the browser), and no render workers: with the memory store a worker has no
+ * storage to read an imported original from, so its renders of the photo
+ * failed and LightCraft flagged a photo it had shown ("Não foi possível abrir
+ * esta foto"). Zora's library is that one photo, so the main thread renders
+ * it as well (measured in docs/LIGHTCRAFT-PLAN.md, L1b).
+ */
+export const LIGHTCRAFT_EDITOR_URL = `${LIGHTCRAFT_BUNDLE.urlPrefix}?host=parent&store=memory&workers=0`
 
 // --- messages -------------------------------------------------------------------
 
@@ -425,6 +432,13 @@ export type OpenLightcraftPhotoInput = {
  * the opened file, merges the version's settings (if any), and resolves with
  * the clean baseline (`develop.get`'s text). Rejects with
  * `LightcraftOpenError` on timeout, `lightcraft:failed` or a refused command.
+ *
+ * After a merge the result is checked against the version's settings: a
+ * field the saved JSON left out keeps the fresh import's value (LightCraft
+ * once omitted Remove Hot Pixels when off, and a raw imports with it on). A
+ * difference is logged as a warning, and the editor's state is still the
+ * baseline: the header then says "saved" for what LightCraft shows, and the
+ * next save stores exactly that.
  */
 export async function openLightcraftPhoto(
   bridge: LightcraftBridge,
@@ -468,13 +482,23 @@ export async function openLightcraftPhoto(
       if (timers.now() >= deadline) throw fail()
     }
     try {
-      if (input.settings !== undefined && input.settings !== null) {
+      const merged = input.settings !== undefined && input.settings !== null
+      if (merged) {
         await bridge.command('develop.merge', {
           settings: input.settings,
           ...(input.label ? { label: input.label } : {}),
         })
       }
-      return await bridge.commandText('develop.get')
+      const baseline = await bridge.commandText('develop.get')
+      if (merged) {
+        const differences = settingsDifferences(input.settings, parseSettings(baseline))
+        if (differences.length > 0) {
+          console.warn(
+            `LightCraft: the opened photo's settings differ from ${input.label ?? 'the saved version'} at ${differences.join(', ')}; the editor's state is the baseline.`,
+          )
+        }
+      }
+      return baseline
     } catch (error) {
       throw fail(error)
     }
@@ -579,6 +603,31 @@ function parseSettings(text: string): unknown {
 export function settingsDiffer(baseline: string, current: string): boolean {
   if (baseline === current) return false
   return canonicalJson(parseSettings(baseline)) !== canonicalJson(parseSettings(current))
+}
+
+/** At most this many paths are named by `settingsDifferences`. */
+const MAX_LISTED_DIFFERENCES = 20
+
+/**
+ * The dotted paths where two settings values differ (objects compared key by
+ * key, anything else by canonical JSON), at most 20; empty when they hold the
+ * same settings.
+ */
+export function settingsDifferences(expected: unknown, actual: unknown): Array<string> {
+  const found: Array<string> = []
+  const isObject = (value: unknown): value is Record<string, unknown> =>
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+  const walk = (a: unknown, b: unknown, path: string) => {
+    if (found.length >= MAX_LISTED_DIFFERENCES) return
+    if (isObject(a) && isObject(b)) {
+      const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].sort()
+      for (const key of keys) walk(a[key], b[key], path ? `${path}.${key}` : key)
+      return
+    }
+    if (canonicalJson(a) !== canonicalJson(b)) found.push(path || '(root)')
+  }
+  walk(expected, actual, '')
+  return found
 }
 
 /**

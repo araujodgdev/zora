@@ -621,7 +621,10 @@ binding). It copies the designs feature's shape; the differences are below.
   header (decision D5): "Voltar", the edit's name, the save state ("Abrindo…",
   "Salvo (versão N)", "Alterações não salvas", "Salvando…", errors) and a lime
   "Salvar"; below it the iframe `LIGHTCRAFT_EDITOR_URL`
-  (`/lightcraft/?host=parent&store=memory`) fills the rest of `--page-h`. It
+  (`/lightcraft/?host=parent&store=memory&workers=0`) fills the rest of
+  `--page-h`. `workers=0`: with the memory store a render worker cannot read
+  an imported original, so its renders failed and LightCraft flagged a photo
+  it was showing ("Não foi possível abrir esta foto"). It
   first sends `HEAD /lightcraft/` (404 / 401 / network error: a pt-BR
   explanation with "Voltar ao item", like Studio's page); phones (below
   `md`) get the "needs a larger screen" message. Messages are accepted only
@@ -638,7 +641,13 @@ binding). It copies the designs feature's shape; the differences are below.
   `lightcraft:open` with the original (fetched with the session), poll
   `develop.get` every 200 ms until `photo.inspect`'s `file_name` is the
   original's (30 s at most), `develop.merge` the current version's settings
-  ("Versão N"), and keep `develop.get`'s text as the baseline. Save
+  ("Versão N"), and keep `develop.get`'s text as the baseline. After a merge
+  that text is compared with the version's settings (`settingsDifferences`):
+  a difference is a console warning naming the paths, and the editor's state
+  stays the baseline. (LightCraft's `develop.get` states Remove Hot Pixels,
+  `detail.nr_outliers`, when off, so a raw reopens as saved; versions saved
+  before that leave it out and reopen with it on.) A framed LightCraft shows
+  no first-run tour. Save
   (`saveLightcraftPhoto` + `savePhotoEditVersion`): `develop.get`, then
   `app.export` with `LIGHTCRAFT_PREVIEW_EXPORT` (JPEG 85, long edge 2048,
   no metadata), keeping the `lightcraft:save` named `preview.jpg` (it comes

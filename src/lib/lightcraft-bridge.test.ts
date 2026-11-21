@@ -14,6 +14,7 @@ import {
   pollLightcraftDirty,
   saveLightcraftPhoto,
   settingsDiffer,
+  settingsDifferences,
 } from './lightcraft-bridge'
 import type { LightcraftMessage, LightcraftOutgoing, LightcraftTransport } from './lightcraft-bridge'
 import { savePhotoEditVersion } from './content-photo-edits.upload'
@@ -247,6 +248,7 @@ function scriptedLightcraft(
     pollsBeforeImport?: number
     importedName?: string
     settings?: Record<string, unknown>
+    ignoredOnMerge?: Array<string>
   } = {},
 ) {
   let imported = false
@@ -279,9 +281,13 @@ function scriptedLightcraft(
         return imported
           ? [ok({ id: 25, file_name: options.importedName ?? 'IMG_1.CR2' })]
           : [refused('no photo')]
-      case 'develop.merge':
-        settings = { ...settings, ...(p.settings as Record<string, unknown>) }
+      case 'develop.merge': {
+        const merged = { ...settings, ...(p.settings as Record<string, unknown>) }
+        // a key this LightCraft does not take from a merge keeps the import's value
+        for (const key of options.ignoredOnMerge ?? []) merged[key] = settings[key]
+        settings = merged
         return [ok({})]
+      }
       default:
         return [refused(`unknown command ${id}`)]
     }
@@ -321,6 +327,56 @@ describe('openLightcraftPhoto', () => {
     })
     expect(ids.at(-1)).toBe('develop.get')
     expect(ids.at(-2)).toBe('develop.merge')
+  })
+
+  it('returns the merged state silently when it is the saved version', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const frame = new FakeFrame()
+      scriptedLightcraft(frame, { pollsBeforeImport: 0 })
+      const bridge = new LightcraftBridge(frame)
+      const saved = { light: { exposure: 0.5 }, version: 1 }
+      const opened = openLightcraftPhoto(bridge, {
+        name: 'IMG_1.CR2',
+        bytes: new ArrayBuffer(1),
+        settings: saved,
+      })
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(JSON.parse(await opened)).toEqual(saved)
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('warns, naming the paths, when the merge does not reproduce the saved version', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const frame = new FakeFrame()
+      // a raw's import turns Remove Hot Pixels on; this LightCraft keeps it on through a merge
+      scriptedLightcraft(frame, {
+        pollsBeforeImport: 0,
+        settings: { light: { exposure: 0 }, detail: { nr_outliers: true } },
+        ignoredOnMerge: ['detail'],
+      })
+      const bridge = new LightcraftBridge(frame)
+      const opened = openLightcraftPhoto(bridge, {
+        name: 'IMG_1.CR2',
+        bytes: new ArrayBuffer(1),
+        settings: { light: { exposure: 0.5 }, detail: { nr_outliers: false } },
+        label: 'Versão 1',
+      })
+      await vi.advanceTimersByTimeAsync(1000)
+      // the editor's state is the baseline
+      expect(JSON.parse(await opened)).toEqual({
+        light: { exposure: 0.5 },
+        detail: { nr_outliers: true },
+      })
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(String(warn.mock.calls[0]?.[0])).toContain('Versão 1 at detail.nr_outliers')
+    } finally {
+      warn.mockRestore()
+    }
   })
 
   it('skips the merge without a version, and deselects when delete is refused', async () => {
@@ -378,6 +434,27 @@ describe('openLightcraftPhoto', () => {
     const expectation = expect(opened).rejects.toThrow('Não foi possível abrir a foto: bad settings')
     await vi.advanceTimersByTimeAsync(1000)
     await expectation
+  })
+})
+
+describe('settingsDifferences', () => {
+  it('names the differing paths, key order ignored', () => {
+    expect(
+      settingsDifferences({ a: 1, b: { c: [1, 2], d: true } }, { b: { d: true, c: [1, 2] }, a: 1 }),
+    ).toEqual([])
+    expect(settingsDifferences({ a: 1, b: { c: 2 } }, { a: 2, b: { c: 2, e: null } })).toEqual([
+      'a',
+      'b.e',
+    ])
+    expect(settingsDifferences({ detail: { nr_outliers: false } }, { detail: {} })).toEqual([
+      'detail.nr_outliers',
+    ])
+    expect(settingsDifferences(1, 2)).toEqual(['(root)'])
+  })
+
+  it('lists at most 20', () => {
+    const many = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`k${i}`, i]))
+    expect(settingsDifferences(many, {})).toHaveLength(20)
   })
 })
 
