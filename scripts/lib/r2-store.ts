@@ -95,12 +95,13 @@ async function openLocalStore(): Promise<Store> {
   }
 }
 
+const wranglerBin = join(projectRoot, 'node_modules/wrangler/bin/wrangler.js')
+
 function wrangler(args: Array<string>, input?: string): string {
-  const result = spawnSync('pnpm', ['exec', 'wrangler', ...args], {
+  const result = spawnSync(process.execPath, [wranglerBin, ...args], {
     cwd: projectRoot,
     encoding: 'utf8',
     input,
-    shell: process.platform === 'win32',
     stdio: ['pipe', 'pipe', 'inherit'],
   })
   if (result.status !== 0) throw new Error(`wrangler ${args.slice(0, 3).join(' ')} failed`)

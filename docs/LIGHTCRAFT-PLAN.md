@@ -1,6 +1,6 @@
 # Zora LightCraft plan: photo edits, embedded editor, agent-driven photo engine
 
-Status as of 2026-11-19: **analysis done; every task below is planned, none started.** The decisions
+Status as of 2026-11-22: **Phase 1 (Z1, Z2, Z3, L1, L1b) done and verified locally by the owner, shipping to production together with Studio R4; Phases 2 and 3 (Z4, L2, L3, L4, Z6) next.** The decisions
 (D1–D5) are proposed with a recommendation each; the owner confirms them before the first task.
 Reviewed 2026-11-20 against the LightCraft and Zora code and the Cloudflare limits docs; the
 corrections (asynchronous open, page-side dirty polling, `app.export` params, the 100 MB request
@@ -690,7 +690,7 @@ Studio's Z4 was).
 
 ### I. End-to-end check
 
-Status: to be run manually by the owner after each phase.
+Status: **Phase 1 local browser check passed 2026-11-22 (owner); Phase 3 pending.** Published LightCraft L1b to local and remote R2; merging `lightcraft` into `main` for production deploy before starting Phases 2 and 3.
 
 - Phase 1: publish the build to local R2, `pnpm dev`, create an item with an image, create a photo
   edit, open it, develop, save a version, reopen (settings restored), publish the preview as media.

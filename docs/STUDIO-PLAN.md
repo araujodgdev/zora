@@ -327,7 +327,7 @@ states, phone and not-found states keep a small back link and padding),
 
 ### R4. "Voltar ao item" inside Studio (owner request, 2026-11-19)
 
-Status: not started.
+Status: **done 2026-11-22.** Tested and built on Google Colab (`araujodgdev/zora-studio@a6dcde9`, thin LTO `web-release`, `vectorcraft-web-89a0ffa1f7d090f5_bg.wasm` 73.13 MB / 25.3 MB zip): all 4 R4 tests, all 5,300 `vectorcraft-ui-egui` tests, doctests, `ui-commands --check` and `wasm-check` passed (`clippy::type_complexity` at `zora.rs:244` and `fmt-check` left for a small follow-up cleanup). `generated.patch` (`zora.back` in `crates/mcp/src/ui_catalog.rs`) applied to `zora-vector`; `dist/web` extracted and published to local and remote R2.
 
 - In embedded mode (`?design=`), Studio's app bar shows a "Voltar ao item" button beside "Salvar" (secondary style, left of it, with a back arrow), which posts `{type: "zora-studio:back", designId}` to the parent with the page's own origin. It does not discard anything itself: Zora asks about unsaved changes.
 - In embedded mode hide the Home button (Studio's Home screen means nothing inside Zora) and keep everything else.
@@ -335,7 +335,7 @@ Status: not started.
 
 ### I. End-to-end check
 
-Status: to be run manually by the owner (2026-11-19). An agent run was stopped before it changed anything: no test account was created, and `ALLOWED_SIGNUP_EMAILS` in `.env` is back to its previous value. `STUDIO_ENGINE_URL=http://127.0.0.1:8080` was left in the local `.env` for this check. The latest Studio build (with R2 and R3's lock) and the font library are in the local R2.
+Status: **local browser check passed 2026-11-22 (owner).** Published Studio (R4 Colab LTO build) and fonts to local and remote R2; ready for production deploy (engine container deferred until Workers Paid + Docker image push).
 
 - Local: publish Studio and fonts to local R2, `pnpm dev`, create an item, create a design, edit and save it in the embedded Studio, have the MCP tools edit it (engine container), see the new version in Studio, publish the PNG. Record what was verified and what was not.
 
