@@ -1,6 +1,6 @@
 # Zora LightCraft plan: photo edits, embedded editor, agent-driven photo engine
 
-Status as of 2026-11-22: **Phase 1 (Z1, Z2, Z3, L1, L1b) done and verified locally by the owner, shipping to production together with Studio R4; Phases 2 and 3 (Z4, L2, L3, L4, Z6) next.** The decisions
+Status as of 2026-11-22: **Phase 1 (Z1, Z2, Z3, L1, L1b) shipped to production; Phase 2 (L2, L3) code-done, tested, release-built, and published to local R2 (awaiting owner browser check / Z4 signed-in walkthrough and production publish/deploy); Phase 3 (L4, Z6) next.** The decisions
 (D1–D5) are proposed with a recommendation each; the owner confirms them before the first task.
 Reviewed 2026-11-20 against the LightCraft and Zora code and the Cloudflare limits docs; the
 corrections (asynchronous open, page-side dirty polling, `app.export` params, the 100 MB request
@@ -617,7 +617,7 @@ mode still fails worker renders of file photos for pages that keep the default w
 
 ### Z4. Versions UX and conflicts in the browser
 
-Status: not started. Depends on phase 1's end-to-end.
+Status (2026-11-22): **automated checks done; signed-in browser walkthrough pending owner.** Automated coverage verified: LightCraft embedded unit tests (`zora::tests`, 7 tests covering ready/dirty/Ctrl+S save/201/409 conflict dialog/overwrite confirm/discard confirm/reload latest/`zora.back`), Zora hosting + message parser tests (`lightcraft-hosting.test.ts`, 341 total Vitest tests across 33 files), local R2 publish of the 11-file L2+L3 bundle (32.8 MiB) verified via `serveBundleFile`. Not verified automatically (requires signed-in owner browser session): interactive versions list/restore/publish UI, live 409 dialog against a second saver, browser `beforeunload`/router blocker interaction, and phone/iPad/desktop visual checks.
 
 - The versions list/restore/publish flows exercised in a signed-in browser; the 409 dialog's two
   paths verified against a real second saver (an MCP save while the editor is open); the dirty
@@ -625,7 +625,7 @@ Status: not started. Depends on phase 1's end-to-end.
 
 ### L2. Rebrand and theme (small, optional)
 
-Status: not started. Depends on the owner's call.
+Status (2026-11-22): **done (built and published to local R2).** Rebranded web title, loading screen, and embedded `page_title` to "Zora LightCraft"; added `?theme=dark|light` URL parameter applied early in `index.html` (`data-theme`) and at startup in `web.rs` (`AppearanceMode`); forced `pt-BR` default language in `install_browser_language()`; copied unmodified Zora brand assets (`assets/zora/{favicon-32,icon-192,zora-mark}.png`) with `LicenseRef-Zora-Brand` recorded in `assets/ATTRIBUTION.md` and copied along with `licenses/{LICENSE-MIT,LICENSE-APACHE,NOTICE}` by `xtask/src/web.rs`. Backups saved in `zora-lightcraft-backups\L2-L3\`.
 
 - If the owner wants the Studio treatment: app name "Zora LightCraft" (or the chosen name), a
   `?theme=dark|light` URL parameter applied at startup (upstream has none; `web.rs` sets
@@ -637,7 +637,7 @@ Status: not started. Depends on the owner's call.
 
 ### L3. Embedded fetch mode (`?photo=`), only if the owner wants in-app Save/back
 
-Status: not started. Depends on D3's alternative being chosen; the largest Rust task.
+Status (2026-11-22): **done (tested, release-built, and published to local R2; remote publish + Zora deploy await owner confirmation).** LightCraft: added browser-free `crates/ui-egui/src/zora.rs` + `zora/wire.rs` + `zora/tests.rs` (7 tests), wired `zora.save`/`zora.reloadLatest`/`zora.back` and `Ctrl/Cmd+S` (`photo.saveMetadataToFile` → `zora.save`), added in-app embedded top bar (`panels/topbar.rs`: menus, photo name, status, Appearance, Export, **Voltar ao item**, **Salvar**), added `Dialog::ZoraConflict`/`ZoraConfirm`/`ZoraNotice` (`state/dialog.rs`, `dialogs/*`), added pt-BR strings (`locales/pt-br.json`), and implemented `apps/lightcraft-web/src/zora.rs` + `web.rs` (`?photo=<editId>` forces memory store + `workers=0`, fetches metadata/original/settings with same-origin cookies before eframe starts, imports into an empty library without demo photos, emits `zora-lightcraft:ready|dirty|saved|back`). Zora: added `lightcraftEditorUrl` + `parseZoraLightcraftMessage` (`studio-hosting.ts` + `lightcraft-hosting.test.ts`), refactored `$itemId_.photos.$editId.tsx` to full-bleed mirroring Studio's `$itemId_.designs.$designId.tsx` (dropped thin header and page-side polling/409 dialogs), updated `content-photo-edits.tsx` empty copy and `AGENTS.md`. Checks: LightCraft `cargo fmt --check`, `cargo clippy` (`-D warnings` on `lightcraft-ui-egui`, `lightcraft-web` native + `wasm32`, `xtask`), `cargo test` (`zora` 7/7, `startup` 21/21, `lightcraft-web` 52/52), `cargo xtask web` (3m46s with `wasm-opt -O2`: `index.html` 5,649 B, `lightcraft_web.js` 114,507 B, `lightcraft_web_bg.wasm` **34,081,086 B** / 12,186,086 gz / 7,964,600 br); `node scripts/lightcraft-publish.ts` uploaded 11 files (32.8 MiB) to local R2; Zora `pnpm typecheck && pnpm lint && pnpm test && pnpm build` (33 files, 341 tests). Backups in `zora-lightcraft-backups\L2-L3\`.
 
 - Mirror Studio's R2/R3/R4: a browser-free `zora` module in `crates/ui-egui` (embed state machine,
   `wire` module for URLs/multipart/409, tests with a fake Link), a browser host in
@@ -655,7 +655,7 @@ Status: not started. Depends on D3's alternative being chosen; the largest Rust 
 
 ### L4. Engine service (`apps/zora-lightcraft-server`)
 
-Status: not started. Depends on phase 2.
+Status (2026-11-23): **done and tested locally (Docker image build/push awaits owner).** Implemented `apps/zora-lightcraft-server` in `zora-lightcraft` (`tiny_http`, stateless, `#![forbid(unsafe_code)]`, panic-free non-test code): `GET /health`, `GET /commands[?q=]`, `POST /run` with streaming multipart request parsing (original + `image:<name>` streamed straight to per-run RAII temp dir without buffering), bounded concurrency (`LIGHTCRAFT_RUNS`, default 2, 30 s wait → `503`), 60 s deadline (`504`), panic isolation, path confinement, `zora-image:<name>` recursive substitution, fresh empty `Session::new().with_fs()`, preview rendering via `lightcraft_engine::export::export_batch` (JPEG q85 / PNG, `MetadataPolicy::None`, scale-then-`maxSize`-cap, default 4096), `inspect`-only preview suppression, `Dockerfile` (linux/amd64, `rust:1.99-slim-bookworm` → `debian:bookworm-slim`), `Dockerfile.dockerignore`, and `README.md`. Verified: `cargo clippy -p zora-lightcraft-server --all-targets --no-deps -- -D warnings` (clean), `cargo test -p zora-lightcraft-server` (**8/8 passed**), `cargo build -p zora-lightcraft-server` (`target/debug/zora-lightcraft-server.exe`), and live HTTP smoke test against Zora's TypeScript `lightcraft-engine.server.ts` client.
 
 - The crate per the contract (tiny_http or another small permissive HTTP crate; check the licence
   against LightCraft's allowlist), reusing `lightcraft-engine` + `lightcraft_engine::export`;
@@ -671,22 +671,11 @@ Status: not started. Depends on phase 2.
 
 ### Z6. Engine client, container and MCP tools
 
-Status: not started. Depends on L4's contract (can be built against it with a mocked engine, as
-Studio's Z4 was).
+Status (2026-11-23): **done and verified against both mocked engine and live `zora-lightcraft-server.exe`.** (Full signed-in browser/desktop MCP walkthrough remains under task I.)
 
-- `lightcraft-engine.server.ts` (typed client, limits before sending and while reading, timeouts
-  100 s / 45 s, 422 → a command error with index). Unlike Studio's client it **streams**: the
-  original goes from the R2 object's body into the multipart request without being buffered or
-  base64-encoded (the Worker has 128 MB per isolate), and the answer's preview part is checked
-  against the 20 MB limit while it is read. A test proves a 100 MB original never sits whole in
-  memory (a fake transport that counts buffered bytes). `lightcraft-engine-container.server.ts` (a
-  `LightcraftEngine` Durable Object, `standard-1`, no Internet, `/health` readiness, sleep after
-  5 min, 2 instances), exported from `src/server.ts`; the `containers` entry commented out = the
-  switch; `LIGHTCRAFT_ENGINE_URL` wins for dev; `dev.enable_containers` stays false.
-- MCP tools `list_photo_commands`, `edit_photo`, `render_photo`, `inspect_photo` per the contract,
-  saving `agent` versions through the same 409 rule; `AGENT_INSTRUCTIONS` workflow (open the item's
-  photo, develop, render and look, ask the person, publish when approved). Tests with a fake
-  transport, mirroring `mcp.engine-tools.test.ts`.
+- Implemented `src/lib/lightcraft-engine.server.ts` (streaming multipart request builder with exact `Content-Length`, streaming multipart response parser enforcing the 4 MB `result` and 20 MB `preview` caps while reading, pre-send limits, 100 s / 45 s timeouts, `LightcraftEngineCommandError` / `LightcraftEngineNotConfiguredError` / `LightcraftEngineError`, `urlLightcraftEngineTransport`), `src/lib/lightcraft-engine-container.server.ts` (`LightcraftEngine` Durable Object on `standard-1`, no Internet, `/health` readiness, 5 min sleep, 2 instances, `getLightcraftEngine()` with `LIGHTCRAFT_ENGINE_URL` override), wired into `src/lib/env.server.ts`, `src/cloudflare-workers.d.ts`, `src/server.ts`, `wrangler.jsonc` (commented container switch, `dev.enable_containers: false`), and `src/routes/mcp.ts`.
+- Added MCP tools `list_photo_commands`, `edit_photo`, `render_photo`, `inspect_photo` in `src/lib/mcp.server.ts` and updated `AGENT_INSTRUCTIONS` in `src/lib/agent-tools.ts` with creator-friendly LightCraft and Studio Simple Mode guidance.
+- Tests: `src/lib/lightcraft-engine.server.test.ts` (including a 100 MiB streaming memory proof test) and `src/lib/mcp.photo-engine-tools.test.ts`.
 
 ### I. End-to-end check
 

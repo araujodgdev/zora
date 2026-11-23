@@ -132,7 +132,7 @@ export function ContentPhotoEdits({
             className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex w-full flex-col items-center gap-1 rounded-lg py-8 text-center text-sm transition-colors outline-none focus-visible:ring-3"
           >
             <Aperture className="mb-1 size-5" />
-            <span>Revele e ajuste uma foto deste item no LightCraft.</span>
+            <span>Revele e ajuste uma foto deste item no Zora LightCraft.</span>
             <span className="text-xs">
               Comece de uma imagem da mídia ou envie o arquivo original, inclusive raw.
             </span>

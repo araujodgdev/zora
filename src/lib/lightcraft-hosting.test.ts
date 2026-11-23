@@ -15,6 +15,8 @@ import {
   bundleObjectKey,
   bundleUploadEntry,
   isPrecompressedCopy,
+  lightcraftEditorUrl,
+  parseZoraLightcraftMessage,
   resolveBundlePath,
   validIfNoneMatch,
 } from './studio-hosting'
@@ -28,6 +30,12 @@ const LIGHTCRAFT_FILES = [
   'worker.js',
   'lightcraft_web.js',
   'lightcraft_web_bg.wasm',
+  'icons/favicon-32.png',
+  'icons/icon-192.png',
+  'icons/zora-mark.png',
+  'licenses/LICENSE-MIT',
+  'licenses/LICENSE-APACHE',
+  'licenses/NOTICE',
   'lightcraft_zh_hans.otf',
   'OFL-noto-sans-cjk-sc.txt',
 ]
@@ -429,5 +437,52 @@ describe('handleBundleRequest', () => {
     const fonts = await handleBundleRequest(STUDIO_FONTS_BUNDLE, request('/studio-fonts'), deps(true).deps)
     expect(fonts.status).toBe(404)
     expect((await handleBundleRequest(STUDIO_FONTS_BUNDLE, request('/studio-fonts'), deps(false).deps)).status).toBe(401)
+  })
+})
+
+describe('lightcraftEditorUrl', () => {
+  it('opens Zora LightCraft on the photo edit in the given theme', () => {
+    expect(lightcraftEditorUrl('e1', 'dark')).toBe('/lightcraft/?photo=e1&theme=dark')
+    expect(lightcraftEditorUrl('e1', 'light')).toBe('/lightcraft/?photo=e1&theme=light')
+  })
+})
+
+describe('parseZoraLightcraftMessage', () => {
+  it('reads the four events for the open photo edit', () => {
+    expect(parseZoraLightcraftMessage({ type: 'zora-lightcraft:ready', editId: 'e1' }, 'e1')).toEqual({
+      type: 'zora-lightcraft:ready',
+      editId: 'e1',
+    })
+    expect(
+      parseZoraLightcraftMessage({ type: 'zora-lightcraft:dirty', editId: 'e1', dirty: true }, 'e1'),
+    ).toEqual({ type: 'zora-lightcraft:dirty', editId: 'e1', dirty: true })
+    expect(
+      parseZoraLightcraftMessage(
+        { type: 'zora-lightcraft:saved', editId: 'e1', versionId: 'v1', number: 2 },
+        'e1',
+      ),
+    ).toEqual({ type: 'zora-lightcraft:saved', editId: 'e1', versionId: 'v1', number: 2 })
+    expect(parseZoraLightcraftMessage({ type: 'zora-lightcraft:back', editId: 'e1' }, 'e1')).toEqual({
+      type: 'zora-lightcraft:back',
+      editId: 'e1',
+    })
+  })
+
+  it('ignores other photo edits, other messages and malformed fields', () => {
+    expect(parseZoraLightcraftMessage({ type: 'zora-lightcraft:ready', editId: 'e2' }, 'e1')).toBeNull()
+    expect(parseZoraLightcraftMessage({ type: 'zora-lightcraft:back', editId: 'e2' }, 'e1')).toBeNull()
+    expect(parseZoraLightcraftMessage({ type: 'zora-lightcraft:back' }, 'e1')).toBeNull()
+    expect(parseZoraLightcraftMessage({ type: 'zora-studio:ready', editId: 'e1' }, 'e1')).toBeNull()
+    expect(
+      parseZoraLightcraftMessage({ type: 'zora-lightcraft:dirty', editId: 'e1', dirty: 'yes' }, 'e1'),
+    ).toBeNull()
+    expect(
+      parseZoraLightcraftMessage(
+        { type: 'zora-lightcraft:saved', editId: 'e1', versionId: 'v1', number: 1.5 },
+        'e1',
+      ),
+    ).toBeNull()
+    expect(parseZoraLightcraftMessage('zora-lightcraft:ready', 'e1')).toBeNull()
+    expect(parseZoraLightcraftMessage(null, 'e1')).toBeNull()
   })
 })

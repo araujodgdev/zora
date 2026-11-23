@@ -22,6 +22,13 @@ const serverEnvSchema = z.object({
     .optional()
     .transform((value) => value?.trim() || undefined)
     .pipe(z.url({ protocol: /^https?$/ }).optional()),
+  // Photo engine (LightCraft) over plain HTTP (development: the engine binary
+  // run natively). When set it wins over the LIGHTCRAFT_ENGINE container binding.
+  LIGHTCRAFT_ENGINE_URL: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .pipe(z.url({ protocol: /^https?$/ }).optional()),
   // Social publishing via treg.to (optional: without a token, social
   // connections and publishing stay disabled with a clear message).
   TREG_TOKEN: optionalSecret,

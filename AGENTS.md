@@ -64,6 +64,11 @@ pnpm studio:publish [--dir <build>]  # Zora Studio's web build -> local R2 studi
 pnpm fonts:sync    # Studio's font library -> local R2 studio-fonts/ (downloads once into .cache/)
 pnpm lightcraft:publish [--dir <build>]  # LightCraft's web build -> local R2 lightcraft/ (see "LightCraft hosting")
 # --remote on the last three writes the production bucket: owner's step only, agents never run it
+pnpm desktop:dev   # run Zora Desktop (Tauri v2) against http://localhost:3000
+pnpm desktop:check # cargo check desktop/src-tauri
+pnpm desktop:build # release build of Zora Desktop
+pnpm desktop:package       # single installer: builds the editors, stages sidecars, tauri build
+pnpm desktop:package:debug # same with existing debug editor builds (no editor compile)
 ```
 
 No Docker and no Cloudflare account are needed locally: D1 and R2 are
@@ -88,8 +93,8 @@ src/
     _app/content/index.tsx   /content: filtered list (filters in the URL)
     _app/content/new.tsx     /content/new: editor form, presets from the search
     _app/content/$itemId.tsx /content/$itemId: editor form (loader + not-found state)
-    _app/content/$itemId_.designs.$designId.tsx  design editor: Zora header + Studio iframe (see "Zora Studio hosting")
-    _app/content/$itemId_.photos.$editId.tsx     photo editor: thin header + LightCraft iframe (see "Photo edits")
+    _app/content/$itemId_.designs.$designId.tsx  design editor: native Zora Studio via Zora Desktop; web shows a desktop notice (see "Zora Desktop")
+    _app/content/$itemId_.photos.$editId.tsx     photo editor: native Zora LightCraft via Zora Desktop; web shows a desktop notice (see "Zora Desktop")
     api/auth/$.ts            Better Auth HTTP handler
     mcp.ts                   POST /mcp: MCP server behind OAuth (see "Agents")
     consent.tsx              OAuth consent page for MCP clients
@@ -137,11 +142,14 @@ src/
     content-photo-edits.queries.ts      query options + mutation hooks for photo edits
     content-photo-edits.upload.ts       browser upload of an original with progress (XMLHttpRequest); savePhotoEditVersion (the editor's multipart save)
     lightcraft-bridge.ts     LightCraft's parent bridge: message parsing, the command queue, open/save/dirty flows (no React; unit-tested)
+    desktop-bridge.ts        Zora Desktop (Tauri v2) IPC bridge: detection, native editor commands, event parser/subscription (SSR-safe; unit-tested)
     studio-hosting.ts        SHARED hosting of Studio, its fonts and LightCraft: bundle map, path safety, types, cache rules, publish filter, postMessage parsing
     studio-hosting.server.ts serveBundleFile (R2 -> Response), handleBundleRequest (308 + session + serve; unit-tested)
     studio-fonts.ts          font library: curated families, pinned commit, METADATA.pb parser, manifest builder
     studio-engine.server.ts  design engine client: run/commands/health, limits, timeouts (unit-tested)
     studio-engine-container.server.ts  StudioEngine Durable Object (container) + getStudioEngine()
+    lightcraft-engine.server.ts  photo engine client: streaming multipart run, commands, health, limits, timeouts (unit-tested)
+    lightcraft-engine-container.server.ts  LightcraftEngine Durable Object (container) + getLightcraftEngine()
     media-bucket.server.ts   getMediaBucket(): the R2 binding `MEDIA`
     editor-search.ts         search schemas of the editor routes, `from` origins
     calendar.ts              calendar maths + search schema (local days; browser only; unit-tested)
@@ -617,58 +625,79 @@ binding). It copies the designs feature's shape; the differences are below.
   versions with restore, "Usar como mídia", rename, delete.
 - **Editor page** `/content/$itemId/photos/$editId` (file
   `$itemId_.photos.$editId.tsx`; `ssr: 'data-only'`, `staticData: {
-  fullBleed: true }`, search `from` kept for the way back). A thin Zora
-  header (decision D5): "Voltar", the edit's name, the save state ("Abrindo…",
-  "Salvo (versão N)", "Alterações não salvas", "Salvando…", errors) and a lime
-  "Salvar"; below it the iframe `LIGHTCRAFT_EDITOR_URL`
-  (`/lightcraft/?host=parent&store=memory&workers=0`) fills the rest of
-  `--page-h`. `workers=0`: with the memory store a render worker cannot read
-  an imported original, so its renders failed and LightCraft flagged a photo
-  it was showing ("Não foi possível abrir esta foto"). It
-  first sends `HEAD /lightcraft/` (404 / 401 / network error: a pt-BR
-  explanation with "Voltar ao item", like Studio's page); phones (below
-  `md`) get the "needs a larger screen" message. Messages are accepted only
-  when `event.origin` is Zora's and `event.source` is the frame.
-- **The bridge is parent-driven** (`@/lib/lightcraft-bridge`; contract in
-  docs/LIGHTCRAFT-PLAN.md, "Editor page"). `LightcraftBridge` is the single
-  command queue: `lightcraft:cmd` params are a JSON **string**, and
-  `lightcraft:response` has no id, so one command is in flight at a time and
-  answers resolve in order (`failed` and dispose reject everything pending;
-  a command with no answer in 60 s stalls the bridge for good). Open
-  (`openLightcraftPhoto`, one fresh iframe per open): wait for `ready`, empty
-  the 24 demo photos the memory store starts with (`catalog.query` ->
-  `photo.deletePermanently`, else `library.select {ids: []}`), post
-  `lightcraft:open` with the original (fetched with the session), poll
-  `develop.get` every 200 ms until `photo.inspect`'s `file_name` is the
-  original's (30 s at most), `develop.merge` the current version's settings
-  ("Versão N"), and keep `develop.get`'s text as the baseline. After a merge
-  that text is compared with the version's settings (`settingsDifferences`):
-  a difference is a console warning naming the paths, and the editor's state
-  stays the baseline. (LightCraft's `develop.get` states Remove Hot Pixels,
-  `detail.nr_outliers`, when off, so a raw reopens as saved; versions saved
-  before that leave it out and reopen with it on.) A framed LightCraft shows
-  no first-run tour. Save
-  (`saveLightcraftPhoto` + `savePhotoEditVersion`): `develop.get`, then
-  `app.export` with `LIGHTCRAFT_PREVIEW_EXPORT` (JPEG 85, long edge 2048,
-  no metadata), keeping the `lightcraft:save` named `preview.jpg` (it comes
-  just before the response; other saves are ignored; "still loading" is
-  retried once after 1 s), then the multipart POST. 201: new baseline,
-  header shows the version, `contentKeys.photoEdits(itemId)` and
-  `photoEditVersions(editId)` are invalidated. 409: a dialog, "Abrir a versão
-  mais recente" (asks before discarding, then reloads the iframe with a new
-  key and opens the newest version) or "Continuar editando" (the next Salvar
-  asks to save over version N, then bases on it). Other errors: a toast.
-- **Dirty** comes from polling `develop.get` every 1.5 s while the tab is
-  visible (skipped while the queue is busy), compared with the baseline as
-  canonical JSON (`settingsDiffer`); LightCraft's own `lightcraft:dirty` is
-  ignored (it only reports pending browser-storage writes). It drives a
-  router blocker (whose `shouldBlockFn` runs one fresh poll first) and
-  `beforeunload` (the last poll result). Ctrl/Cmd+S inside the frame is
-  LightCraft's own shortcut, not a Zora save.
+  fullBleed: true }`, search `from` kept for the way back). **Native-first now**
+  (see "Zora Desktop"): in a web browser it shows the "Edição disponível no Zora
+  Desktop" notice; inside Zora Desktop it launches native LightCraft. The iframe
+  embedding described next was retired with the web editors and is kept only as
+  the reference for LightCraft's embedded-mode protocol: full bleed, no Zora
+  header (mirroring Studio's `$itemId_.designs.$designId.tsx`). The iframe opens
+  `lightcraftEditorUrl(editId, theme)` (`/lightcraft/?photo=<editId>&theme=dark|light`,
+  theme from `zora_theme`, fixed for the page's life so a theme switch never
+  reloads unsaved work). Zora LightCraft runs in embedded mode (`crates/ui-egui/src/zora.rs`,
+  `apps/lightcraft-web/src/zora.rs`): forces memory storage + `workers=0`,
+  defaults to `pt-BR`, fetches metadata, original and current version settings
+  with the same-origin session before eframe starts (importing into an empty
+  library without demo photos), shows the photo name, save status, "Voltar ao
+  item" and "Salvar" in the app top bar, redirects Ctrl/Cmd+S to `zora.save`,
+  exports the JPEG preview (`longEdge: 2048`, q=85, `metadata: "none"`) and
+  posts `POST /api/photo-edits/<id>/versions` with in-app 409 conflict and
+  discard/overwrite confirmation dialogs. It posts
+  `zora-lightcraft:ready|dirty|saved|back` (checked by `event.origin`,
+  `event.source` and `parseZoraLightcraftMessage(data, editId)`): `ready` clears
+  dirty, `dirty` drives the router blocker dialog and `beforeunload`, `saved`
+  clears dirty and invalidates `contentKeys.photoEdits(itemId)` and
+  `photoEditVersions(editId)`, and `back` navigates back to `/content/$itemId`
+  (the blocker asks first when dirty). Before rendering the iframe the page
+  sends `HEAD /lightcraft/` (404 / 401 / network error show a pt-BR explanation
+  with "Voltar ao item"); phones (below `md`) get the "needs a larger screen"
+  message. (`@/lib/lightcraft-bridge` remains tested for the upstream
+  `?host=parent` protocol.)
 - MCP: `create_photo_edit` (from an image asset), `list_photo_edits`,
   `get_photo_edit` (the preview as image content up to 4 MB),
   `list_photo_edit_versions`, `restore_photo_edit_version`,
-  `publish_photo_edit`. No photo engine tools yet (task Z6).
+  `publish_photo_edit`, plus the photo engine tools (see "Photo engine").
+
+### Photo engine: `@/lib/lightcraft-engine.server`
+
+Zora LightCraft's engine, headless, as a stateless HTTP service
+(`apps/zora-lightcraft-server` in `../zora-lightcraft`; contract in
+`docs/LIGHTCRAFT-PLAN.md`, "Engine service": `GET /health`, `GET /commands[?q=]`,
+`POST /run` with streaming binary `multipart/form-data` -> `200 multipart/form-data`
+with part `result` JSON `{settings, results, inspect?}` and optional part `preview`
+JPEG/PNG bytes, or `422 {error, index}`). Agents develop photos with it through MCP.
+
+- **Client** (`lightcraft-engine.server.ts`, no Cloudflare imports, tested in
+  `lightcraft-engine.server.test.ts` with a fake transport): `runPhotoEngine`,
+  `listPhotoEngineCommands`, `lightcraftEngineHealth` over a
+  `LightcraftEngineTransport` (`{name, fetch(path, init)}`). Unlike Studio's
+  client it **streams** both directions: `buildStreamingMultipart` streams the R2
+  original (up to 100 MB) and optional `image:<name>` watermark logo parts
+  chunk-by-chunk with an exact pre-computed `Content-Length` (never buffering
+  100 MB in the 128 MB Worker isolate), and the multipart response parser enforces
+  the 4 MB `result` cap and 20 MB `preview` cap while reading (cancelling the
+  reader immediately if exceeded). Pre-send limits: 200 commands, 100 MB original,
+  20 images named `[A-Za-z0-9_-]{1,64}` (25 MB each, 40 MB total), 150 MB total
+  request. Timeouts: 100 s for `/run`, 45 s otherwise. Errors:
+  `LightcraftEngineCommandError` (422, with `index`),
+  `LightcraftEngineNotConfiguredError`, `LightcraftEngineError`.
+- **Where it runs** (`getLightcraftEngine()`, per request): `LIGHTCRAFT_ENGINE_URL`
+  (optional env var, http(s); the native binary for local dev) wins; else the
+  `LIGHTCRAFT_ENGINE` Durable Object binding; with neither, `null`.
+  `LightcraftEngine` (`lightcraft-engine-container.server.ts`, exported from
+  `src/server.ts`) mirrors `StudioEngine`: `standard-1`, no Internet, `PORT=8080`,
+  `/health` readiness up to 40 s, sleep after 5 min, 2 named instances
+  (`lightcraft-engine-0/1`), 503 `not-configured` when the commented-out
+  `containers` entry in `wrangler.jsonc` is off (`dev.enable_containers` stays
+  `false`).
+- **Tools** (`mcp.server.ts`, tested in `mcp.photo-engine-tools.test.ts`):
+  `list_photo_commands` (`query`, `limit` <= 200, default 40), `edit_photo`
+  (`editId`, optional `baseVersionId`, `commands` 1..200, optional `images`
+  watermark logos streamed as `image:<name>` parts; saves an `agent` version via
+  `savePhotoEditVersion` enforcing the 409 conflict rule; returns preview image
+  up to 4 MB; 422 saves nothing), `render_photo` (stored preview without `scale`,
+  scaled engine render with `scale` 0.05..4 without saving), `inspect_photo`
+  (`/run` with `inspect: true` and no commands; works even before v1).
+  Not in WebMCP.
 
 ### Design engine: `@/lib/studio-engine.server`
 
@@ -801,7 +830,11 @@ uses the session cookie for `/api/designs/*`.
   `axes`); static families list one file per weight. To change the
   library, edit the list or bump the commit.
 - **Editor page** `/content/$itemId/designs/$designId` (`ssr: 'data-only'`,
-  search `from` kept for the way back to the item): full bleed, no Zora
+  search `from` kept for the way back to the item). **Native-first now** (see
+  "Zora Desktop"): in a web browser it shows the "Edição disponível no Zora
+  Desktop" notice; inside Zora Desktop it launches native Studio. The iframe
+  embedding described next was retired with the web editors and is kept only as
+  the reference for Studio's embedded-mode protocol: full bleed, no Zora
   header. The route sets `staticData: { fullBleed: true }`, so `AppShell`
   drops its page padding and `--page-h` becomes the whole height right of
   the sidebar (100svh from `lg`; below `lg`, the height under the mobile top
@@ -829,7 +862,9 @@ built with `cargo xtask web` to `target/web-site/`) is hosted the same way
 `lightcraft/<path>` through the bundle map (`LIGHTCRAFT_BUNDLE`), with
 the same session gate, 308 from `/lightcraft`, path safety, ETag/304, HEAD
 and `nosniff`. The build is `index.html`, `worker.js`, `lightcraft_web.js`,
-`lightcraft_web_bg.wasm` (~13.5 MB, `application/wasm`) and, only when built
+`lightcraft_web_bg.wasm` (~34 MB, `application/wasm`), `icons/*` (Zora brand
+mark and favicons), `licenses/*` (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`),
+`snippets/eframe-*/inline0.js` and, only when built
 with `CRAFT_FONTS_DIR`, `lightcraft_zh_hans.otf` with
 `OFL-noto-sans-cjk-sc.txt`. Its names are the same in every version, so
 every file is `no-cache` (`hashedNames: false`; the hash rule never applies).
@@ -840,6 +875,36 @@ route streams the raw file and Cloudflare compresses `application/wasm` on
 the way out. `--remote` is the owner's step. The COOP/COEP headers LightCraft
 documents are optional today (no shared memory) and are not sent. The photo
 editor page that embeds it is described in "Photo edits".
+
+### Zora Desktop
+
+`desktop/` holds the Tauri v2 desktop app around Zora (`desktop/src-tauri`); see
+`docs/DESKTOP-PLAN.md`. **Editing is native-first**: the design and photo editor routes
+(`/content/$itemId/designs/$designId`, `/content/$itemId/photos/$editId`) no longer embed the
+web/WASM editors. In a normal web browser they show a pt-BR "Edição disponível no Zora
+Desktop" notice (previews, version history and media use stay on the item page). Inside
+Zora Desktop (`isZoraDesktop()` via `@/lib/desktop-bridge`), opening a design or photo edit
+automatically launches the native Rust/wgpu Zora Studio or Zora LightCraft window through
+Tauri IPC (`desktop_info`, `open_design_editor`, `open_photo_editor`, `focus_editor`,
+`close_editor`, `list_open_editors`) and listens to `zora-desktop:editor-event` for
+`ready`/`dirty`/`saved`/`back` and `zora-desktop:closed` lifecycle updates. If the bundled
+editor executable is missing, the page explains it and offers "Tentar novamente" (there is
+no web fallback). The `/studio/*`, `/studio-fonts/*` and `/lightcraft/*` hosting routes
+stay (Studio still reads `/studio-fonts/*`), but the web editors are not maintained for now.
+
+Zora Desktop ships as **one installer** bundling `zora-desktop` with `zora-studio`
+(`vectorcraft` from `../zora-vector`) and `zora-lightcraft` (`lightcraft` from
+`../zora-lightcraft`) as Tauri `externalBin` sidecars, installed next to `zora-desktop.exe`.
+`externalBin` lives only in the overlay `desktop/src-tauri/tauri.bundle.conf.json`, so plain
+`cargo check`/`cargo test` never need the staged binaries. `pnpm desktop:package`
+(`scripts/desktop-package.ts`) builds `vectorcraft` then `lightcraft` (one Rust build at a
+time, `CARGO_INCREMENTAL=0`, `CARGO_BUILD_JOBS=2`), stages them as
+`desktop/src-tauri/binaries/<name>-<triple>[.exe]` (git-ignored) and runs the local
+`@tauri-apps/cli` `tauri build --config src-tauri/tauri.bundle.conf.json`.
+`pnpm desktop:package:debug` packages existing debug builds without compiling the editors.
+Flags: `--debug`, `--skip-editors`, `--stage-only`, `--dry-run`, `--studio-dir`,
+`--lightcraft-dir`, `--bundles <list>`. Use `pnpm desktop:dev`, `pnpm desktop:check`, and
+`pnpm desktop:build` to run, check, and build the Tauri shell alone.
 
 ### Drag and drop: `@dnd-kit/react`
 
@@ -948,10 +1013,12 @@ handlers re-validate with the shared `@/lib/content` schemas).
   hotlinking rule does not fit a design that embeds the photo: Zora stores a
   copy (that is the "download" the tracking call reports) and keeps the
   credit with it.
-- **Photo edit tools** (MCP only, no engine): `create_photo_edit`,
+- **Photo edit tools** (MCP only): `create_photo_edit`,
   `list_photo_edits`, `get_photo_edit`, `list_photo_edit_versions`,
-  `restore_photo_edit_version`, `publish_photo_edit`; see "Photo edits"
-  (tested in `mcp.photo-edit-tools.test.ts`).
+  `restore_photo_edit_version`, `publish_photo_edit` (tested in
+  `mcp.photo-edit-tools.test.ts`), plus the photo engine tools
+  `list_photo_commands`, `edit_photo`, `render_photo`, `inspect_photo`
+  (see "Photo engine"; tested in `mcp.photo-engine-tools.test.ts`).
 - **Design engine tools** (MCP only): `list_design_commands`,
   `list_design_fonts`, `edit_design`, `render_design`, `inspect_design`; see
   "Design engine". `AGENT_INSTRUCTIONS` gives agents the design workflow.

@@ -12,6 +12,8 @@ declare module 'cloudflare:workers' {
     EMAIL: import('./lib/mailer.server').Mailer
     /** The design engine's Durable Object (`StudioEngine`); absent in tests. */
     STUDIO_ENGINE?: DurableObjectNamespace
+    /** The photo engine's Durable Object (`LightcraftEngine`); absent in tests. */
+    LIGHTCRAFT_ENGINE?: DurableObjectNamespace
   }
 
   /** The parts of a Durable Object namespace this app uses. */

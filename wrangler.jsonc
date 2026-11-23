@@ -39,20 +39,26 @@
       "allowed_sender_addresses": ["zora@notify.lume.software"]
     }
   ],
-  // The design engine (Zora Studio's engine, headless; see AGENTS.md, "Design
-  // engine"). One Durable Object per engine container.
+  // The design and photo engines (Zora Studio and Zora LightCraft, headless;
+  // see AGENTS.md, "Design engine" and "Photo engine"). One Durable Object
+  // class per engine container.
   "durable_objects": {
-    "bindings": [{ "name": "STUDIO_ENGINE", "class_name": "StudioEngine" }]
+    "bindings": [
+      { "name": "STUDIO_ENGINE", "class_name": "StudioEngine" },
+      { "name": "LIGHTCRAFT_ENGINE", "class_name": "LightcraftEngine" }
+    ]
   },
   "exports": {
-    "StudioEngine": { "type": "durable-object", "storage": "sqlite" }
+    "StudioEngine": { "type": "durable-object", "storage": "sqlite" },
+    "LightcraftEngine": { "type": "durable-object", "storage": "sqlite" }
   },
-  // THE SWITCH for the engine container: it is off while this entry stays
+  // THE SWITCH for the engine containers: they stay off while this entry is
   // commented out (the tools then say the engine is not configured, unless
-  // STUDIO_ENGINE_URL points at an engine). To switch it on (Workers Paid
-  // plan), build the image from ../zora-vector/apps/zora-studio-server/Dockerfile,
-  // push it to the Cloudflare registry and paste its digest (README,
-  // "Design engine"), then uncomment:
+  // STUDIO_ENGINE_URL / LIGHTCRAFT_ENGINE_URL points at an engine). To switch
+  // them on (Workers Paid plan), build the images from
+  // ../zora-vector/apps/zora-studio-server/Dockerfile and
+  // ../zora-lightcraft/apps/zora-lightcraft-server/Dockerfile, push them to
+  // the Cloudflare registry and paste their digests, then uncomment:
   // "containers": [
   //   {
   //     "class_name": "StudioEngine",
@@ -62,10 +68,20 @@
   //         "image": "registry.cloudflare.com/bf552f67bcf46921dbe4137ee0ff8980/zora-studio-engine@sha256:<digest>"
   //       }
   //     }
+  //   },
+  //   {
+  //     "class_name": "LightcraftEngine",
+  //     "scheduling_policy": "durable_object",
+  //     "images": {
+  //       "engine": {
+  //         "image": "registry.cloudflare.com/bf552f67bcf46921dbe4137ee0ff8980/zora-lightcraft-engine@sha256:<digest>"
+  //       }
+  //     }
   //   }
   // ],
   // Local dev cannot run containers on Windows (Wrangler refuses), and they
-  // need Docker: `pnpm dev` never starts one. Use STUDIO_ENGINE_URL instead.
+  // need Docker: `pnpm dev` never starts one. Use STUDIO_ENGINE_URL /
+  // LIGHTCRAFT_ENGINE_URL instead.
   "dev": {
     "enable_containers": false
   },

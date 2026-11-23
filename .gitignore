@@ -14,3 +14,9 @@ coverage/
 !.env.example
 .dev.vars
 .dev.vars.*
+
+# Zora Desktop (Tauri v2) build artifacts.
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+# Sidecar editor executables staged by `pnpm desktop:package` (large, rebuilt).
+desktop/src-tauri/binaries/

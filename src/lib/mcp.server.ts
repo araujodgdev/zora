@@ -38,12 +38,19 @@ import * as designs from './content-designs.server'
 import {
   PHOTO_SIGNATURE_BYTES,
   photoEditPreviewKey,
+  photoEditSettingsKey,
   photoPreviewType,
 } from './content-photo-edits'
 import type { ContentPhotoEdit } from './content-photo-edits'
 import * as photoEdits from './content-photo-edits.server'
 import * as images from './image-providers.server'
 import type { ImageProviderConfig } from './image-providers.server'
+import * as lightcraft from './lightcraft-engine.server'
+import type {
+  LightcraftEngineBinaryPart,
+  LightcraftEngineRunResult,
+  LightcraftEngineTransport,
+} from './lightcraft-engine.server'
 import {
   SOCIAL_CHANNEL_INFO,
   socialPublishOptionsSchema,
@@ -86,6 +93,8 @@ export type McpDeps = {
   images?: ImageProviderConfig
   /** The design engine (`getStudioEngine()`); without it the engine tools return an error. */
   engine?: StudioEngineTransport | null
+  /** The photo engine (`getLightcraftEngine()`); without it the photo engine tools return an error. */
+  photoEngine?: LightcraftEngineTransport | null
   /** treg.to client for social publishing; without it publish tools report unconfigured. */
   treg?: TregClient | null
 }
@@ -327,6 +336,145 @@ const engineCommandSchema = z.object({
     .optional()
     .describe(
       `The command's parameters. To place an image from "images", pass "${engine.ENGINE_IMAGE_PREFIX}<name>" where the command takes an image path.`,
+    ),
+})
+
+// --- photo engine (LightCraft) -------------------------------------------------
+
+function requirePhotoEngine(
+  transport: LightcraftEngineTransport | null | undefined,
+): LightcraftEngineTransport {
+  if (!transport) throw new lightcraft.LightcraftEngineNotConfiguredError()
+  return transport
+}
+
+/** The photo preview as image content, or a note when it is too large to show. */
+function photoPreviewContent(
+  bytes: Uint8Array,
+  fallbackType?: string,
+): CallToolResult['content'] {
+  if (bytes.length > MAX_MCP_IMAGE_PREVIEW_BYTES) {
+    return [
+      {
+        type: 'text',
+        text: `A prévia (${formatBytes(bytes.length)}) é maior que ${formatBytes(MAX_MCP_IMAGE_PREVIEW_BYTES)} e não foi exibida aqui; chame render_photo com scale menor que 1 para visualizá-la.`,
+      },
+    ]
+  }
+  const mimeType =
+    photoPreviewType(bytes.subarray(0, PHOTO_SIGNATURE_BYTES)) ?? fallbackType ?? 'image/jpeg'
+  return [{ type: 'image', data: toBase64(bytes), mimeType }]
+}
+
+/** Opens the edit's original photo from R2 as a stream without buffering it in memory. */
+async function openPhotoOriginalStream(
+  deps: McpDeps,
+  organizationId: string,
+  edit: ContentPhotoEdit,
+): Promise<LightcraftEngineBinaryPart> {
+  const originalKey = await photoEdits.getPhotoEditOriginalKey(deps.db, organizationId, edit.id)
+  if (!originalKey) {
+    throw new ToolError(`A foto original da edição ${edit.id} não foi encontrada.`)
+  }
+  const object = await deps.bucket.get(originalKey)
+  if (!object?.body) {
+    throw new ToolError(`O arquivo original da edição ${edit.id} não foi encontrado no armazenamento.`)
+  }
+  return { name: edit.originalName, stream: object.body, size: object.size }
+}
+
+/** Reads and parses a saved version's develop settings JSON object. */
+async function readPhotoVersionSettings(
+  deps: McpDeps,
+  editId: string,
+  versionId: string,
+): Promise<Record<string, unknown>> {
+  const bytes = await readBytes(deps.bucket, photoEditSettingsKey(editId, versionId))
+  if (!bytes) {
+    throw new ToolError(`As configurações da versão ${versionId} não foram encontradas.`)
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(bytes))
+  } catch {
+    throw new ToolError(`As configurações da versão ${versionId} não são um JSON válido.`)
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new ToolError(`As configurações da versão ${versionId} não são um objeto JSON válido.`)
+  }
+  return parsed as Record<string, unknown>
+}
+
+/** Opens watermark logo images of this workspace from R2 as streams without buffering. */
+async function openPhotoEditImages(
+  deps: McpDeps,
+  wanted: Record<string, string>,
+): Promise<Record<string, LightcraftEngineBinaryPart>> {
+  const active = requireWorkspace(deps.workspace)
+  const entries = Object.entries(wanted)
+  if (entries.length > lightcraft.MAX_LIGHTCRAFT_IMAGES) {
+    throw new ToolError(`No máximo ${lightcraft.MAX_LIGHTCRAFT_IMAGES} imagens auxiliares por edição.`)
+  }
+  const found: Array<[string, ContentAsset]> = []
+  let total = 0
+  for (const [name, assetId] of entries) {
+    const asset =
+      (await assets.getContentAsset(deps.db, active.id, assetId)) ??
+      notFound('media file', assetId)
+    if (assetKind(asset.contentType) !== 'image') {
+      throw new ToolError(`O arquivo de mídia ${assetId} (imagem "${name}") não é uma imagem.`)
+    }
+    if (asset.size > lightcraft.MAX_LIGHTCRAFT_IMAGE_BYTES) {
+      throw new ToolError(
+        `O arquivo de mídia ${assetId} (imagem "${name}") é maior que ${formatBytes(lightcraft.MAX_LIGHTCRAFT_IMAGE_BYTES)}.`,
+      )
+    }
+    total += asset.size
+    found.push([name, asset])
+  }
+  if (total > lightcraft.MAX_LIGHTCRAFT_IMAGES_TOTAL_BYTES) {
+    throw new ToolError(
+      `As imagens auxiliares de uma edição podem somar no máximo ${formatBytes(lightcraft.MAX_LIGHTCRAFT_IMAGES_TOTAL_BYTES)}.`,
+    )
+  }
+  const opened: Record<string, LightcraftEngineBinaryPart> = {}
+  try {
+    for (const [name, asset] of found) {
+      const object = await deps.bucket.get(assets.assetObjectKey(asset.contentItemId, asset.id))
+      if (!object?.body) {
+        throw new ToolError(`O arquivo da mídia ${asset.id} não foi encontrado no armazenamento.`)
+      }
+      opened[name] = {
+        name: asset.filename,
+        stream: object.body,
+        size: object.size,
+        contentType: asset.contentType,
+      }
+    }
+  } catch (error) {
+    for (const part of Object.values(opened)) {
+      void part.stream.cancel().catch(() => {})
+    }
+    throw error
+  }
+  return opened
+}
+
+function asPhotoEditFile(bytes: Uint8Array): photoEdits.PhotoEditFile {
+  return {
+    body: bytes.slice().buffer,
+    size: bytes.length,
+    head: bytes.subarray(0, PHOTO_SIGNATURE_BYTES),
+  }
+}
+
+const photoEngineCommandSchema = z.object({
+  command: z.string().trim().min(1).max(200).describe('Command id, from list_photo_commands.'),
+  params: z
+    .record(z.string(), z.unknown())
+    .optional()
+    .describe(
+      `The command's parameters. For a watermark logo image from "images", pass "${lightcraft.LIGHTCRAFT_IMAGE_PREFIX}<name>".`,
     ),
 })
 
@@ -1393,6 +1541,272 @@ export const zoraTools = [
     },
   }),
   defineTool({
+    name: 'list_photo_commands',
+    title: 'List photo engine commands',
+    description: `The commands edit_photo can run (Zora LightCraft's engine): id, label and parameters. Filter with query (e.g. "develop", "light", "color", "crop", "wb", "detail"); at most ${MAX_COMMAND_LIST} are returned (default ${DEFAULT_COMMAND_LIST}), so search rather than list everything.`,
+    inputSchema: z.object({
+      query: z.string().trim().max(200).optional().describe('Words to look for in ids and labels.'),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(MAX_COMMAND_LIST)
+        .default(DEFAULT_COMMAND_LIST)
+        .describe(`How many to return (1 to ${MAX_COMMAND_LIST}).`),
+    }),
+    annotations: readOnly,
+    run: async ({ query, limit }, { photoEngine: transport }) => {
+      const found = await lightcraft.listPhotoEngineCommands(requirePhotoEngine(transport), query)
+      const shown = found.slice(0, limit).map((command) => ({
+        id: command.id,
+        label: command.label,
+        params: bounded(command.params, MAX_COMMAND_PARAMS_CHARS),
+      }))
+      return ok({
+        total: found.length,
+        shown: shown.length,
+        ...(found.length > shown.length
+          ? { note: 'More commands match: narrow the query or raise limit.' }
+          : {}),
+        commands: shown,
+      })
+    },
+  }),
+  defineTool({
+    name: 'edit_photo',
+    title: 'Edit a photo',
+    description: `Runs commands (up to ${lightcraft.MAX_LIGHTCRAFT_COMMANDS}, in order; find them with list_photo_commands) with Zora LightCraft's engine on the photo edit's original and current settings, and saves the result as a new numbered version. Returns the version number, each command's result and the rendered preview image so you can look at it. For watermark logos, map short names to image media file ids of this workspace in "images" ({"logo": "<assetId>"}) and pass "${lightcraft.LIGHTCRAFT_IMAGE_PREFIX}logo" in the command's params; at most ${lightcraft.MAX_LIGHTCRAFT_IMAGES} images, ${formatBytes(lightcraft.MAX_LIGHTCRAFT_IMAGE_BYTES)} each. If a command fails nothing is saved and the error names it. Pass baseVersionId (the version you last looked at) so a save the person made meanwhile in LightCraft is never overwritten.`,
+    inputSchema: z.object({
+      editId: z.uuid().describe('Photo edit id.'),
+      baseVersionId: z
+        .uuid()
+        .optional()
+        .describe('The version your commands were written for; refused if it is no longer current.'),
+      commands: z
+        .array(photoEngineCommandSchema)
+        .min(1)
+        .max(lightcraft.MAX_LIGHTCRAFT_COMMANDS)
+        .describe('Commands to run, in order.'),
+      images: z
+        .record(
+          z
+            .string()
+            .regex(
+              lightcraft.LIGHTCRAFT_IMAGE_NAME,
+              'Use 1 to 64 letters, digits, "_" or "-".',
+            ),
+          z.uuid(),
+        )
+        .optional()
+        .describe('Watermark logo images the commands use: name -> media file id (get_content_item lists them).'),
+    }),
+    annotations: writes,
+    run: async (args, deps) => {
+      const active = requireWorkspace(deps.workspace)
+      const transport = requirePhotoEngine(deps.photoEngine)
+      const edit =
+        (await photoEdits.getContentPhotoEdit(deps.db, active.id, args.editId)) ??
+        notFound('photo edit', args.editId)
+      const conflict = (currentId: string | null, currentNumber: number | null) =>
+        new ToolError(
+          `A edição de foto mudou desde a versão usada como base: a versão atual é a ${currentNumber ?? '(nenhuma)'} (id ${currentId ?? 'nenhum'}), provavelmente salva no LightCraft. Nada foi salvo. Inspecione ou leia a versão atual novamente (get_photo_edit ou inspect_photo) antes de editar de novo.`,
+        )
+      if (args.baseVersionId && args.baseVersionId !== edit.currentVersionId) {
+        throw conflict(edit.currentVersionId, edit.currentVersionNumber)
+      }
+      const baseVersionId = edit.currentVersionId
+      const currentSettings = baseVersionId
+        ? await readPhotoVersionSettings(deps, edit.id, baseVersionId)
+        : undefined
+      const placedImages = await openPhotoEditImages(deps, args.images ?? {})
+      let original: LightcraftEngineBinaryPart
+      try {
+        original = await openPhotoOriginalStream(deps, active.id, edit)
+      } catch (error) {
+        for (const part of Object.values(placedImages)) {
+          void part.stream.cancel().catch(() => {})
+        }
+        throw error
+      }
+
+      let result: LightcraftEngineRunResult
+      try {
+        result = await lightcraft.runPhotoEngine(transport, {
+          original,
+          ...(currentSettings ? { settings: currentSettings } : {}),
+          images: placedImages,
+          commands: args.commands,
+          render: { scale: 1, maxSize: RENDER_MAX_SIZE, format: 'jpeg' },
+        })
+      } catch (error) {
+        if (error instanceof lightcraft.LightcraftEngineCommandError) {
+          const failed = error.index >= 0 ? args.commands[error.index] : undefined
+          const which =
+            error.index >= 0
+              ? `O comando ${error.index}${failed ? ` ("${failed.command}")` : ''} falhou`
+              : 'Um comando falhou'
+          throw new ToolError(
+            `${which}: ${error.engineMessage} Nada foi salvo; corrija esse comando e envie a edição novamente.`,
+          )
+        }
+        throw error
+      }
+      if (!result.preview) {
+        throw new ToolError('O motor de fotos não retornou uma prévia; nada foi salvo.')
+      }
+
+      const settingsBytes = new TextEncoder().encode(JSON.stringify(result.settings))
+      let saved: photoEdits.SavedPhotoEditVersion | null
+      try {
+        saved = await photoEdits.savePhotoEditVersion(deps.db, deps.bucket, {
+          organizationId: active.id,
+          editId: edit.id,
+          createdById: deps.user.id,
+          authorKind: 'agent',
+          baseVersionId,
+          settings: asPhotoEditFile(settingsBytes),
+          preview: asPhotoEditFile(result.preview),
+        })
+      } catch (error) {
+        if (error instanceof photoEdits.PhotoEditConflictError) {
+          throw conflict(error.currentVersionId, error.currentVersionNumber)
+        }
+        if (error instanceof photoEdits.PhotoEditFileError) {
+          throw new ToolError(`A saída do motor de fotos não pôde ser salva: ${error.message}`)
+        }
+        throw error
+      }
+      if (!saved) notFound('photo edit', edit.id)
+      const answer = ok({
+        editId: edit.id,
+        versionId: saved.versionId,
+        number: saved.number,
+        baseVersionId,
+        results: bounded(result.results, MAX_ENGINE_TEXT_CHARS),
+        previewSize: result.preview.length,
+        url: describePhotoEdit(edit, deps.appUrl).url,
+      })
+      answer.content.push(...photoPreviewContent(result.preview, result.previewContentType))
+      return answer
+    },
+  }),
+  defineTool({
+    name: 'render_photo',
+    title: 'Render a photo edit',
+    description:
+      'Returns the rendered preview of a photo edit version (the current one by default) as an image you can look at. Without scale it serves the stored preview; with scale (0.05 to 4) the photo engine renders it again at that scale without saving.',
+    inputSchema: z.object({
+      editId: z.uuid().describe('Photo edit id.'),
+      versionId: z.uuid().optional().describe('A version other than the current one.'),
+      scale: z
+        .number()
+        .min(0.05)
+        .max(4)
+        .optional()
+        .describe('Render at this scale (0.05 to 4) instead of returning the stored preview.'),
+    }),
+    annotations: readOnly,
+    run: async ({ editId, versionId, scale }, deps) => {
+      const active = requireWorkspace(deps.workspace)
+      const edit =
+        (await photoEdits.getContentPhotoEdit(deps.db, active.id, editId)) ??
+        notFound('photo edit', editId)
+      const shownId = versionId ?? edit.currentVersionId
+      const version = shownId
+        ? ((await photoEdits.getPhotoEditVersion(deps.db, active.id, editId, shownId)) ??
+          notFound('version of this photo edit', shownId))
+        : null
+
+      if (scale === undefined) {
+        if (!version) {
+          throw new ToolError(
+            `A edição de foto ${editId} ainda não tem nenhuma versão salva. Edite com edit_photo (ou no LightCraft) primeiro, ou passe scale para renderizar a original.`,
+          )
+        }
+        const preview = await readBytes(deps.bucket, photoEditPreviewKey(edit.id, version.id))
+        if (!preview) {
+          throw new ToolError(`A prévia da versão ${version.id} não foi encontrada.`)
+        }
+        const answer = ok({
+          editId: edit.id,
+          versionId: version.id,
+          number: version.number,
+          size: preview.length,
+        })
+        answer.content.push(...photoPreviewContent(preview))
+        return answer
+      }
+
+      const transport = requirePhotoEngine(deps.photoEngine)
+      const settings = version
+        ? await readPhotoVersionSettings(deps, edit.id, version.id)
+        : undefined
+      const original = await openPhotoOriginalStream(deps, active.id, edit)
+      const rendered = await lightcraft.runPhotoEngine(transport, {
+        original,
+        ...(settings ? { settings } : {}),
+        commands: [],
+        render: { scale, maxSize: RENDER_MAX_SIZE, format: 'jpeg' },
+      })
+      if (!rendered.preview) {
+        throw new ToolError('O motor de fotos não retornou nenhuma imagem.')
+      }
+      const answer = ok({
+        editId: edit.id,
+        versionId: version?.id ?? null,
+        number: version?.number ?? null,
+        scale,
+        size: rendered.preview.length,
+      })
+      answer.content.push(...photoPreviewContent(rendered.preview, rendered.previewContentType))
+      return answer
+    },
+  }),
+  defineTool({
+    name: 'inspect_photo',
+    title: 'Inspect a photo edit',
+    description:
+      "Structured information about a photo edit (the current version by default, or the original if never saved) as Zora LightCraft's engine sees it: dimensions, format/EXIF metadata, histogram/exposure info and current develop settings. Use it before edit_photo.",
+    inputSchema: z.object({
+      editId: z.uuid().describe('Photo edit id.'),
+      versionId: z.uuid().optional().describe('A version other than the current one.'),
+    }),
+    annotations: readOnly,
+    run: async ({ editId, versionId }, deps) => {
+      const active = requireWorkspace(deps.workspace)
+      const transport = requirePhotoEngine(deps.photoEngine)
+      const edit =
+        (await photoEdits.getContentPhotoEdit(deps.db, active.id, editId)) ??
+        notFound('photo edit', editId)
+      const shownId = versionId ?? edit.currentVersionId
+      const version = shownId
+        ? ((await photoEdits.getPhotoEditVersion(deps.db, active.id, editId, shownId)) ??
+          notFound('version of this photo edit', shownId))
+        : null
+      const settings = version
+        ? await readPhotoVersionSettings(deps, edit.id, version.id)
+        : undefined
+      const original = await openPhotoOriginalStream(deps, active.id, edit)
+      const result = await lightcraft.runPhotoEngine(transport, {
+        original,
+        ...(settings ? { settings } : {}),
+        commands: [],
+        inspect: true,
+      })
+      if (result.inspect === undefined) {
+        throw new ToolError('O motor de fotos não retornou dados de inspeção.')
+      }
+      return ok({
+        editId: edit.id,
+        versionId: version?.id ?? null,
+        number: version?.number ?? null,
+        originalName: edit.originalName,
+        originalSize: edit.originalSize,
+        info: bounded(result.inspect, MAX_ENGINE_TEXT_CHARS),
+      })
+    },
+  }),
+  defineTool({
     name: 'list_social_connections',
     title: 'List social connections',
     description:
@@ -1535,6 +1949,7 @@ export async function runZoraTool(
       error instanceof photoEdits.PhotoEditFileError ||
       error instanceof images.ImageProviderError ||
       error instanceof engine.StudioEngineError ||
+      error instanceof lightcraft.LightcraftEngineError ||
       error instanceof SocialPublishingError
     ) {
       return fail(error.message)

@@ -24,7 +24,12 @@
     "studio:publish": "node scripts/studio-publish.ts",
     "lightcraft:publish": "node scripts/lightcraft-publish.ts",
     "fonts:sync": "node scripts/fonts-sync.ts",
-    "auth:generate": "auth generate --config better-auth.config.ts --output src/db/auth-schema.ts --yes"
+    "auth:generate": "auth generate --config better-auth.config.ts --output src/db/auth-schema.ts --yes",
+    "desktop:dev": "cargo run --manifest-path desktop/src-tauri/Cargo.toml -- --url http://localhost:3000",
+    "desktop:build": "cargo build --release --manifest-path desktop/src-tauri/Cargo.toml",
+    "desktop:check": "cargo check --manifest-path desktop/src-tauri/Cargo.toml",
+    "desktop:package": "node scripts/desktop-package.ts",
+    "desktop:package:debug": "node scripts/desktop-package.ts --debug --skip-editors"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.25",
@@ -40,6 +45,7 @@
     "@tanstack/react-router": "^1.170.46",
     "@tanstack/react-router-ssr-query": "^1.167.3",
     "@tanstack/react-start": "^1.169.5",
+    "@tauri-apps/api": "^2.12.5",
     "@tiptap/extension-table": "^3.34.0",
     "@tiptap/extensions": "^3.34.0",
     "@tiptap/markdown": "^3.34.0",
@@ -65,6 +71,7 @@
     "@cloudflare/vite-plugin": "^1.69.1",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.5",
+    "@tauri-apps/cli": "^2.12.6",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

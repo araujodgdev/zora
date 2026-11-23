@@ -1,8 +1,18 @@
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { Link, createFileRoute, notFound, useBlocker } from '@tanstack/react-router'
-import { ArrowLeft, MonitorSmartphone, RotateCcw, TriangleAlert } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import {
+  AppWindow,
+  ArrowLeft,
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  Loader2,
+  Monitor,
+  MonitorSmartphone,
+  RotateCw,
+  TriangleAlert,
+} from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import { PAGE_PADDING, PageHeader } from '@/components/app-shell'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -16,40 +26,40 @@ import {
 } from '@/components/ui/dialog'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { contentKeys } from '@/lib/content-cache'
-import { photoEditOriginalUrl, photoEditSettingsUrl } from '@/lib/content-photo-edits'
 import { contentPhotoEditsQueryOptions } from '@/lib/content-photo-edits.queries'
-import { savePhotoEditVersion } from '@/lib/content-photo-edits.upload'
-import { editItemSearchSchema } from '@/lib/editor-search'
 import {
-  LIGHTCRAFT_DIRTY_POLL_MS,
-  LIGHTCRAFT_EDITOR_URL,
-  LightcraftBridge,
-  openLightcraftPhoto,
-  parseLightcraftMessage,
-  pollLightcraftDirty,
-  saveLightcraftPhoto,
-} from '@/lib/lightcraft-bridge'
-import type { LightcraftMessage, LightcraftTransport } from '@/lib/lightcraft-bridge'
+  ZORA_DESKTOP_DOWNLOAD_URL,
+  focusNativeEditor,
+  getDesktopInfo,
+  isDesktopClosedPayload,
+  isZoraDesktop,
+  openNativePhotoEditor,
+  subscribeDesktopEditorEvents,
+} from '@/lib/desktop-bridge'
+import { editItemSearchSchema } from '@/lib/editor-search'
 import { loadQuery } from '@/lib/route-query'
-import { LIGHTCRAFT_BUNDLE } from '@/lib/studio-hosting'
+import { parseZoraLightcraftMessage } from '@/lib/studio-hosting'
+import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 /**
- * The photo editor: LightCraft, embedded from `/lightcraft/` (served from
- * R2, same origin; see "LightCraft hosting" in AGENTS.md) below a thin Zora
- * header (Voltar, the edit's name, the save state, Salvar). The bridge is
- * parent-driven (`@/lib/lightcraft-bridge`, docs/LIGHTCRAFT-PLAN.md "Editor
- * page"): this page opens the edit's original in LightCraft's memory
- * library, merges the current version's settings, polls `develop.get` for
- * unsaved changes, and on Salvar exports a JPEG preview and posts a new
- * version (409 = someone saved meanwhile: a dialog). Phones get a message.
+ * The photo editor page. Native-first: Zora LightCraft runs as a native
+ * Rust/wgpu window launched by Zora Desktop (Tauri v2, see
+ * docs/DESKTOP-PLAN.md), which bundles the editor executable in its single
+ * installer. Inside Zora Desktop this page launches the editor through the
+ * desktop bridge and mirrors its lifecycle events
+ * (`zora-lightcraft:ready|dirty|saved|back`, `zora-desktop:closed`): it
+ * refreshes the photo edit queries on a save, returns to the item on `back`,
+ * and warns before leaving with unsaved changes. In a regular web browser the
+ * page explains that editing happens in Zora Desktop (the web/WASM editor is
+ * no longer embedded). Phones get a message: the editor needs a larger screen.
  */
 export const Route = createFileRoute('/_app/content/$itemId_/photos/$editId')({
   // `from` is the item editor's origin, kept for the way back.
   validateSearch: editItemSearchSchema,
-  // Whether this is a phone is only known in the browser.
+  // Whether this is a phone (or Zora Desktop) is only known in the browser.
   ssr: 'data-only',
-  // No shell padding: the header and LightCraft fill the page.
+  // No shell padding: the page manages its own full-height layout.
   staticData: { fullBleed: true },
   loader: async ({ context, params }) => {
     const edits = await loadQuery(
@@ -67,29 +77,6 @@ export const Route = createFileRoute('/_app/content/$itemId_/photos/$editId')({
   notFoundComponent: PhotoEditNotFound,
 })
 
-/** Whether LightCraft answers at `/lightcraft/` (it is published to R2 separately). */
-type Availability = 'checking' | 'available' | 'missing' | 'signed-out' | 'error'
-
-/** The editor's state, as the header shows it. */
-type EditorPhase =
-  | { kind: 'opening' }
-  | { kind: 'open-failed'; message: string }
-  | { kind: 'ready' }
-  | { kind: 'saving' }
-
-/** The version the open photo is based on (null before the first save). */
-type BaseVersion = { id: string; number: number } | null
-
-/** A 409 answer: the newer version someone else saved. */
-type Conflict = { message: string; versionId: string | null; number: number | null }
-
-/** Longest wait for the fresh dirty poll before a navigation. */
-const NAVIGATION_POLL_TIMEOUT_MS = 2000
-
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback
-}
-
 function BackToItem({ className }: { className?: string }) {
   const { itemId } = Route.useParams()
   const { from } = Route.useSearch()
@@ -106,6 +93,20 @@ function BackToItem({ className }: { className?: string }) {
       <ArrowLeft className="size-4" />
       Voltar ao item
     </Link>
+  )
+}
+
+/** "Voltar ao item" as an outline button, for action rows. */
+function BackToItemButton() {
+  const { itemId } = Route.useParams()
+  const { from } = Route.useSearch()
+  return (
+    <Button asChild variant="outline">
+      <Link to="/content/$itemId" params={{ itemId }} search={{ from }}>
+        <ArrowLeft className="size-4" />
+        Voltar ao item
+      </Link>
+    </Button>
   )
 }
 
@@ -133,471 +134,269 @@ function PhotoEditorPage() {
       </div>
     )
   }
-  return <PhotoEditor key={edit.id} name={edit.name} />
-}
-
-/** Fetches a file of the edit with the session; readable errors. */
-async function fetchEditFile(url: string, what: string): Promise<Response> {
-  let response: Response
-  try {
-    response = await fetch(url, { credentials: 'same-origin', cache: 'no-store' })
-  } catch {
-    throw new Error(`Não foi possível baixar ${what}: verifique sua conexão.`)
+  if (!isZoraDesktop()) {
+    return <DesktopRequired name={edit.name} originalName={edit.originalName} />
   }
-  if (response.status === 401) throw new Error('Sua sessão terminou. Entre de novo no Zora.')
-  if (!response.ok) throw new Error(`Não foi possível baixar ${what} (${response.status}).`)
-  return response
+  return <NativePhotoEditor key={edit.id} name={edit.name} originalName={edit.originalName} />
 }
 
-function PhotoEditor({ name }: { name: string }) {
+/** Shown in a regular web browser: editing is native-only (Zora Desktop). */
+function DesktopRequired({ name, originalName }: { name: string; originalName: string }) {
+  return (
+    <div className="bg-background h-(--page-h) w-full overflow-auto">
+      <div className={cn('flex min-h-full flex-col', PAGE_PADDING)}>
+        <BackToItem className="mb-6 self-start" />
+        <PageHeader title={name} description={originalName} />
+        <div className="flex flex-1 items-center justify-center py-8">
+          <div className="bg-card w-full max-w-lg rounded-xl p-6 sm:p-8">
+            <div className="flex items-start gap-3.5">
+              <div className="bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">
+                <Monitor className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-display text-foreground text-xl font-semibold">
+                  Edição disponível no Zora Desktop
+                </h2>
+                <p className="text-muted-foreground mt-2 text-sm">
+                  O Zora LightCraft roda de forma nativa com aceleração de GPU no aplicativo Zora
+                  Desktop. Abra este item no Zora Desktop para revelar e editar a foto; por aqui
+                  você continua vendo as prévias, o histórico de versões e pode usá-la como mídia.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-2.5">
+              <Button asChild>
+                <a href={ZORA_DESKTOP_DOWNLOAD_URL} target="_blank" rel="noreferrer">
+                  <Download className="size-4" />
+                  Baixar Zora Desktop (Windows)
+                </a>
+              </Button>
+              <BackToItemButton />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+type NativeEditorState =
+  | { status: 'opening' }
+  | { status: 'running' }
+  | { status: 'closed' }
+  | { status: 'unavailable' }
+  | { status: 'error'; message: string }
+
+function NativePhotoEditor({ name, originalName }: { name: string; originalName: string }) {
   const { itemId, editId } = Route.useParams()
   const { from } = Route.useSearch()
   const navigate = Route.useNavigate()
+  const initialTheme = Route.useRouteContext({ select: (context) => context.theme })
+  const theme = useTheme(initialTheme)
+  // Fix the theme the native editor opens with so theme switches do not relaunch it.
+  const [initialEditorTheme] = useState(() => theme)
+  const [state, setState] = useState<NativeEditorState>({ status: 'opening' })
+  const [dirty, setDirty] = useState(false)
+  const [lastSavedNumber, setLastSavedNumber] = useState<number | null>(null)
+  const [launchAttempt, setLaunchAttempt] = useState(0)
   const queryClient = useQueryClient()
 
-  const [availability, setAvailability] = useState<Availability>('checking')
-  // A new key gives a fresh iframe (and a fresh open): "Abrir a versão mais recente".
-  const [frameKey, setFrameKey] = useState(0)
-  const [phase, setPhase] = useState<EditorPhase>({ kind: 'opening' })
-  const [base, setBase] = useState<BaseVersion>(null)
-  const [dirty, setDirty] = useState(false)
-  const [saveFailed, setSaveFailed] = useState(false)
-  const [conflict, setConflict] = useState<Conflict | null>(null)
-  const [confirmDiscard, setConfirmDiscard] = useState(false)
-  // After "Continuar editando": the newer version the next save replaces (after asking).
-  const [replaceTarget, setReplaceTarget] = useState<{ id: string; number: number | null } | null>(
-    null,
-  )
-  const [confirmReplace, setConfirmReplace] = useState(false)
-
-  const frameRef = useRef<HTMLIFrameElement>(null)
-  const bridgeRef = useRef<LightcraftBridge | null>(null)
-  const baselineRef = useRef<string | null>(null)
-  const dirtyRef = useRef(false)
-  const savingRef = useRef(false)
-  // For the blocker's callback, which outlives a render.
-  const phaseRef = useRef<EditorPhase>(phase)
-  useEffect(() => {
-    phaseRef.current = phase
-  }, [phase])
-
-  const updateDirty = useCallback((next: boolean) => {
-    dirtyRef.current = next
-    setDirty(next)
+  const requestLaunch = useCallback(() => {
+    setState({ status: 'opening' })
+    setLaunchAttempt((n) => n + 1)
   }, [])
 
-  // Probe LightCraft before loading it, so a missing build shows an
-  // explanation instead of a 404 page inside the frame.
   useEffect(() => {
-    const controller = new AbortController()
-    fetch(LIGHTCRAFT_BUNDLE.urlPrefix, {
-      method: 'HEAD',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then((response) => {
-        setAvailability(
-          response.ok
-            ? 'available'
-            : response.status === 404
-              ? 'missing'
-              : response.status === 401
-                ? 'signed-out'
-                : 'error',
-        )
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setAvailability('error')
-      })
-    return () => controller.abort()
-  }, [])
-
-  // One bridge and one open flow per iframe.
-  useEffect(() => {
-    if (availability !== 'available') return
-    const frame = frameRef.current
-    if (!frame) return
-    const frameWindow = () => frame.contentWindow
-    const transport: LightcraftTransport = {
-      post: (message, transfer) =>
-        frameWindow()?.postMessage(message, window.location.origin, transfer ?? []),
-      subscribe: (listener: (message: LightcraftMessage) => void) => {
-        function onMessage(event: MessageEvent) {
-          // Only LightCraft, in this page's frame, on Zora's own origin.
-          if (event.origin !== window.location.origin) return
-          if (!event.source || event.source !== frameWindow()) return
-          const message = parseLightcraftMessage(event.data)
-          if (message) listener(message)
-        }
-        window.addEventListener('message', onMessage)
-        return () => window.removeEventListener('message', onMessage)
-      },
-    }
-    const bridge = new LightcraftBridge(transport)
-    bridgeRef.current = bridge
-    baselineRef.current = null
     let cancelled = false
-    setPhase({ kind: 'opening' })
-    updateDirty(false)
-    setSaveFailed(false)
-
-    void (async () => {
-      // The newest metadata: after a 409 the reopen must find the newest version.
-      const edits = await queryClient.fetchQuery({
-        ...contentPhotoEditsQueryOptions(itemId),
-        staleTime: 0,
+    getDesktopInfo()
+      .then((info) => {
+        if (cancelled) return
+        if (!info.lightcraftAvailable) {
+          setState({ status: 'unavailable' })
+          return
+        }
+        return openNativePhotoEditor({
+          editId,
+          itemId,
+          name,
+          theme: initialEditorTheme,
+        }).then(() => {
+          if (!cancelled) setState({ status: 'running' })
+        })
       })
-      const edit = edits.find((entry) => entry.id === editId)
-      if (!edit) throw new Error('Esta edição de foto não existe mais.')
-      const versionId = edit.currentVersionId
-      const [original, settings] = await Promise.all([
-        fetchEditFile(photoEditOriginalUrl(editId), 'a foto original').then((r) =>
-          r.arrayBuffer(),
-        ),
-        versionId
-          ? fetchEditFile(photoEditSettingsUrl(editId, versionId), 'a versão salva')
-              .then((r) => r.text())
-              .then((text) => JSON.parse(text) as unknown)
-          : Promise.resolve(undefined),
-      ])
-      await bridge.whenReady()
-      const baseline = await openLightcraftPhoto(bridge, {
-        name: edit.originalName,
-        bytes: original,
-        settings,
-        label:
-          edit.currentVersionNumber !== null ? `Versão ${edit.currentVersionNumber}` : undefined,
+      .catch((error: unknown) => {
+        if (cancelled) return
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : 'Não foi possível iniciar o Zora LightCraft nativo.'
+        setState({ status: 'error', message })
       })
-      if (cancelled) return
-      baselineRef.current = baseline
-      setBase(
-        versionId && edit.currentVersionNumber !== null
-          ? { id: versionId, number: edit.currentVersionNumber }
-          : null,
-      )
-      setPhase({ kind: 'ready' })
-    })().catch((error: unknown) => {
-      if (cancelled) return
-      setPhase({
-        kind: 'open-failed',
-        message: errorMessage(error, 'Não foi possível abrir a foto.'),
-      })
-    })
-
     return () => {
       cancelled = true
-      bridge.dispose()
-      if (bridgeRef.current === bridge) bridgeRef.current = null
     }
-  }, [availability, frameKey, itemId, editId, queryClient, updateDirty])
+  }, [editId, itemId, name, initialEditorTheme, launchAttempt])
 
-  /** One dirty poll; `force` runs it even while the queue is busy. */
-  const pollDirty = useCallback(
-    async (force = false) => {
-      const bridge = bridgeRef.current
-      const baseline = baselineRef.current
-      if (!bridge || baseline === null) return dirtyRef.current
-      const result = await pollLightcraftDirty(bridge, baseline, { force })
-      // A save may have moved the baseline meanwhile: only trust the same one.
-      if (result !== null && baselineRef.current === baseline) updateDirty(result)
-      return dirtyRef.current
-    },
-    [updateDirty],
-  )
-
-  // Edits in LightCraft send nothing: poll while the tab is visible.
   useEffect(() => {
-    if (phase.kind !== 'ready') return
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== 'visible') return
-      void pollDirty()
-    }, LIGHTCRAFT_DIRTY_POLL_MS)
-    return () => window.clearInterval(timer)
-  }, [phase.kind, pollDirty])
-
-  async function runSave(baseVersionId: string | null) {
-    const bridge = bridgeRef.current
-    if (!bridge || savingRef.current) return
-    savingRef.current = true
-    setPhase({ kind: 'saving' })
-    try {
-      const { settingsText, preview } = await saveLightcraftPhoto(bridge)
-      const outcome = await savePhotoEditVersion(editId, {
-        settingsText,
-        preview,
-        baseVersionId,
-      })
-      if (outcome.kind === 'conflict') {
-        setConflict({
-          message: outcome.error,
-          versionId: outcome.currentVersionId,
-          number: outcome.currentVersionNumber,
-        })
+    return subscribeDesktopEditorEvents((event) => {
+      if (event.editor !== 'lightcraft' || event.id !== editId) return
+      if (isDesktopClosedPayload(event.payload)) {
+        setDirty(false)
+        setState({ status: 'closed' })
         return
       }
-      baselineRef.current = settingsText
-      setBase({ id: outcome.versionId, number: outcome.number })
-      setReplaceTarget(null)
-      setSaveFailed(false)
-      updateDirty(false)
-      void queryClient.invalidateQueries({ queryKey: contentKeys.photoEdits(itemId) })
-      void queryClient.invalidateQueries({ queryKey: contentKeys.photoEditVersions(editId) })
-      // Changes made while the save ran are still unsaved.
-      void pollDirty(true)
-    } catch (error) {
-      setSaveFailed(true)
-      toast.error(errorMessage(error, 'Não foi possível salvar a foto.'))
-    } finally {
-      savingRef.current = false
-      // A reloaded frame runs its own open flow; leave its state alone.
-      if (bridgeRef.current === bridge) {
-        setPhase(
-          bridge.isDisposed
-            ? { kind: 'open-failed', message: 'O LightCraft parou de responder. Tente de novo.' }
-            : { kind: 'ready' },
-        )
+      const message = parseZoraLightcraftMessage(event.payload, editId)
+      if (!message) return
+      switch (message.type) {
+        case 'zora-lightcraft:ready':
+          setDirty(false)
+          setState({ status: 'running' })
+          break
+        case 'zora-lightcraft:dirty':
+          setDirty(message.dirty)
+          setState({ status: 'running' })
+          break
+        case 'zora-lightcraft:saved':
+          setDirty(false)
+          setLastSavedNumber(message.number)
+          setState({ status: 'running' })
+          void queryClient.invalidateQueries({ queryKey: contentKeys.photoEdits(itemId) })
+          void queryClient.invalidateQueries({ queryKey: contentKeys.photoEditVersions(editId) })
+          break
+        case 'zora-lightcraft:back':
+          void navigate({ to: '/content/$itemId', params: { itemId }, search: { from } })
+          break
       }
-    }
-  }
+    })
+  }, [editId, itemId, from, navigate, queryClient])
 
-  function save() {
-    // A second click while saving (or before the photo is open) is ignored.
-    if (savingRef.current || phase.kind !== 'ready') return
-    if (replaceTarget) {
-      setConfirmReplace(true)
-      return
+  const handleFocus = useCallback(async () => {
+    try {
+      const result = await focusNativeEditor({ editor: 'lightcraft', id: editId })
+      if (!result.focused) {
+        requestLaunch()
+      }
+    } catch {
+      requestLaunch()
     }
-    void runSave(base?.id ?? null)
-  }
-
-  function openNewest() {
-    setConflict(null)
-    setConfirmDiscard(false)
-    setReplaceTarget(null)
-    updateDirty(false)
-    setFrameKey((key) => key + 1)
-  }
-
-  function keepEditing() {
-    if (conflict?.versionId) {
-      setReplaceTarget({ id: conflict.versionId, number: conflict.number })
-    }
-    setConflict(null)
-    setConfirmDiscard(false)
-  }
+  }, [editId, requestLaunch])
 
   const blocker = useBlocker({
-    // One fresh poll first: the last tick may be up to 1.5 s old.
-    shouldBlockFn: async () => {
-      if (savingRef.current) return true
-      if (phaseRef.current.kind !== 'ready') return false
-      await Promise.race([
-        pollDirty(true),
-        new Promise((resolve) => setTimeout(resolve, NAVIGATION_POLL_TIMEOUT_MS)),
-      ])
-      return dirtyRef.current
-    },
-    // Must answer synchronously: the last poll result.
-    enableBeforeUnload: () => dirtyRef.current || savingRef.current,
+    shouldBlockFn: () => dirty,
+    enableBeforeUnload: () => dirty,
     withResolver: true,
   })
 
-  const state = useMemo(() => {
-    switch (phase.kind) {
-      case 'opening':
-        return { text: 'Abrindo…', tone: 'muted' as const }
-      case 'open-failed':
-        return { text: phase.message, tone: 'error' as const }
-      case 'saving':
-        return { text: 'Salvando…', tone: 'muted' as const }
-      case 'ready':
-        if (dirty && saveFailed) return { text: 'Não salvo: o salvamento falhou', tone: 'error' as const }
-        if (dirty) return { text: 'Alterações não salvas', tone: 'muted' as const }
-        return base
-          ? { text: `Salvo (versão ${base.number})`, tone: 'muted' as const }
-          : { text: 'Nenhuma versão salva ainda', tone: 'muted' as const }
-    }
-  }, [phase, dirty, saveFailed, base])
-
-  if (availability !== 'available') {
-    return (
-      <div className="bg-background h-(--page-h) w-full overflow-hidden">
-        <LightcraftUnavailable availability={availability} />
-      </div>
-    )
-  }
+  const statusText =
+    state.status === 'opening'
+      ? 'Abrindo editor nativo…'
+      : state.status === 'closed'
+        ? 'Janela fechada'
+        : dirty
+          ? 'Alterações não salvas na janela nativa'
+          : lastSavedNumber !== null
+            ? `Salvo (versão ${lastSavedNumber})`
+            : 'Em edição na janela nativa'
 
   return (
-    // Full bleed (`staticData.fullBleed`): the header and LightCraft fill
-    // the area right of the sidebar (below the top bar under `lg`).
-    <div className="bg-background flex h-(--page-h) w-full flex-col overflow-hidden">
-      <header className="bg-card flex h-12 shrink-0 items-center gap-3 px-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            void navigate({ to: '/content/$itemId', params: { itemId }, search: { from } })
-          }
-        >
-          <ArrowLeft data-icon="inline-start" />
-          Voltar
-        </Button>
-        <div className="flex min-w-0 flex-1 items-baseline gap-3">
-          <h1 className="truncate text-sm font-medium">{name}</h1>
-          <p
-            role="status"
-            aria-live="polite"
-            className={cn(
-              'truncate text-xs',
-              state.tone === 'error' ? 'text-destructive' : 'text-muted-foreground',
-            )}
-          >
-            {state.text}
-          </p>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          disabled={phase.kind !== 'ready'}
-          aria-busy={phase.kind === 'saving'}
-          onClick={save}
-        >
-          {phase.kind === 'saving' ? 'Salvando…' : 'Salvar'}
-        </Button>
-      </header>
-
-      <div className="relative min-h-0 flex-1">
-        <iframe
-          key={frameKey}
-          ref={frameRef}
-          src={LIGHTCRAFT_EDITOR_URL}
-          title={`LightCraft: ${name}`}
-          // Same origin on purpose: the bridge only answers its same-origin parent.
-          allow="clipboard-read; clipboard-write; fullscreen"
-          className="block size-full border-0"
-        />
-        {phase.kind === 'opening' || phase.kind === 'open-failed' ? (
-          // Covers the demo library LightCraft starts with until the photo is open.
-          <div className="bg-background/90 absolute inset-0 flex items-center justify-center p-6">
-            {phase.kind === 'opening' ? (
-              <p className="text-muted-foreground text-sm">Abrindo a foto no LightCraft…</p>
-            ) : (
-              <Alert variant="destructive" className="max-w-lg">
+    <div className="bg-background h-(--page-h) w-full overflow-auto">
+      <div className={cn('flex min-h-full flex-col', PAGE_PADDING)}>
+        <BackToItem className="self-start" />
+        <div className="flex flex-1 items-center justify-center py-8">
+          {state.status === 'unavailable' || state.status === 'error' ? (
+            <div className="w-full max-w-lg space-y-4">
+              <Alert>
                 <TriangleAlert />
-                <AlertTitle>Não foi possível abrir a foto</AlertTitle>
+                <AlertTitle>
+                  {state.status === 'unavailable'
+                    ? 'Zora LightCraft nativo não encontrado'
+                    : 'Não foi possível abrir o Zora LightCraft nativo'}
+                </AlertTitle>
                 <AlertDescription>
-                  <p>{phase.message}</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    onClick={() => setFrameKey((key) => key + 1)}
-                  >
-                    <RotateCcw data-icon="inline-start" />
-                    Tentar de novo
-                  </Button>
+                  {state.status === 'unavailable'
+                    ? 'O executável do Zora LightCraft que acompanha o Zora Desktop não foi encontrado nesta instalação. Reinstale o Zora Desktop com o instalador completo (ou, em desenvolvimento, compile o editor) e tente novamente.'
+                    : `${state.message} Tente novamente em instantes.`}
                 </AlertDescription>
               </Alert>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      <Dialog
-        open={conflict !== null}
-        onOpenChange={(open) => {
-          if (!open) keepEditing()
-        }}
-      >
-        <DialogContent>
-          {confirmDiscard ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>Descartar suas alterações?</DialogTitle>
-                <DialogDescription>
-                  Abrir a versão mais recente recarrega o LightCraft, e o que você mudou desde o
-                  último salvamento se perde.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setConfirmDiscard(false)}>
-                  Voltar
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Button type="button" onClick={requestLaunch}>
+                  <RotateCw className="size-4" />
+                  {state.status === 'unavailable' ? 'Tentar novamente' : 'Abrir editor nativo'}
                 </Button>
-                <Button type="button" variant="destructive" onClick={openNewest}>
-                  Descartar e abrir
-                </Button>
-              </DialogFooter>
-            </>
+                <BackToItemButton />
+              </div>
+            </div>
           ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>Há uma versão mais nova desta foto</DialogTitle>
-                <DialogDescription>
-                  {conflict?.number
-                    ? `Alguém (uma pessoa ou um agente) salvou a versão ${conflict.number} enquanto você editava. `
-                    : 'Alguém salvou uma versão mais nova enquanto você editava. '}
-                  Nada foi salvo agora. Abra a versão mais recente, ou continue editando e salve
-                  por cima dela depois.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={keepEditing}>
-                  Continuar editando
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => (dirtyRef.current ? setConfirmDiscard(true) : openNewest())}
-                >
-                  Abrir a versão mais recente
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+            <div className="bg-card w-full max-w-lg rounded-xl p-6 sm:p-8">
+              <div className="flex items-start gap-3.5">
+                <div className="bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">
+                  {state.status === 'opening' ? (
+                    <Loader2 className="size-5 animate-spin" />
+                  ) : (
+                    <AppWindow className="size-5" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                    Zora LightCraft (Nativo)
+                  </p>
+                  <h1 className="font-display text-foreground mt-0.5 truncate text-xl font-semibold">
+                    {name}
+                  </h1>
+                  <p className="text-muted-foreground mt-0.5 truncate text-xs">{originalName}</p>
+                </div>
+              </div>
 
-      <Dialog open={confirmReplace} onOpenChange={setConfirmReplace}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {replaceTarget?.number
-                ? `Salvar por cima da versão ${replaceTarget.number}?`
-                : 'Salvar por cima da versão mais nova?'}
-            </DialogTitle>
-            <DialogDescription>
-              Sua edição vira a versão mais recente e substitui o que foi salvo nela. A versão{' '}
-              {replaceTarget?.number ?? 'mais nova'} continua no histórico e pode ser restaurada.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setConfirmReplace(false)}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                setConfirmReplace(false)
-                const target = replaceTarget
-                if (target && !savingRef.current) void runSave(target.id)
-              }}
-            >
-              Salvar mesmo assim
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <div className="bg-muted text-foreground mt-5 flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-sm">
+                {state.status === 'opening' ? (
+                  <Loader2 className="text-muted-foreground size-4 shrink-0 animate-spin" />
+                ) : state.status === 'running' && !dirty && lastSavedNumber !== null ? (
+                  <CheckCircle2 className="text-brand size-4 shrink-0" />
+                ) : (
+                  <span
+                    className={cn(
+                      'size-2 shrink-0 rounded-full',
+                      state.status === 'closed'
+                        ? 'bg-muted-foreground/50'
+                        : dirty
+                          ? 'bg-amber-500'
+                          : 'bg-primary',
+                    )}
+                  />
+                )}
+                <span>{statusText}</span>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-2.5">
+                {state.status === 'closed' ? (
+                  <Button type="button" onClick={requestLaunch}>
+                    <RotateCw className="size-4" />
+                    Abrir novamente
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    disabled={state.status === 'opening'}
+                    onClick={() => void handleFocus()}
+                  >
+                    <ExternalLink className="size-4" />
+                    Trazer janela para frente
+                  </Button>
+                )}
+                <BackToItemButton />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       <Dialog open={blocker.status === 'blocked'} onOpenChange={(open) => !open && blocker.reset?.()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Sair sem salvar?</DialogTitle>
             <DialogDescription>
-              {phase.kind === 'saving'
-                ? 'A foto ainda está sendo salva. Se sair agora, o salvamento pode se perder.'
-                : 'A foto tem alterações que ainda não foram salvas no Zora. Se sair agora, elas se perdem.'}
+              A foto tem alterações que ainda não foram salvas no Zora. Se sair agora, elas se
+              perdem.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -610,41 +409,6 @@ function PhotoEditor({ name }: { name: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
-
-function LightcraftUnavailable({ availability }: { availability: Availability }) {
-  if (availability === 'checking') {
-    return (
-      <p className="text-muted-foreground flex size-full items-center justify-center text-sm">
-        Procurando o LightCraft…
-      </p>
-    )
-  }
-  const [title, description] =
-    availability === 'missing'
-      ? [
-          'O LightCraft ainda não foi publicado aqui',
-          <>
-            Os arquivos do editor de fotos não estão no armazenamento deste ambiente. Quem cuida do
-            Zora precisa publicá-los com <code className="font-mono">pnpm lightcraft:publish</code>{' '}
-            (veja o AGENTS.md) e depois recarregar esta página.
-          </>,
-        ]
-      : availability === 'signed-out'
-        ? ['Sua sessão terminou', 'Entre de novo no Zora e abra a foto outra vez.']
-        : ['Não foi possível abrir o LightCraft', 'Verifique a conexão e recarregue a página.']
-  return (
-    <div className={cn('flex size-full flex-col', PAGE_PADDING)}>
-      <BackToItem className="self-start" />
-      <div className="flex flex-1 items-center justify-center">
-        <Alert className="max-w-lg">
-          <TriangleAlert />
-          <AlertTitle>{title}</AlertTitle>
-          <AlertDescription>{description}</AlertDescription>
-        </Alert>
-      </div>
     </div>
   )
 }

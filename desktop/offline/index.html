@@ -1,0 +1,159 @@
+<!doctype html>
+<!-- Local fallback shown by Zora Desktop when the configured Zora server is unreachable. -->
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <title>Sem conexão · Zora</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0a0a0a;
+        --surface: #111211;
+        --border: #232622;
+        --text: #f2f4ef;
+        --muted: #9ba39a;
+        --lime: #a7f175;
+        --lime-ink: #0e1318;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background:
+          radial-gradient(600px 320px at 50% -80px, rgba(167, 241, 117, 0.08), transparent 70%),
+          var(--bg);
+        color: var(--text);
+        font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .card {
+        width: min(460px, 100%);
+        padding: 40px 36px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: var(--surface);
+        text-align: center;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      }
+      .mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 24px;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .mark::before {
+        content: "";
+        width: 14px;
+        height: 14px;
+        border-radius: 5px;
+        background: var(--lime);
+        box-shadow: 0 0 18px rgba(167, 241, 117, 0.55);
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+      .server {
+        display: inline-block;
+        margin: 14px 0 24px;
+        padding: 7px 14px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: #0d0f0d;
+        color: var(--lime);
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 13px;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+      }
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 11px 26px;
+        background: var(--lime);
+        color: var(--lime-ink);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 650;
+        cursor: pointer;
+        transition: filter 120ms ease, transform 120ms ease;
+      }
+      button:hover:not(:disabled) {
+        filter: brightness(1.06);
+        transform: translateY(-1px);
+      }
+      button:disabled {
+        opacity: 0.65;
+        cursor: wait;
+      }
+      .status {
+        min-height: 22px;
+        margin: 14px 0 0;
+        font-size: 13.5px;
+        color: #e8b98a;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <span class="mark">Zora</span>
+      <h1>Não foi possível conectar</h1>
+      <p>
+        O Zora Desktop não conseguiu falar com o servidor. Verifique sua conexão
+        com a internet ou se o servidor está no ar.
+      </p>
+      <span class="server" id="server-url">https://zora.lume.software</span>
+      <div>
+        <button type="button" id="retry">Tentar novamente</button>
+      </div>
+      <p class="status" id="status" role="status"></p>
+    </main>
+    <script>
+      // Injected by the desktop shell via an initialization script.
+      const serverUrl = window.__ZORA_SERVER_URL__ || "https://zora.lume.software";
+      const button = document.getElementById("retry");
+      const status = document.getElementById("status");
+      document.getElementById("server-url").textContent = serverUrl;
+
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        button.textContent = "Verificando…";
+        status.textContent = "";
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 8000);
+          // Opaque probe: resolves when the server answers, rejects on network failure.
+          await fetch(serverUrl, {
+            mode: "no-cors",
+            cache: "no-store",
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          location.replace(serverUrl);
+        } catch {
+          button.disabled = false;
+          button.textContent = "Tentar novamente";
+          status.textContent = "Ainda sem conexão com o servidor.";
+        }
+      });
+    </script>
+  </body>
+</html>

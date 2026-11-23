@@ -1,6 +1,6 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "dist", ".wrangler", ".output"],
+  "exclude": ["node_modules", "dist", ".wrangler", ".output", "desktop/src-tauri/target"],
   "compilerOptions": {
     "jsx": "react-jsx",
     "moduleResolution": "Bundler",

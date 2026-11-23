@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": ["binaries/zora-studio", "binaries/zora-lightcraft"],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["PortugueseBR", "English"]
+      }
+    }
+  }
+}

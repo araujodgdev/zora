@@ -59,9 +59,9 @@ export const STUDIO_FONTS_BUNDLE = {
 
 /**
  * LightCraft's web build (`cargo xtask web` -> `target/web-site/`: index.html,
- * worker.js, lightcraft_web.js, lightcraft_web_bg.wasm, optionally
- * lightcraft_zh_hans.otf and its OFL text). Its file names carry no content
- * hash, so everything is `no-cache`.
+ * worker.js, lightcraft_web.js, lightcraft_web_bg.wasm, icons/*, licenses/*,
+ * optionally lightcraft_zh_hans.otf and its OFL text). Its file names carry no
+ * content hash, so everything is `no-cache`.
  */
 export const LIGHTCRAFT_BUNDLE = {
   urlPrefix: '/lightcraft/',
@@ -93,6 +93,12 @@ export const PUBLISH_INDEX_FILE = '.published.json'
 export function studioEditorUrl(designId: string, theme: 'dark' | 'light'): string {
   const search = new URLSearchParams({ design: designId, theme })
   return `${STUDIO_BUNDLE.urlPrefix}?${search.toString()}`
+}
+
+/** The embedded Zora LightCraft for a photo edit, in Zora's theme. */
+export function lightcraftEditorUrl(editId: string, theme: 'dark' | 'light'): string {
+  const search = new URLSearchParams({ photo: editId, theme })
+  return `${LIGHTCRAFT_BUNDLE.urlPrefix}?${search.toString()}`
 }
 
 // --- paths ----------------------------------------------------------------------
@@ -284,6 +290,47 @@ export function parseStudioMessage(data: unknown, designId: string): StudioMessa
         typeof message.number === 'number' &&
         Number.isInteger(message.number)
         ? { type: message.type, designId, versionId: message.versionId, number: message.number }
+        : null
+    default:
+      return null
+  }
+}
+
+// --- messages from the embedded Zora LightCraft ----------------------------------------
+
+/** What Zora LightCraft posts to the page that embeds it (docs/LIGHTCRAFT-PLAN.md, L3). */
+export type ZoraLightcraftMessage =
+  | { type: 'zora-lightcraft:ready'; editId: string }
+  | { type: 'zora-lightcraft:dirty'; editId: string; dirty: boolean }
+  | { type: 'zora-lightcraft:saved'; editId: string; versionId: string; number: number }
+  /** The person pressed "Voltar ao item" in Zora LightCraft. */
+  | { type: 'zora-lightcraft:back'; editId: string }
+
+/**
+ * The Zora LightCraft message in `data`, when it is one and about `editId`; null for
+ * anything else (other messages, other photo edits, malformed fields). Check
+ * `event.origin` and `event.source` before calling this.
+ */
+export function parseZoraLightcraftMessage(
+  data: unknown,
+  editId: string,
+): ZoraLightcraftMessage | null {
+  if (typeof data !== 'object' || data === null) return null
+  const message = data as Record<string, unknown>
+  if (message.editId !== editId) return null
+  switch (message.type) {
+    case 'zora-lightcraft:ready':
+    case 'zora-lightcraft:back':
+      return { type: message.type, editId }
+    case 'zora-lightcraft:dirty':
+      return typeof message.dirty === 'boolean'
+        ? { type: message.type, editId, dirty: message.dirty }
+        : null
+    case 'zora-lightcraft:saved':
+      return typeof message.versionId === 'string' &&
+        typeof message.number === 'number' &&
+        Number.isInteger(message.number)
+        ? { type: message.type, editId, versionId: message.versionId, number: message.number }
         : null
     default:
       return null

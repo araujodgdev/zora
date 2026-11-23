@@ -13,6 +13,7 @@ import {
   CalendarDays,
   Check,
   ChevronsUpDown,
+  Download,
   List,
   LogOut,
   Moon,
@@ -51,6 +52,7 @@ import {
 import { WebMcpTools } from '@/components/webmcp-tools'
 import { ZoraLogo, ZoraWordmark } from '@/components/brand'
 import { authClient } from '@/lib/auth-client'
+import { ZORA_DESKTOP_DOWNLOAD_URL, isZoraDesktop } from '@/lib/desktop-bridge'
 import { cn } from '@/lib/utils'
 import { setTheme, useTheme } from '@/lib/theme'
 import { myWorkspacesQueryOptions, unwrapAuth } from '@/lib/workspace.queries'
@@ -166,6 +168,8 @@ function AppSidebar() {
   // On small screens the sidebar is a sheet: close it once a page is chosen.
   const { setOpenMobile } = useSidebar()
   const queryClient = useQueryClient()
+  const hydrated = useHydrated()
+  const showDesktopDownload = hydrated && !isZoraDesktop()
   const [signingOut, setSigningOut] = useState(false)
 
   async function signOut() {
@@ -233,6 +237,21 @@ function AppSidebar() {
               {user.name}
             </div>
           </SidebarMenuItem>
+          {showDesktopDownload ? (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Baixar Zora Desktop">
+                <a
+                  href={ZORA_DESKTOP_DOWNLOAD_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setOpenMobile(false)}
+                >
+                  <Download />
+                  <span>Baixar Zora Desktop</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ) : null}
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Conectar agente">
               <Link to="/connect" onClick={() => setOpenMobile(false)}>

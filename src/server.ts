@@ -8,6 +8,7 @@ import { runScheduledPublishes } from './lib/social-publish.server'
 import { createTregClient } from './lib/treg.server'
 
 export { StudioEngine } from './lib/studio-engine-container.server'
+export { LightcraftEngine } from './lib/lightcraft-engine-container.server'
 
 type ScheduledController = {
   readonly cron: string

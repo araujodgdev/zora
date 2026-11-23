@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for the Zora main window, including the remote Zora web app served from the allowed origins.",
+  "windows": ["main"],
+  "remote": {
+    "urls": [
+      "https://zora.lume.software/*",
+      "http://localhost:3000/*",
+      "http://127.0.0.1:3000/*"
+    ]
+  },
+  "permissions": ["core:default", "core:event:default", "core:window:default"]
+}

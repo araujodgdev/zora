@@ -1,7 +1,18 @@
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { Link, createFileRoute, notFound, useBlocker } from '@tanstack/react-router'
-import { ArrowLeft, MonitorSmartphone, TriangleAlert } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import {
+  AppWindow,
+  ArrowLeft,
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  Loader2,
+  Monitor,
+  MonitorSmartphone,
+  RotateCw,
+  TriangleAlert,
+} from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import { PAGE_PADDING, PageHeader } from '@/components/app-shell'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -17,29 +28,39 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 import { contentKeys } from '@/lib/content-cache'
 import { formatDesignSize } from '@/lib/content-designs'
 import { contentDesignsQueryOptions } from '@/lib/content-designs.queries'
+import {
+  ZORA_DESKTOP_DOWNLOAD_URL,
+  focusNativeEditor,
+  getDesktopInfo,
+  isDesktopClosedPayload,
+  isZoraDesktop,
+  openNativeDesignEditor,
+  subscribeDesktopEditorEvents,
+} from '@/lib/desktop-bridge'
 import { editItemSearchSchema } from '@/lib/editor-search'
 import { loadQuery } from '@/lib/route-query'
-import { STUDIO_BUNDLE, parseStudioMessage, studioEditorUrl } from '@/lib/studio-hosting'
+import { parseStudioMessage } from '@/lib/studio-hosting'
 import { useTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 /**
- * The design editor: Zora Studio, embedded from `/studio/` (served from R2,
- * same origin; see `@/lib/studio-hosting`), filling the whole area right of
- * the sidebar with no Zora header (`staticData.fullBleed`, see AppShell).
- * Studio shows the design's name and save state, saves versions itself
- * (`POST /api/designs/<id>/versions`) and posts
- * `zora-studio:ready|dirty|saved|back` to this page, which refreshes the
- * design queries on a save, returns to the item on `back`, and warns before
- * leaving with unsaved changes. Phones get a message instead: the editor
- * needs a larger screen.
+ * The design editor page. Native-first: Zora Studio runs as a native
+ * Rust/wgpu window launched by Zora Desktop (Tauri v2, see
+ * docs/DESKTOP-PLAN.md), which bundles the editor executable in its single
+ * installer. Inside Zora Desktop this page launches the editor through the
+ * desktop bridge and mirrors its lifecycle events
+ * (`zora-studio:ready|dirty|saved|back`, `zora-desktop:closed`): it refreshes
+ * the design queries on a save, returns to the item on `back`, and warns
+ * before leaving with unsaved changes. In a regular web browser the page
+ * explains that editing happens in Zora Desktop (the web/WASM editor is no
+ * longer embedded). Phones get a message: the editor needs a larger screen.
  */
 export const Route = createFileRoute('/_app/content/$itemId_/designs/$designId')({
   // `from` is the item editor's origin, kept for the way back.
   validateSearch: editItemSearchSchema,
-  // Whether this is a phone is only known in the browser.
+  // Whether this is a phone (or Zora Desktop) is only known in the browser.
   ssr: 'data-only',
-  // No shell padding: Studio fills the page.
+  // No shell padding: the page manages its own full-height layout.
   staticData: { fullBleed: true },
   loader: async ({ context, params }) => {
     const designs = await loadQuery(
@@ -56,9 +77,6 @@ export const Route = createFileRoute('/_app/content/$itemId_/designs/$designId')
   component: DesignEditorPage,
   notFoundComponent: DesignNotFound,
 })
-
-/** Whether Studio answers at `/studio/` (it is published to R2 separately). */
-type StudioAvailability = 'checking' | 'available' | 'missing' | 'signed-out' | 'error'
 
 function BackToItem({ className }: { className?: string }) {
   const { itemId } = Route.useParams()
@@ -79,6 +97,20 @@ function BackToItem({ className }: { className?: string }) {
   )
 }
 
+/** "Voltar ao item" as an outline button, for action rows. */
+function BackToItemButton() {
+  const { itemId } = Route.useParams()
+  const { from } = Route.useSearch()
+  return (
+    <Button asChild variant="outline">
+      <Link to="/content/$itemId" params={{ itemId }} search={{ from }}>
+        <ArrowLeft className="size-4" />
+        Voltar ao item
+      </Link>
+    </Button>
+  )
+}
+
 function DesignEditorPage() {
   const { itemId, designId } = Route.useParams()
   const { data: designs } = useSuspenseQuery(contentDesignsQueryOptions(itemId))
@@ -87,11 +119,12 @@ function DesignEditorPage() {
   const largeEnough = useMediaQuery('(min-width: 768px)', true)
 
   if (!design) return <DesignNotFound />
+  const sizeLabel = formatDesignSize(design.widthPx, design.heightPx)
   if (!largeEnough) {
     return (
       <div className={PAGE_PADDING}>
         <BackToItem className="mb-6" />
-        <PageHeader title={design.name} description={formatDesignSize(design.widthPx, design.heightPx)} />
+        <PageHeader title={design.name} description={sizeLabel} />
         <Alert>
           <MonitorSmartphone />
           <AlertTitle>O editor precisa de uma tela maior</AlertTitle>
@@ -103,79 +136,152 @@ function DesignEditorPage() {
       </div>
     )
   }
-  return <DesignEditor key={design.id} name={design.name} />
+  if (!isZoraDesktop()) {
+    return <DesktopRequired name={design.name} sizeLabel={sizeLabel} />
+  }
+  return <NativeDesignEditor key={design.id} name={design.name} sizeLabel={sizeLabel} />
 }
 
-function DesignEditor({ name }: { name: string }) {
+/** Shown in a regular web browser: editing is native-only (Zora Desktop). */
+function DesktopRequired({ name, sizeLabel }: { name: string; sizeLabel: string }) {
+  return (
+    <div className="bg-background h-(--page-h) w-full overflow-auto">
+      <div className={cn('flex min-h-full flex-col', PAGE_PADDING)}>
+        <BackToItem className="mb-6 self-start" />
+        <PageHeader title={name} description={sizeLabel} />
+        <div className="flex flex-1 items-center justify-center py-8">
+          <div className="bg-card w-full max-w-lg rounded-xl p-6 sm:p-8">
+            <div className="flex items-start gap-3.5">
+              <div className="bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">
+                <Monitor className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-display text-foreground text-xl font-semibold">
+                  Edição disponível no Zora Desktop
+                </h2>
+                <p className="text-muted-foreground mt-2 text-sm">
+                  O Zora Studio roda de forma nativa com aceleração de GPU no aplicativo Zora
+                  Desktop. Abra este item no Zora Desktop para editar o design; por aqui você
+                  continua vendo as prévias, o histórico de versões e pode usá-lo como mídia.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-2.5">
+              <Button asChild>
+                <a href={ZORA_DESKTOP_DOWNLOAD_URL} target="_blank" rel="noreferrer">
+                  <Download className="size-4" />
+                  Baixar Zora Desktop (Windows)
+                </a>
+              </Button>
+              <BackToItemButton />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+type NativeEditorState =
+  | { status: 'opening' }
+  | { status: 'running' }
+  | { status: 'closed' }
+  | { status: 'unavailable' }
+  | { status: 'error'; message: string }
+
+function NativeDesignEditor({ name, sizeLabel }: { name: string; sizeLabel: string }) {
   const { itemId, designId } = Route.useParams()
   const { from } = Route.useSearch()
   const navigate = Route.useNavigate()
   const initialTheme = Route.useRouteContext({ select: (context) => context.theme })
   const theme = useTheme(initialTheme)
-  // The theme Studio opens with; a later switch must not reload the editor
-  // (and lose unsaved work), so the URL is fixed for this page's life.
-  const [src] = useState(() => studioEditorUrl(designId, theme))
-  const [availability, setAvailability] = useState<StudioAvailability>('checking')
-  // Whether Studio last reported unsaved changes (it shows the state itself).
+  // Fix the theme the native editor opens with so theme switches do not relaunch it.
+  const [initialEditorTheme] = useState(() => theme)
+  const [state, setState] = useState<NativeEditorState>({ status: 'opening' })
   const [dirty, setDirty] = useState(false)
-  const frameRef = useRef<HTMLIFrameElement>(null)
+  const [lastSavedNumber, setLastSavedNumber] = useState<number | null>(null)
+  const [launchAttempt, setLaunchAttempt] = useState(0)
   const queryClient = useQueryClient()
 
-  // Probe Studio before loading it, so a missing build shows an explanation
-  // instead of a 404 page inside the frame.
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch(STUDIO_BUNDLE.urlPrefix, {
-      method: 'HEAD',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-      .then((response) => {
-        setAvailability(
-          response.ok
-            ? 'available'
-            : response.status === 404
-              ? 'missing'
-              : response.status === 401
-                ? 'signed-out'
-                : 'error',
-        )
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setAvailability('error')
-      })
-    return () => controller.abort()
+  const requestLaunch = useCallback(() => {
+    setState({ status: 'opening' })
+    setLaunchAttempt((n) => n + 1)
   }, [])
 
   useEffect(() => {
-    function onMessage(event: MessageEvent) {
-      // Only Studio, in this page's frame, on Zora's own origin.
-      if (event.origin !== window.location.origin) return
-      if (!frameRef.current || event.source !== frameRef.current.contentWindow) return
-      const message = parseStudioMessage(event.data, designId)
+    let cancelled = false
+    getDesktopInfo()
+      .then((info) => {
+        if (cancelled) return
+        if (!info.studioAvailable) {
+          setState({ status: 'unavailable' })
+          return
+        }
+        return openNativeDesignEditor({
+          designId,
+          itemId,
+          name,
+          theme: initialEditorTheme,
+        }).then(() => {
+          if (!cancelled) setState({ status: 'running' })
+        })
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : 'Não foi possível iniciar o Zora Studio nativo.'
+        setState({ status: 'error', message })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [designId, itemId, name, initialEditorTheme, launchAttempt])
+
+  useEffect(() => {
+    return subscribeDesktopEditorEvents((event) => {
+      if (event.editor !== 'studio' || event.id !== designId) return
+      if (isDesktopClosedPayload(event.payload)) {
+        setDirty(false)
+        setState({ status: 'closed' })
+        return
+      }
+      const message = parseStudioMessage(event.payload, designId)
       if (!message) return
       switch (message.type) {
         case 'zora-studio:ready':
           setDirty(false)
+          setState({ status: 'running' })
           break
         case 'zora-studio:dirty':
           setDirty(message.dirty)
+          setState({ status: 'running' })
           break
         case 'zora-studio:saved':
           setDirty(false)
+          setLastSavedNumber(message.number)
+          setState({ status: 'running' })
           void queryClient.invalidateQueries({ queryKey: contentKeys.designs(itemId) })
           void queryClient.invalidateQueries({ queryKey: contentKeys.designVersions(designId) })
           break
         case 'zora-studio:back':
-          // The blocker below asks first when Studio reported unsaved changes.
           void navigate({ to: '/content/$itemId', params: { itemId }, search: { from } })
           break
       }
-    }
-    window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
+    })
   }, [designId, itemId, from, navigate, queryClient])
+
+  const handleFocus = useCallback(async () => {
+    try {
+      const result = await focusNativeEditor({ editor: 'studio', id: designId })
+      if (!result.focused) {
+        requestLaunch()
+      }
+    } catch {
+      requestLaunch()
+    }
+  }, [designId, requestLaunch])
 
   const blocker = useBlocker({
     shouldBlockFn: () => dirty,
@@ -183,23 +289,108 @@ function DesignEditor({ name }: { name: string }) {
     withResolver: true,
   })
 
+  const statusText =
+    state.status === 'opening'
+      ? 'Abrindo editor nativo…'
+      : state.status === 'closed'
+        ? 'Janela fechada'
+        : dirty
+          ? 'Alterações não salvas na janela nativa'
+          : lastSavedNumber !== null
+            ? `Salvo (versão ${lastSavedNumber})`
+            : 'Em edição na janela nativa'
+
   return (
-    // Full bleed (`staticData.fullBleed`): Studio fills the area right of the
-    // sidebar (below the top bar under `lg`), exactly `--page-h` high.
-    <div className="bg-background h-(--page-h) w-full overflow-hidden">
-      {availability === 'available' ? (
-        <iframe
-          ref={frameRef}
-          src={src}
-          title={`Zora Studio: ${name}`}
-          // Same origin on purpose (session, saves); Studio disables its
-          // plug-ins and scripts when embedded.
-          allow="clipboard-read; clipboard-write; fullscreen"
-          className="block size-full border-0"
-        />
-      ) : (
-        <StudioUnavailable availability={availability} />
-      )}
+    <div className="bg-background h-(--page-h) w-full overflow-auto">
+      <div className={cn('flex min-h-full flex-col', PAGE_PADDING)}>
+        <BackToItem className="self-start" />
+        <div className="flex flex-1 items-center justify-center py-8">
+          {state.status === 'unavailable' || state.status === 'error' ? (
+            <div className="w-full max-w-lg space-y-4">
+              <Alert>
+                <TriangleAlert />
+                <AlertTitle>
+                  {state.status === 'unavailable'
+                    ? 'Zora Studio nativo não encontrado'
+                    : 'Não foi possível abrir o Zora Studio nativo'}
+                </AlertTitle>
+                <AlertDescription>
+                  {state.status === 'unavailable'
+                    ? 'O executável do Zora Studio que acompanha o Zora Desktop não foi encontrado nesta instalação. Reinstale o Zora Desktop com o instalador completo (ou, em desenvolvimento, compile o editor) e tente novamente.'
+                    : `${state.message} Tente novamente em instantes.`}
+                </AlertDescription>
+              </Alert>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Button type="button" onClick={requestLaunch}>
+                  <RotateCw className="size-4" />
+                  {state.status === 'unavailable' ? 'Tentar novamente' : 'Abrir editor nativo'}
+                </Button>
+                <BackToItemButton />
+              </div>
+            </div>
+          ) : (
+            <div className="bg-card w-full max-w-lg rounded-xl p-6 sm:p-8">
+              <div className="flex items-start gap-3.5">
+                <div className="bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">
+                  {state.status === 'opening' ? (
+                    <Loader2 className="size-5 animate-spin" />
+                  ) : (
+                    <AppWindow className="size-5" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                    Zora Studio (Nativo)
+                  </p>
+                  <h1 className="font-display text-foreground mt-0.5 truncate text-xl font-semibold">
+                    {name}
+                  </h1>
+                  <p className="text-muted-foreground mt-0.5 text-xs">{sizeLabel}</p>
+                </div>
+              </div>
+
+              <div className="bg-muted text-foreground mt-5 flex items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-sm">
+                {state.status === 'opening' ? (
+                  <Loader2 className="text-muted-foreground size-4 shrink-0 animate-spin" />
+                ) : state.status === 'running' && !dirty && lastSavedNumber !== null ? (
+                  <CheckCircle2 className="text-brand size-4 shrink-0" />
+                ) : (
+                  <span
+                    className={cn(
+                      'size-2 shrink-0 rounded-full',
+                      state.status === 'closed'
+                        ? 'bg-muted-foreground/50'
+                        : dirty
+                          ? 'bg-amber-500'
+                          : 'bg-primary',
+                    )}
+                  />
+                )}
+                <span>{statusText}</span>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-2.5">
+                {state.status === 'closed' ? (
+                  <Button type="button" onClick={requestLaunch}>
+                    <RotateCw className="size-4" />
+                    Abrir novamente
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    disabled={state.status === 'opening'}
+                    onClick={() => void handleFocus()}
+                  >
+                    <ExternalLink className="size-4" />
+                    Trazer janela para frente
+                  </Button>
+                )}
+                <BackToItemButton />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       <Dialog open={blocker.status === 'blocked'} onOpenChange={(open) => !open && blocker.reset?.()}>
         <DialogContent>
@@ -220,42 +411,6 @@ function DesignEditor({ name }: { name: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
-
-function StudioUnavailable({ availability }: { availability: StudioAvailability }) {
-  if (availability === 'checking') {
-    return (
-      <p className="text-muted-foreground flex size-full items-center justify-center text-sm">
-        Procurando o Zora Studio…
-      </p>
-    )
-  }
-  // Studio (with its own "Voltar ao item") is not there, so the page keeps a link.
-  const [title, description] =
-    availability === 'missing'
-      ? [
-          'O Zora Studio ainda não foi publicado aqui',
-          <>
-            Os arquivos do editor não estão no armazenamento deste ambiente. Quem cuida do Zora
-            precisa publicá-los com <code className="font-mono">pnpm studio:publish</code> (veja o
-            AGENTS.md) e depois recarregar esta página.
-          </>,
-        ]
-      : availability === 'signed-out'
-        ? ['Sua sessão terminou', 'Entre de novo no Zora e abra o design outra vez.']
-        : ['Não foi possível abrir o Zora Studio', 'Verifique a conexão e recarregue a página.']
-  return (
-    <div className={cn('flex size-full flex-col', PAGE_PADDING)}>
-      <BackToItem className="self-start" />
-      <div className="flex flex-1 items-center justify-center">
-        <Alert className="max-w-lg">
-          <TriangleAlert />
-          <AlertTitle>{title}</AlertTitle>
-          <AlertDescription>{description}</AlertDescription>
-        </Alert>
-      </div>
     </div>
   )
 }
