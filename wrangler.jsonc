@@ -52,33 +52,18 @@
     "StudioEngine": { "type": "durable-object", "storage": "sqlite" },
     "LightcraftEngine": { "type": "durable-object", "storage": "sqlite" }
   },
-  // THE SWITCH for the engine containers: they stay off while this entry is
-  // commented out (the tools then say the engine is not configured, unless
-  // STUDIO_ENGINE_URL / LIGHTCRAFT_ENGINE_URL points at an engine). To switch
-  // them on (Workers Paid plan), build the images from
-  // ../zora-vector/apps/zora-studio-server/Dockerfile and
-  // ../zora-lightcraft/apps/zora-lightcraft-server/Dockerfile, push them to
-  // the Cloudflare registry and paste their digests, then uncomment:
-  // "containers": [
-  //   {
-  //     "class_name": "StudioEngine",
-  //     "scheduling_policy": "durable_object",
-  //     "images": {
-  //       "engine": {
-  //         "image": "registry.cloudflare.com/bf552f67bcf46921dbe4137ee0ff8980/zora-studio-engine@sha256:<digest>"
-  //       }
-  //     }
-  //   },
-  //   {
-  //     "class_name": "LightcraftEngine",
-  //     "scheduling_policy": "durable_object",
-  //     "images": {
-  //       "engine": {
-  //         "image": "registry.cloudflare.com/bf552f67bcf46921dbe4137ee0ff8980/zora-lightcraft-engine@sha256:<digest>"
-  //       }
-  //     }
-  //   }
-  // ],
+  // Studio engine for the MCP design tools.
+  "containers": [
+    {
+      "class_name": "StudioEngine",
+      "scheduling_policy": "durable_object",
+      "images": {
+        "engine": {
+          "image": "registry.cloudflare.com/bf552f67bcf46921dbe4137ee0ff8980/zora-studio-engine@sha256:2bb6041954caf23378eaf32640a69ba386c461e74fe1ffddd54bec916e6a1207"
+        }
+      }
+    }
+  ],
   // Local dev cannot run containers on Windows (Wrangler refuses), and they
   // need Docker: `pnpm dev` never starts one. Use STUDIO_ENGINE_URL /
   // LIGHTCRAFT_ENGINE_URL instead.
