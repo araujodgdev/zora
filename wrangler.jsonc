@@ -79,7 +79,7 @@
     "enabled": true
   }
   // Set as Worker secrets (`wrangler secret put <NAME>`), never committed:
-  //   BETTER_AUTH_SECRET, BETTER_AUTH_URL, ALLOWED_SIGNUP_EMAILS,
+  //   BETTER_AUTH_SECRET, BETTER_AUTH_URL,
   //   UNSPLASH_ACCESS_KEY, FAL_KEY, TREG_TOKEN
   // (the non-secret ones stay as secrets too so `wrangler deploy` never resets them).
 }

@@ -19,7 +19,6 @@ import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -33,8 +32,8 @@ import {
   safeRedirectPath,
 } from '@/lib/redirect'
 
-// Client-side checks are for feedback only. The server enforces the email
-// allowlist and Better Auth's password rules (8–128 characters by default).
+// Client-side checks are for feedback only. The server enforces Better Auth's
+// password rules (8–128 characters by default).
 const signUpSchema = z.object({
   name: z.string().trim().min(1, { message: 'Informe seu nome.' }),
   email: z.email({ message: 'Informe um e-mail válido.' }),
@@ -109,9 +108,6 @@ function SignUpPage() {
       <Card className="w-full max-w-sm shadow-2xl shadow-black/15 dark:shadow-black">
         <CardHeader>
           <CardTitle>Criar sua conta</CardTitle>
-          <CardDescription>
-            O cadastro é liberado só para e-mails convidados para um workspace.
-          </CardDescription>
         </CardHeader>
         <form
           method="post"

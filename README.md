@@ -20,21 +20,14 @@ database (D1) and the media bucket (R2) are simulated under `.wrangler/state`.
 ```sh
 pnpm install
 pnpm env:setup      # creates .env from .env.example with a generated auth secret
-```
-
-Open `.env` and set `ALLOWED_SIGNUP_EMAILS` to the comma-separated emails of
-the people who may create an account without an invitation (matching ignores
-case). Everyone else joins through an invitation from a workspace's **Equipe**
-page; a pending invitation lets its email sign up.
-
-```sh
 pnpm db:migrate     # applies the migrations in ./drizzle to the local D1 database
 pnpm dev            # http://localhost:3000
 ```
 
-Open http://localhost:3000, choose **Criar conta**, sign up with an
-allowlisted email and create your workspace. Invitation emails are not sent
-locally: the dev server logs them (and saves them under `.wrangler/tmp/email`).
+Open http://localhost:3000, choose **Criar conta**, sign up and create your
+workspace. To add teammates to a workspace, invite them from its **Equipe**
+page. Invitation emails are not sent locally: the dev server logs them (and
+saves them under `.wrangler/tmp/email`).
 
 Local data lives in `.wrangler/state` (git-ignored); delete that folder to start
 from an empty database, then run `pnpm db:migrate` again.
@@ -63,7 +56,6 @@ All live in `.env` locally (git-ignored; `.env.example` documents them).
 | --- | --- |
 | `BETTER_AUTH_SECRET` | Auth secret, at least 32 random characters |
 | `BETTER_AUTH_URL` | Public base URL of the app |
-| `ALLOWED_SIGNUP_EMAILS` | Comma-separated emails allowed to sign up |
 | `UNSPLASH_ACCESS_KEY` | Optional. Unsplash access key for the MCP stock photo tools |
 | `FAL_KEY` | Optional. fal API key for the MCP `generate_image` tool |
 | `STUDIO_ENGINE_URL` | Optional. URL of a design engine run natively (development); wins over the container |
@@ -90,11 +82,10 @@ the D1 database `zora` (binding `DB`), the R2 bucket `zora-media` (binding
 `EMAIL`, for invitations; needs the Workers Paid plan to reach any address),
 on the account set as `account_id` in `wrangler.jsonc`.
 
-`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` and `ALLOWED_SIGNUP_EMAILS` are Worker
-secrets (`pnpm exec wrangler secret list`). To change the allowlist:
-`pnpm exec wrangler secret put ALLOWED_SIGNUP_EMAILS` (takes effect in a few
-seconds, no deploy needed). If the app moves to another URL, update
-`BETTER_AUTH_URL` the same way.
+`BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` are Worker secrets
+(`pnpm exec wrangler secret list`). If the app moves to another URL, update
+`BETTER_AUTH_URL` with `pnpm exec wrangler secret put BETTER_AUTH_URL` (takes
+effect in a few seconds, no deploy needed).
 The image tools' keys are optional secrets too:
 `pnpm exec wrangler secret put UNSPLASH_ACCESS_KEY` and `... FAL_KEY`.
 

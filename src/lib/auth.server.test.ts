@@ -1,6 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeTestDb, createTestDb, resetDatabase } from '../../test/db'
-import { SIGNUP_NOT_ALLOWED_MESSAGE } from './allowlist'
 import { createAuth } from './auth.server'
 import { inviteToWorkspace } from './invitations.server'
 import type { Mailer, OutgoingEmail } from './mailer.server'
@@ -18,7 +17,6 @@ const db = await createTestDb()
 const auth = createAuth(db, {
   BETTER_AUTH_SECRET: 'test-secret-test-secret-test-secret-123',
   BETTER_AUTH_URL: 'http://localhost:3000',
-  ALLOWED_SIGNUP_EMAILS: 'Alice@Example.com, bob@example.com',
 })
 
 /** Records the emails "sent"; fails while `mailerFails` is set. */
@@ -57,18 +55,12 @@ afterAll(async () => {
   await closeTestDb(db)
 })
 
-describe('sign-up allowlist (server side)', () => {
-  it('accepts an allowlisted email regardless of case', async () => {
-    const response = await signUp('ALICE@example.com')
+describe('sign-up (server side)', () => {
+  it('allows anyone to sign up without an invitation', async () => {
+    const response = await signUp('anyone@example.com')
     expect(response.status).toBe(200)
-  })
-
-  it('rejects any other email with a clear message', async () => {
-    const response = await signUp('mallory@example.com')
-    expect(response.status).toBe(403)
-    expect(await response.json()).toMatchObject({
-      message: SIGNUP_NOT_ALLOWED_MESSAGE,
-    })
+    const user = await requireSessionUser(auth, sessionHeaders(response))
+    expect(user).toMatchObject({ name: 'Test User', email: 'anyone@example.com' })
   })
 })
 
@@ -130,7 +122,7 @@ describe('session check used by authMiddleware', () => {
   })
 })
 
-/** Alice (allowlisted) signs up and creates the Signum workspace. */
+/** Alice signs up and creates the Signum workspace. */
 async function ownerWithWorkspace() {
   const headers = sessionHeaders(await signUp('alice@example.com'))
   const workspace = await auth.api.createOrganization({
@@ -164,7 +156,6 @@ describe('workspaces and invitations', () => {
     expect(sent[0]!.text).toContain(`http://localhost:3000/invite/${invitation.invitationId}`)
     expect(await hasPendingInvitation(db, 'carol@example.com')).toBe(true)
 
-    // Carol is not on the allowlist; the invitation lets her sign up.
     const carolResponse = await signUp('carol@example.com')
     expect(carolResponse.status).toBe(200)
     const carol = sessionHeaders(carolResponse)

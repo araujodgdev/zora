@@ -15,4 +15,3 @@ const contents = readFileSync('.env.example', 'utf8').replace(
 )
 writeFileSync('.env', contents)
 console.log('Created .env with a generated BETTER_AUTH_SECRET.')
-console.log('Edit ALLOWED_SIGNUP_EMAILS in .env to list your team.')

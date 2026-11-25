@@ -14,9 +14,9 @@ import {
   session,
   user,
 } from '../db/schema'
-import { normalizeEmail } from './allowlist'
 import {
   canManageMembers,
+  normalizeEmail,
   workspaceNameSchema,
   workspaceSlug,
 } from './workspace'

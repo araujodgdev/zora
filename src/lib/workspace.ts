@@ -90,6 +90,10 @@ export const workspaceNameSchema = z
 
 export const inviteEmailSchema = z.email({ message: 'Informe um e-mail válido.' })
 
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
 /**
  * A URL slug for a new workspace. Slugs are unique in Better Auth, so a short
  * random suffix keeps two workspaces with the same name apart.

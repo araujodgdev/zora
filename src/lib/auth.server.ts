@@ -1,18 +1,12 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
 import { mcp } from '@better-auth/mcp'
-import { APIError } from 'better-auth/api'
 import { betterAuth } from 'better-auth/minimal'
 import { jwt, organization } from 'better-auth/plugins'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import * as authSchema from '../db/auth-schema'
 import type { Database } from '../db/client.server'
-import {
-  SIGNUP_NOT_ALLOWED_MESSAGE,
-  isEmailAllowed,
-  parseAllowlist,
-} from './allowlist'
 import type { ServerEnv } from './env.server'
-import { hasPendingInvitation, initialWorkspaceId } from './workspace.server'
+import { initialWorkspaceId } from './workspace.server'
 
 /**
  * The MCP endpoint (`src/routes/mcp.ts`) as an OAuth protected resource: MCP
@@ -27,7 +21,7 @@ export const INVITATION_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60
 
 export type AuthEnv = Pick<
   ServerEnv,
-  'BETTER_AUTH_SECRET' | 'BETTER_AUTH_URL' | 'ALLOWED_SIGNUP_EMAILS'
+  'BETTER_AUTH_SECRET' | 'BETTER_AUTH_URL'
 >
 
 /**
@@ -36,8 +30,6 @@ export type AuthEnv = Pick<
  * The app calls this once per request through `getRequestServices()`.
  */
 export function createAuth(db: Database, env: AuthEnv) {
-  const allowlist = parseAllowlist(env.ALLOWED_SIGNUP_EMAILS)
-
   return betterAuth({
     appName: 'Zora',
     baseURL: env.BETTER_AUTH_URL,
@@ -70,24 +62,6 @@ export function createAuth(db: Database, env: AuthEnv) {
       },
     },
     databaseHooks: {
-      user: {
-        create: {
-          // Who may sign up: anyone with a pending workspace invitation, or
-          // an email on the env allowlist (the backup path). Enforced at user
-          // creation so it covers every path that can create a user.
-          before: async (user) => {
-            if (
-              !isEmailAllowed(user.email, allowlist) &&
-              !(await hasPendingInvitation(db, user.email))
-            ) {
-              throw new APIError('FORBIDDEN', {
-                message: SIGNUP_NOT_ALLOWED_MESSAGE,
-              })
-            }
-            return { data: user }
-          },
-        },
-      },
       session: {
         create: {
           // A new session opens the user's oldest workspace. Switching later

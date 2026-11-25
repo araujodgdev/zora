@@ -153,7 +153,7 @@ function SignInPage() {
               )}
             </form.Subscribe>
             <p className="text-muted-foreground text-sm">
-              Chegou agora na equipe?{' '}
+              Ainda não tem conta?{' '}
               {oauthSearch ? (
                 <a href={`/sign-up${oauthSearch}`} className="text-foreground underline underline-offset-4">
                   Criar conta

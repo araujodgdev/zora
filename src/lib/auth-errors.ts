@@ -1,5 +1,3 @@
-import { SIGNUP_NOT_ALLOWED_MESSAGE } from './allowlist'
-
 /** Better Auth's error codes the app can hit, in Portuguese. */
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: 'E-mail ou senha incorretos.',
@@ -30,13 +28,10 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   MEMBER_NOT_FOUND: 'Membro não encontrado.',
 }
 
-/** Our own messages (already in Portuguese) that pass through unchanged. */
-const OWN_MESSAGES = new Set([SIGNUP_NOT_ALLOWED_MESSAGE])
-
 /**
  * The message to show for a failed Better Auth client call. Better Auth's own
- * messages are in English, so known codes are translated, our own messages
- * pass through, and anything else gets `fallback`.
+ * messages are in English, so known codes are translated and anything else gets
+ * `fallback`.
  */
 export function authErrorMessage(
   error: { code?: string; message?: string; status?: number },
@@ -45,7 +40,6 @@ export function authErrorMessage(
   if (error.code && error.code in AUTH_ERROR_MESSAGES) {
     return AUTH_ERROR_MESSAGES[error.code]!
   }
-  if (error.message && OWN_MESSAGES.has(error.message)) return error.message
   if (error.status === 429) {
     return 'Muitas tentativas seguidas. Espere um pouco e tente de novo.'
   }

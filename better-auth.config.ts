@@ -12,5 +12,4 @@ import { createAuth } from './src/lib/auth.server'
 export const auth = createAuth(createDb({} as never), {
   BETTER_AUTH_SECRET: 'cli-only-placeholder-secret-not-used-at-runtime',
   BETTER_AUTH_URL: 'http://localhost:3000',
-  ALLOWED_SIGNUP_EMAILS: '',
 })

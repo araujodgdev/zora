@@ -14,16 +14,14 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { authClient } from '@/lib/auth-client'
-import { normalizeEmail } from '@/lib/allowlist'
-import { invitationPath } from '@/lib/workspace'
+import { invitationPath, normalizeEmail } from '@/lib/workspace'
 import type { InvitationStatus } from '@/lib/workspace'
 import { getInvitationPreview } from '@/lib/workspace.functions'
 import { unwrapAuth } from '@/lib/workspace.queries'
 
 /**
  * The link in an invitation email. Works signed out: it explains who invited
- * whom, then sends the visitor to sign up (the invited email may sign up even
- * when it is not on the allowlist) or sign in, and back here to accept.
+ * whom, then sends the visitor to sign up or sign in, and back here to accept.
  */
 export const Route = createFileRoute('/invite/$invitationId')({
   loader: ({ params }) => getInvitationPreview({ data: { id: params.invitationId } }),
