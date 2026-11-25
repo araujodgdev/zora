@@ -1,5 +1,5 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useHydrated } from '@tanstack/react-router'
 import {
   Aperture,
   Bot,
@@ -60,6 +60,7 @@ import {
   useUploadPhotoEditOriginal,
 } from '@/lib/content-photo-edits.queries'
 import { contentAssetsQueryOptions } from '@/lib/content.queries'
+import { isZoraDesktop } from '@/lib/desktop-bridge'
 import type { EditorOrigin } from '@/lib/editor-search'
 import { cn } from '@/lib/utils'
 
@@ -94,6 +95,8 @@ export function ContentPhotoEdits({
 }) {
   const { data: edits } = useSuspenseQuery(contentPhotoEditsQueryOptions(itemId))
   const publish = usePublishPhotoEditPreview(itemId)
+  const hydrated = useHydrated()
+  const desktop = hydrated && isZoraDesktop()
   const [creating, setCreating] = useState(false)
   const [versionsOf, setVersionsOf] = useState<ContentPhotoEdit | null>(null)
   const [renaming, setRenaming] = useState<ContentPhotoEdit | null>(null)
@@ -132,7 +135,11 @@ export function ContentPhotoEdits({
             className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex w-full flex-col items-center gap-1 rounded-lg py-8 text-center text-sm transition-colors outline-none focus-visible:ring-3"
           >
             <Aperture className="mb-1 size-5" />
-            <span>Revele e ajuste uma foto deste item no Zora LightCraft.</span>
+            <span>
+              {desktop
+                ? 'Revele e ajuste uma foto deste item no Zora LightCraft.'
+                : 'Adicione uma foto para revelar e ajustar no Zora Desktop.'}
+            </span>
             <span className="text-xs">
               Comece de uma imagem da mídia ou envie o arquivo original, inclusive raw.
             </span>
@@ -144,6 +151,7 @@ export function ContentPhotoEdits({
                 <PhotoEditCard
                   edit={edit}
                   from={from}
+                  desktop={desktop}
                   publishing={publish.isPending && publish.variables === edit.id}
                   onVersions={() => setVersionsOf(edit)}
                   onPublish={() => publishEdit(edit)}
@@ -176,6 +184,7 @@ export function ContentPhotoEdits({
 function PhotoEditCard({
   edit,
   from,
+  desktop,
   publishing,
   onVersions,
   onPublish,
@@ -184,6 +193,7 @@ function PhotoEditCard({
 }: {
   edit: ContentPhotoEdit
   from: EditorOrigin | undefined
+  desktop: boolean
   publishing: boolean
   onVersions: () => void
   onPublish: () => void
@@ -212,7 +222,9 @@ function PhotoEditCard({
             <span className="text-muted-foreground flex min-w-0 flex-col items-center gap-1 px-3 text-center text-xs">
               <Aperture className="size-6" />
               <span className="max-w-full truncate">{edit.originalName}</span>
-              Ainda não revelada. Abra para editar.
+              {desktop
+                ? 'Ainda não revelada. Abra para editar.'
+                : 'Ainda não revelada. Edite no Zora Desktop.'}
             </span>
           )}
         </div>

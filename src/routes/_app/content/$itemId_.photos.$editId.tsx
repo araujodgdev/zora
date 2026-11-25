@@ -125,10 +125,10 @@ function PhotoEditorPage() {
         <PageHeader title={edit.name} description={edit.originalName} />
         <Alert>
           <MonitorSmartphone />
-          <AlertTitle>O editor precisa de uma tela maior</AlertTitle>
+          <AlertTitle>Edição disponível no Zora Desktop</AlertTitle>
           <AlertDescription>
-            Abra esta foto num tablet ou computador para editá-la. Daqui você ainda vê as prévias e
-            as versões na página do item.
+            Abra este item no Zora Desktop (Windows) para revelar e editar a foto. Daqui você
+            continua vendo as prévias, as versões e pode usá-la como mídia.
           </AlertDescription>
         </Alert>
       </div>

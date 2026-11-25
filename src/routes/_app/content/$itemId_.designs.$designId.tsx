@@ -127,10 +127,13 @@ function DesignEditorPage() {
         <PageHeader title={design.name} description={sizeLabel} />
         <Alert>
           <MonitorSmartphone />
-          <AlertTitle>O editor precisa de uma tela maior</AlertTitle>
+          <AlertTitle>Edição disponível no Zora Desktop</AlertTitle>
           <AlertDescription>
-            Abra este design num tablet ou computador para editá-lo. Daqui você ainda vê as
-            prévias e as versões na página do item.
+            Abra este item no Zora Desktop (Windows) para editar manualmente, ou peça ao seu{' '}
+            <Link to="/connect" className="text-foreground underline underline-offset-4">
+              agente conectado via MCP
+            </Link>
+            . Daqui você continua vendo as prévias, as versões e pode usá-lo como mídia.
           </AlertDescription>
         </Alert>
       </div>
@@ -161,8 +164,12 @@ function DesktopRequired({ name, sizeLabel }: { name: string; sizeLabel: string 
                 </h2>
                 <p className="text-muted-foreground mt-2 text-sm">
                   O Zora Studio roda de forma nativa com aceleração de GPU no aplicativo Zora
-                  Desktop. Abra este item no Zora Desktop para editar o design; por aqui você
-                  continua vendo as prévias, o histórico de versões e pode usá-lo como mídia.
+                  Desktop. Abra este item no Zora Desktop para editar manualmente, ou peça ao seu{' '}
+                  <Link to="/connect" className="text-foreground underline underline-offset-4">
+                    agente conectado via MCP
+                  </Link>
+                  ; por aqui você continua vendo as prévias, o histórico de versões e pode usá-lo
+                  como mídia.
                 </p>
               </div>
             </div>

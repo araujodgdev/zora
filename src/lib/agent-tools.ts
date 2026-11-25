@@ -131,7 +131,7 @@ export const agentActions = {
 export type AgentActionName = keyof typeof agentActions
 
 /** Shared guidance for agents, used as MCP server instructions. */
-export const AGENT_INSTRUCTIONS = `Zora is a three-person team's planner for a product launch's social media and blog content.
+export const AGENT_INSTRUCTIONS = `Zora is a collaborative planner for social media and blog content, with workspaces, design and photo editing, and direct social publishing.
 Each content item has a channel, a format and a pipeline status (${STATUSES.join(' -> ')}), optionally a scheduled date, an assignee and uploaded media.
 Authentication is per user across all workspaces the user belongs to. Content, team members and social connections belong to the active workspace (get_current_user names it); use list_workspaces to see all of the user's workspaces, switch_workspace to change the active workspace (persisted across calls), create_workspace to create a new one, and rename_workspace to rename one (owners and admins only; workspace deletion is disabled). Every member of a workspace sees and edits all of its content. Dates are UTC instants: always send an offset, and show times to the user in their time zone.
 Text (body) is Markdown for the blog and plain text for X, LinkedIn, Instagram, TikTok and YouTube: never put Markdown in a social post.

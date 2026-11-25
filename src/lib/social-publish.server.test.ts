@@ -16,6 +16,7 @@ import {
   listItemPublishJobs,
   pollPublishJob,
   publishContentItemNow,
+  resolvePublishFailureRecipients,
   runScheduledPublishes,
 } from './social-publish.server'
 import type { SocialPublisher } from './social-publishers.server'
@@ -382,6 +383,7 @@ describe('social publishing and scheduled cron', () => {
       published: 1,
       processing: 0,
       failed: 0,
+      failures: [],
     })
 
     // Running a second overlapping tick must NOT re-dispatch.
@@ -392,5 +394,97 @@ describe('social publishing and scheduled cron', () => {
     expect((await getContentItem(db, 'ws-a', dueConnected.id))?.status).toBe('published')
     expect((await getContentItem(db, 'ws-a', dueUnconnected.id))?.status).toBe('scheduled')
     expect(await listItemPublishJobs(db, 'ws-a', dueUnconnected.id)).toEqual([])
+  })
+
+  it('collects failure details when scheduled preflight or dispatch fails', async () => {
+    await seedActors()
+    const treg = makeTreg()
+    const bucket = fakeBucket()
+    await connectFakeChannel(treg, 'ws-a', 'u1', 'instagram', 'ig-1', '@zora')
+    await connectFakeChannel(treg, 'ws-a', 'u1', 'linkedin', 'urn:li:person:1', 'Ana')
+
+    const dueTime = new Date('2026-11-19T17:55:00Z')
+    const now = new Date('2026-11-19T18:00:00Z')
+
+    // Instagram post without media -> preflight failure.
+    const noMedia = await createContentItem(
+      db,
+      'ws-a',
+      'u1',
+      createContentItemSchema.parse({
+        title: 'IG sem foto',
+        body: 'Legenda',
+        channel: 'instagram',
+        format: 'post',
+        status: 'scheduled',
+        scheduledAt: dueTime,
+      }),
+    )
+    // LinkedIn post whose publisher rejects -> dispatch failure.
+    const liFails = await createContentItem(
+      db,
+      'ws-a',
+      'u1',
+      createContentItemSchema.parse({
+        title: 'LinkedIn erro',
+        body: 'Texto',
+        channel: 'linkedin',
+        format: 'post',
+        status: 'scheduled',
+        scheduledAt: dueTime,
+      }),
+    )
+
+    const failingPub: SocialPublisher = {
+      start: vi.fn().mockRejectedValue(new Error('Token expirado')),
+    }
+    const publishers = {
+      x: failingPub,
+      linkedin: failingPub,
+      instagram: failingPub,
+      tiktok: failingPub,
+      youtube: failingPub,
+    }
+
+    const summary = await runScheduledPublishes({ db, bucket, treg, publishers }, now)
+    expect(summary.failed).toBe(2)
+    expect(summary.failures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          contentItemId: noMedia.id,
+          itemTitle: 'IG sem foto',
+          assigneeId: null,
+          channel: 'instagram',
+          stage: 'preflight',
+        }),
+        expect.objectContaining({
+          contentItemId: liFails.id,
+          itemTitle: 'LinkedIn erro',
+          assigneeId: null,
+          channel: 'linkedin',
+          stage: 'dispatch',
+          errorMessage: 'Token expirado',
+        }),
+      ]),
+    )
+  })
+
+  it('resolves publish failure recipients to the assignee or workspace owner, merged with ops alerts', async () => {
+    await db.insert(user).values([
+      { id: 'u1', name: 'Ana', email: 'ana@example.com', emailVerified: true },
+      { id: 'u2', name: 'Beto', email: 'beto@example.com', emailVerified: true },
+    ])
+    await seedWorkspace(db, 'ws-a', ['u1', 'u2'], 'Workspace A')
+
+    // Assigned to Beto (member): notifies Beto + ops, deduplicated.
+    expect(
+      await resolvePublishFailureRecipients(db, 'ws-a', 'u2', [
+        'ops@example.com',
+        'BETO@example.com',
+      ]),
+    ).toEqual(['beto@example.com', 'ops@example.com'])
+
+    // Unassigned: falls back to workspace owner (Ana).
+    expect(await resolvePublishFailureRecipients(db, 'ws-a', null, [])).toEqual(['ana@example.com'])
   })
 })

@@ -71,7 +71,7 @@ function ConsentPage() {
               <CardTitle>Permitir que {request.clientName} use o Zora?</CardTitle>
               <CardDescription>
                 Ele vai agir como {user?.name ?? 'você'}: pode gerenciar seus
-                workspaces, ler, criar, alterar e excluir conteúdos e mídias, e
+                workspaces, ler, criar, alterar e excluir conteúdos, designs e mídias, e
                 publicar nas redes conectadas.
               </CardDescription>
             </CardHeader>

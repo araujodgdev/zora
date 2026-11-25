@@ -8,11 +8,12 @@
  */
 import { and, desc, eq, inArray, isNull, lte, or } from 'drizzle-orm'
 import type { Database } from '../db/client.server'
-import { contentItem, socialConnection, socialPublishJob } from '../db/schema'
+import { contentItem, member, socialConnection, socialPublishJob, user } from '../db/schema'
 import type { ContentItem } from './content'
 import { assetObjectKey, listContentAssets } from './content-assets.server'
 import type { MediaBucket } from './content-assets.server'
 import { getContentItem, updateContentItem } from './content.server'
+import { canManageMembers, parseRoles } from './workspace'
 import {
   isSocialChannel,
   validateItemForSocialPublish,
@@ -408,12 +409,71 @@ async function advanceProcessingJob(
   }
 }
 
+export type ScheduledPublishFailure = {
+  jobId: string
+  organizationId: string
+  contentItemId: string
+  itemTitle: string
+  assigneeId: string | null
+  channel: SocialChannel
+  stage: 'preflight' | 'dispatch' | 'poll'
+  errorMessage: string
+}
+
+/**
+ * Resolves who should be emailed when a scheduled publication fails:
+ * the item's assignee (if still in the workspace), otherwise the workspace
+ * owner(s) (or admins if none), merged and deduplicated with any extra ops
+ * recipients (`OPS_ALERT_EMAIL`).
+ */
+export async function resolvePublishFailureRecipients(
+  db: Database,
+  organizationId: string,
+  assigneeId: string | null,
+  extraRecipients: ReadonlyArray<string> = [],
+): Promise<Array<string>> {
+  const members = await db
+    .select({
+      userId: member.userId,
+      role: member.role,
+      email: user.email,
+    })
+    .from(member)
+    .innerJoin(user, eq(user.id, member.userId))
+    .where(eq(member.organizationId, organizationId))
+
+  const chosen: Array<string> = []
+  const assignee = assigneeId ? members.find((m) => m.userId === assigneeId) : undefined
+  if (assignee?.email) {
+    chosen.push(assignee.email)
+  } else {
+    const owners = members.filter((m) => parseRoles(m.role).includes('owner'))
+    const fallback = owners.length > 0 ? owners : members.filter((m) => canManageMembers(m.role))
+    for (const m of fallback) {
+      if (m.email) chosen.push(m.email)
+    }
+  }
+
+  const seen = new Set<string>()
+  const result: Array<string> = []
+  for (const raw of [...chosen, ...extraRecipients]) {
+    const email = raw.trim()
+    if (!email) continue
+    const key = email.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(email)
+  }
+  return result
+}
+
 export type ScheduledRunSummary = {
   polled: number
   dispatched: number
   published: number
   processing: number
   failed: number
+  failures: Array<ScheduledPublishFailure>
 }
 
 /**
@@ -435,6 +495,7 @@ export async function runScheduledPublishes(
     published: 0,
     processing: 0,
     failed: 0,
+    failures: [],
   }
   if (!deps.treg) return summary
 
@@ -455,7 +516,20 @@ export async function runScheduledPublishes(
     const outcome = await advanceProcessingJob(deps, job, now)
     if (outcome.job.status === 'published') summary.published += 1
     else if (outcome.job.status === 'processing') summary.processing += 1
-    else if (outcome.job.status === 'failed') summary.failed += 1
+    else if (outcome.job.status === 'failed') {
+      summary.failed += 1
+      const failedItem = await getContentItem(deps.db, job.organizationId, job.contentItemId)
+      summary.failures.push({
+        jobId: outcome.job.id,
+        organizationId: job.organizationId,
+        contentItemId: job.contentItemId,
+        itemTitle: failedItem?.title ?? 'Item de conteúdo',
+        assigneeId: failedItem?.assigneeId ?? null,
+        channel: job.channel,
+        stage: 'poll',
+        errorMessage: outcome.job.errorMessage ?? 'Falha ao processar publicação na rede social.',
+      })
+    }
   }
 
   // 2. Dispatch scheduled items due at or before `now` with a connected account.
@@ -529,8 +603,19 @@ export async function runScheduledPublishes(
     const assets = await listContentAssets(deps.db, item.organizationId, item.id)
     const preflight = validateItemForSocialPublish(item, assets)
     if (preflight.errors.length > 0) {
-      await markJobFailed(deps.db, claimed.id, preflight.errors[0]!, now)
+      const errorMessage = preflight.errors[0]!
+      await markJobFailed(deps.db, claimed.id, errorMessage, now)
       summary.failed += 1
+      summary.failures.push({
+        jobId: claimed.id,
+        organizationId: item.organizationId,
+        contentItemId: item.id,
+        itemTitle: item.title,
+        assigneeId: item.assigneeId,
+        channel: item.channel,
+        stage: 'preflight',
+        errorMessage,
+      })
       continue
     }
 
@@ -553,7 +638,19 @@ export async function runScheduledPublishes(
     const outcome = await executeJobStart(deps, claimed, item, connection, now)
     if (outcome.job.status === 'published') summary.published += 1
     else if (outcome.job.status === 'processing') summary.processing += 1
-    else if (outcome.job.status === 'failed') summary.failed += 1
+    else if (outcome.job.status === 'failed') {
+      summary.failed += 1
+      summary.failures.push({
+        jobId: outcome.job.id,
+        organizationId: item.organizationId,
+        contentItemId: item.id,
+        itemTitle: item.title,
+        assigneeId: item.assigneeId,
+        channel: item.channel,
+        stage: 'dispatch',
+        errorMessage: outcome.job.errorMessage ?? 'Falha ao publicar na rede social.',
+      })
+    }
   }
 
   return summary

@@ -139,7 +139,7 @@ export const SOCIAL_CHANNEL_INFO: Record<
   },
   x: {
     summary: 'Publica posts de texto e threads (separe tweets com uma linha ---).',
-    caveat: 'Sem envio de imagens/vídeos no app padrão do Treg. Posts têm cobrança por uso na conta Treg.',
+    caveat: 'No momento, a publicação no X envia apenas texto (sem imagens ou vídeos).',
     defaultCapability: 'write',
     supportsResourcePicker: false,
   },
@@ -398,12 +398,7 @@ export function validateItemForSocialPublish(
       }
       if (assets.length > 0) {
         warnings.push(
-          'O app padrão do Treg no X não envia imagens ou vídeos: apenas o texto será publicado.',
-        )
-      }
-      if (tweets.some((tweet) => /https?:\/\//i.test(tweet))) {
-        warnings.push(
-          'Posts no X com link têm custo mais alto na API do X ($0,20 por tweet via Treg).',
+          'A publicação no X envia apenas texto no momento: imagens e vídeos não serão enviados.',
         )
       }
       break
@@ -446,7 +441,7 @@ export function validateItemForSocialPublish(
       const oversized = visualAssets.find((asset) => asset.size > 30 * 1024 * 1024)
       if (oversized) {
         errors.push(
-          `“${oversized.filename}” passa de 30 MB, limite da hospedagem temporária de mídia do Treg para o Instagram.`,
+          `“${oversized.filename}” passa de 30 MB, limite de tamanho de mídia para publicação no Instagram.`,
         )
       }
       const nonJpegImage = images.find((asset) => asset.contentType !== 'image/jpeg')

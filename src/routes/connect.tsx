@@ -50,8 +50,8 @@ function ConnectPage() {
           Conecte o Zora ao seu agente
         </h1>
         <p className="text-muted-foreground mt-4 max-w-[58ch] text-base sm:text-lg">
-          Peça ao Claude, ao ChatGPT ou ao Codex para listar, criar, reagendar e mover os conteúdos
-          do lançamento.
+          Peça ao Claude, ao ChatGPT ou ao Codex para planejar, criar conteúdos e designs,
+          reagendar e publicar nas suas redes — direto pela nuvem, sem precisar do app desktop.
         </p>
 
         <section aria-labelledby="server-url" className="mt-10">

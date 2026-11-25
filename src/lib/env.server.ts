@@ -36,6 +36,9 @@ const serverEnvSchema = z.object({
     .optional()
     .transform((value) => value?.trim() || undefined)
     .pipe(z.url({ protocol: /^https?$/ }).optional()),
+  // Optional operational alert recipient(s) for cron/publish failures
+  // (comma-separated verified addresses on Cloudflare Email Sending).
+  OPS_ALERT_EMAIL: optionalSecret,
 })
 
 export type ServerEnv = z.output<typeof serverEnvSchema>

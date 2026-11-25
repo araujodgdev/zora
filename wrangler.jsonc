@@ -80,6 +80,6 @@
   }
   // Set as Worker secrets (`wrangler secret put <NAME>`), never committed:
   //   BETTER_AUTH_SECRET, BETTER_AUTH_URL,
-  //   UNSPLASH_ACCESS_KEY, FAL_KEY, TREG_TOKEN
+  //   UNSPLASH_ACCESS_KEY, FAL_KEY, TREG_TOKEN, OPS_ALERT_EMAIL
   // (the non-secret ones stay as secrets too so `wrangler deploy` never resets them).
 }

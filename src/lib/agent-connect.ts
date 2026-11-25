@@ -81,6 +81,7 @@ export function agentGuides(serverUrl: string): Array<AgentGuide> {
 /** What to ask once connected, shown at the end of the page. */
 export const EXAMPLE_PROMPTS = [
   'Quais posts estão agendados para esta semana no Zora?',
-  'Crie um rascunho de thread no X sobre o lançamento para sexta às 10h.',
+  'Crie um rascunho de thread no X sobre a novidade de sexta às 10h.',
+  'Crie um design 1080×1080 para o post do Instagram de amanhã e me mostre a prévia.',
   'Mova os posts prontos do LinkedIn para agendado e atribua a mim.',
 ] as const

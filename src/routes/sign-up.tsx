@@ -183,8 +183,8 @@ function SignUpPage() {
       {/* Not while an MCP client's sign-in is in progress: leaving drops it. */}
       {oauthSearch ? null : (
         <div className="mt-6 flex flex-col items-center gap-2.5">
-          <DownloadDesktopLink />
           <ConnectAgentLink className="mt-0" />
+          <DownloadDesktopLink />
         </div>
       )}
     </AuthLayout>

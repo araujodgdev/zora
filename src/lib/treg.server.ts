@@ -24,7 +24,7 @@ export class SocialPublishingError extends Error {
 
 export class TregNotConfiguredError extends SocialPublishingError {
   constructor() {
-    super('A integração de publicação não está configurada neste servidor (TREG_TOKEN ausente).')
+    super('A publicação em redes sociais não está configurada neste servidor.')
     this.name = 'TregNotConfiguredError'
   }
 }
@@ -260,7 +260,7 @@ function buildTregError(response: Response, body: unknown): TregApiError {
     if (isTregError && response.status === 401) {
       console.error('[treg] authentication failed:', code, detail)
       return new TregApiError(
-        'A credencial de integração com o Treg (TREG_TOKEN) é inválida ou foi revogada.',
+        'A credencial do serviço de publicação é inválida ou foi revogada. Avise o administrador do Zora.',
         { status: response.status, isTregError: true, code, reviewPendingScopes },
       )
     }

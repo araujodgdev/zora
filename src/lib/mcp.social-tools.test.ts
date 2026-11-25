@@ -86,7 +86,7 @@ describe('MCP social publishing tools', () => {
     )
     const res = await runZoraTool(tool('publish_content_item'), { id: item.id }, deps)
     expect(res.isError).toBe(true)
-    expect(textOf(res)).toContain('TREG_TOKEN')
+    expect(textOf(res)).toContain('não está configurada')
   })
 
   it('publishes an X post through publish_content_item and returns its status via get_publish_status', async () => {

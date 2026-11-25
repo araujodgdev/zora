@@ -1,5 +1,5 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useHydrated } from '@tanstack/react-router'
 import {
   Bot,
   History,
@@ -54,6 +54,7 @@ import {
   formatDesignSize,
 } from '@/lib/content-designs'
 import type { ContentDesign, ContentDesignVersion } from '@/lib/content-designs'
+import { isZoraDesktop } from '@/lib/desktop-bridge'
 import type { EditorOrigin } from '@/lib/editor-search'
 import {
   contentDesignsQueryOptions,
@@ -95,6 +96,8 @@ export function ContentDesigns({
 }) {
   const { data: designs } = useSuspenseQuery(contentDesignsQueryOptions(itemId))
   const publish = usePublishDesignPreview(itemId)
+  const hydrated = useHydrated()
+  const desktop = hydrated && isZoraDesktop()
   const [creating, setCreating] = useState(false)
   const [versionsOf, setVersionsOf] = useState<ContentDesign | null>(null)
   const [renaming, setRenaming] = useState<ContentDesign | null>(null)
@@ -133,7 +136,11 @@ export function ContentDesigns({
             className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex w-full flex-col items-center gap-1 rounded-lg py-8 text-center text-sm transition-colors outline-none focus-visible:ring-3"
           >
             <Palette className="mb-1 size-5" />
-            <span>Crie um design para este item no Zora Studio.</span>
+            <span>
+              {desktop
+                ? 'Crie um design para este item no Zora Studio.'
+                : 'Crie um design para este item — edite no Zora Desktop ou via agente MCP.'}
+            </span>
             <span className="text-xs">
               Começa no tamanho do canal: {preset.label}, {formatDesignSize(preset.width, preset.height)}.
             </span>
@@ -145,6 +152,7 @@ export function ContentDesigns({
                 <DesignCard
                   design={design}
                   from={from}
+                  desktop={desktop}
                   publishing={publish.isPending && publish.variables === design.id}
                   onVersions={() => setVersionsOf(design)}
                   onPublish={() => publishDesign(design)}
@@ -182,6 +190,7 @@ export function ContentDesigns({
 function DesignCard({
   design,
   from,
+  desktop,
   publishing,
   onVersions,
   onPublish,
@@ -190,6 +199,7 @@ function DesignCard({
 }: {
   design: ContentDesign
   from: EditorOrigin | undefined
+  desktop: boolean
   publishing: boolean
   onVersions: () => void
   onPublish: () => void
@@ -217,7 +227,9 @@ function DesignCard({
           ) : (
             <span className="text-muted-foreground flex flex-col items-center gap-1 px-3 text-center text-xs">
               <Palette className="size-6" />
-              Ainda não salvo. Abra para editar.
+              {desktop
+                ? 'Ainda não salvo. Abra para editar.'
+                : 'Ainda não salvo. Edite no Zora Desktop ou via MCP.'}
             </span>
           )}
         </div>
@@ -348,7 +360,8 @@ function NewDesignDialog({
           <DialogHeader>
             <DialogTitle>Novo design</DialogTitle>
             <DialogDescription>
-              Ele abre no Zora Studio. O tamanho já vem do canal do item; dá para escolher outro.
+              O tamanho já vem do canal do item, mas você pode escolher outro. Edite no Zora
+              Desktop ou peça ao seu agente conectado via MCP.
             </DialogDescription>
           </DialogHeader>
 

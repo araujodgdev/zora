@@ -239,7 +239,7 @@ function AppSidebar() {
           </SidebarMenuItem>
           {showDesktopDownload ? (
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Baixar Zora Desktop">
+              <SidebarMenuButton asChild tooltip="Baixar Zora Desktop (Studio e LightCraft)">
                 <a
                   href={ZORA_DESKTOP_DOWNLOAD_URL}
                   target="_blank"

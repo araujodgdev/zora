@@ -107,10 +107,8 @@ function ConnectionsPage() {
         <Alert className="mb-6">
           <AlertCircle className="size-4" />
           <AlertDescription>
-            A publicação em redes sociais ainda não está ativa neste servidor: configure a variável{' '}
-            <code className="bg-muted rounded px-1 py-0.5 text-xs">TREG_TOKEN</code> no{' '}
-            <code className="bg-muted rounded px-1 py-0.5 text-xs">.env</code> (ou como secret do
-            Worker em produção) para conectar contas.
+            A publicação em redes sociais ainda não está ativa neste servidor. Avise o administrador
+            do Zora para habilitar a integração.
           </AlertDescription>
         </Alert>
       ) : null}

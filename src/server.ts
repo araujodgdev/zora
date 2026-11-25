@@ -4,7 +4,16 @@
 import handler from '@tanstack/react-start/server-entry'
 import { env as bindings } from 'cloudflare:workers'
 import { createDb } from './db/client.server'
-import { runScheduledPublishes } from './lib/social-publish.server'
+import {
+  cronErrorAlertEmail,
+  parseAlertRecipients,
+  publishFailureAlertEmail,
+  sendOpsAlert,
+} from './lib/ops-alert-email'
+import {
+  resolvePublishFailureRecipients,
+  runScheduledPublishes,
+} from './lib/social-publish.server'
 import { createTregClient } from './lib/treg.server'
 
 export { StudioEngine } from './lib/studio-engine-container.server'
@@ -20,8 +29,10 @@ type ExecutionContext = {
 }
 
 type CronEnv = {
+  BETTER_AUTH_URL?: string
   TREG_TOKEN?: string
   TREG_BASE_URL?: string
+  OPS_ALERT_EMAIL?: string
 }
 
 export default {
@@ -31,6 +42,10 @@ export default {
   scheduled(_controller: ScheduledController, workerEnv: CronEnv | undefined, ctx: ExecutionContext) {
     ctx.waitUntil(
       (async () => {
+        const alertRecipients = parseAlertRecipients(
+          workerEnv?.OPS_ALERT_EMAIL || process.env.OPS_ALERT_EMAIL,
+        )
+        const appUrl = workerEnv?.BETTER_AUTH_URL?.trim() || process.env.BETTER_AUTH_URL?.trim()
         const token = workerEnv?.TREG_TOKEN?.trim() || process.env.TREG_TOKEN?.trim()
         const baseUrl = workerEnv?.TREG_BASE_URL?.trim() || process.env.TREG_BASE_URL?.trim()
         const treg = createTregClient({ token, baseUrl })
@@ -45,8 +60,39 @@ export default {
         if (summary.dispatched > 0 || summary.polled > 0) {
           console.log('[cron] social publishes:', JSON.stringify(summary))
         }
-      })().catch((error: unknown) => {
+        if (summary.failures.length > 0) {
+          for (const failure of summary.failures) {
+            const recipients = await resolvePublishFailureRecipients(
+              db,
+              failure.organizationId,
+              failure.assigneeId,
+              alertRecipients,
+            )
+            await sendOpsAlert(bindings.EMAIL, recipients, (to) =>
+              publishFailureAlertEmail({
+                to,
+                itemId: failure.contentItemId,
+                itemTitle: failure.itemTitle,
+                channel: failure.channel,
+                errorMessage: failure.errorMessage,
+                stage: failure.stage,
+                appUrl,
+              }),
+            )
+          }
+        }
+      })().catch(async (error: unknown) => {
         console.error('[cron] social publishes failed:', error)
+        const alertRecipients = parseAlertRecipients(
+          workerEnv?.OPS_ALERT_EMAIL || process.env.OPS_ALERT_EMAIL,
+        )
+        const message =
+          error instanceof Error && error.message.trim()
+            ? error.message.trim()
+            : 'Erro desconhecido no cron de publicações.'
+        await sendOpsAlert(bindings.EMAIL, alertRecipients, (to) =>
+          cronErrorAlertEmail({ to, errorMessage: message }),
+        )
       }),
     )
   },
