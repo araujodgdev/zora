@@ -30,8 +30,13 @@ export function AnalyticsOperations({
   recentFailures: ReadonlyArray<RecentPublishFailure>
 }) {
   const [expanded, setExpanded] = useState(recentFailures.length > 0)
+  const [hoveredWeekday, setHoveredWeekday] = useState<number | null>(null)
 
   const maxWeekday = Math.max(...weekdayRhythm.map((d) => d.published), 1)
+  const activeDay =
+    hoveredWeekday != null
+      ? weekdayRhythm.find((d) => d.weekday === hoveredWeekday) ?? null
+      : null
   const totalCreativeHuman = collaboration.designVersionsHuman + collaboration.photoVersionsHuman
   const totalCreativeAgent = collaboration.designVersionsAgent + collaboration.photoVersionsAgent
   const totalCreative = totalCreativeHuman + totalCreativeAgent
@@ -48,10 +53,10 @@ export function AnalyticsOperations({
       >
         <div>
           <h2 className="font-display text-xl font-semibold tracking-[-0.01em]">
-            Operação, equipe e agentes
+            Melhores dias, equipe e agentes
           </h2>
           <p className="text-muted-foreground mt-0.5 text-xs">
-            Ritmo por dia da semana, colaboração humano vs. agente e saúde das publicações automáticas.
+            Dias da semana em que você mais posta, colaboração com agentes e status de publicação.
           </p>
         </div>
         <span className="bg-muted text-muted-foreground inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium">
@@ -64,30 +69,62 @@ export function AnalyticsOperations({
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           {/* Weekday rhythm */}
           <div className="bg-muted/30 rounded-xl p-4">
-            <h3 className="text-sm font-medium">Dias da semana mais ativos</h3>
+            <h3 className="text-sm font-medium">Dias em que você mais posta</h3>
             <p className="text-muted-foreground mt-0.5 text-xs">
-              Volume de publicações por dia (UTC).
+              {activeDay ? (
+                <>
+                  <span className="text-foreground font-medium">{activeDay.label}</span>
+                  {' · '}
+                  {formatInteger(activeDay.published)}{' '}
+                  {activeDay.published === 1 ? 'post' : 'posts'}
+                  {activeDay.avgInteractions != null
+                    ? ` · média de ${formatCompactNumber(activeDay.avgInteractions)} interações`
+                    : ''}
+                </>
+              ) : (
+                'Passe o mouse em um dia para ver detalhes.'
+              )}
             </p>
-            <div className="mt-4 grid grid-cols-7 gap-2">
+            <div
+              className="mt-4 grid grid-cols-7 gap-2"
+              onMouseLeave={() => setHoveredWeekday(null)}
+            >
               {weekdayRhythm.map((day) => {
                 const pct = day.published > 0 ? Math.max((day.published / maxWeekday) * 100, 14) : 6
+                const active = hoveredWeekday === day.weekday
                 return (
-                  <div key={day.weekday} className="flex flex-col items-center gap-1.5">
+                  <button
+                    key={day.weekday}
+                    type="button"
+                    onMouseEnter={() => setHoveredWeekday(day.weekday)}
+                    onFocus={() => setHoveredWeekday(day.weekday)}
+                    className="group flex flex-col items-center gap-1.5 focus:outline-none"
+                  >
                     <div className="flex h-20 w-full items-end justify-center">
                       <div
                         className={cn(
                           'w-full max-w-7 rounded-t-md transition-all',
-                          day.published > 0 ? 'bg-lime/80' : 'bg-muted',
+                          day.published > 0
+                            ? active
+                              ? 'bg-lime'
+                              : 'bg-lime/75 group-hover:bg-lime'
+                            : 'bg-muted',
                         )}
                         style={{ height: `${pct}%` }}
-                        title={`${day.label}: ${day.published} publicações${day.avgInteractions != null ? ` · média de ${formatCompactNumber(day.avgInteractions)} interações` : ''}`}
                       />
                     </div>
-                    <span className="text-xs font-medium">{day.shortLabel}</span>
-                    <span className="text-muted-foreground text-[11px]">
+                    <span
+                      className={cn(
+                        'text-xs font-medium',
+                        active ? 'text-foreground' : 'text-muted-foreground',
+                      )}
+                    >
+                      {day.shortLabel}
+                    </span>
+                    <span className="text-muted-foreground text-[11px] tabular-nums">
                       {formatInteger(day.published)}
                     </span>
-                  </div>
+                  </button>
                 )
               })}
             </div>

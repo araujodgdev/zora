@@ -1,56 +1,61 @@
 import { Link } from '@tanstack/react-router'
-import { AlertTriangle, ArrowRight, Sparkles, TrendingUp } from 'lucide-react'
+import { AlertCircle, ArrowRight, Calendar, Clock, Link2, TrendingUp } from 'lucide-react'
 import type { AnalyticsInsight } from '@/lib/analytics'
 import { cn } from '@/lib/utils'
 
+function getInsightIcon(insight: AnalyticsInsight) {
+  if (insight.tone === 'attention') return AlertCircle
+  if (insight.id === 'calendar-gap') return Calendar
+  if (insight.id === 'connect-social') return Link2
+  if (insight.id === 'stale-ready') return Clock
+  return TrendingUp
+}
+
 /**
- * Plain-Portuguese highlights that explain "what matters right now" before
- * the user dives into charts and tables.
+ * Compact, actionable status notices shown at the top of `/analytics`.
  */
 export function AnalyticsInsights({ insights }: { insights: ReadonlyArray<AnalyticsInsight> }) {
   if (insights.length === 0) return null
 
   return (
-    <section aria-label="Destaques do período" className="grid gap-3 md:grid-cols-2">
+    <section aria-label="Avisos rápidos" className="grid gap-2.5 md:grid-cols-2">
       {insights.map((insight) => {
-        const Icon =
-          insight.tone === 'positive'
-            ? TrendingUp
-            : insight.tone === 'attention'
-              ? AlertTriangle
-              : Sparkles
+        const Icon = getInsightIcon(insight)
 
         return (
           <div
             key={insight.id}
-            className="bg-card flex items-start gap-3.5 rounded-2xl p-4 transition-colors"
+            className="bg-card flex items-center justify-between gap-3 rounded-xl px-4 py-3"
           >
-            <div
-              className={cn(
-                'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl',
-                insight.tone === 'positive' && 'bg-lime/20 text-brand',
-                insight.tone === 'attention' && 'bg-destructive/15 text-destructive',
-                insight.tone === 'info' && 'bg-muted text-foreground',
-              )}
-            >
-              <Icon className="size-4" />
+            <div className="flex min-w-0 items-start gap-3">
+              <div
+                className={cn(
+                  'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg',
+                  insight.tone === 'positive' && 'bg-lime/15 text-brand',
+                  insight.tone === 'attention' && 'bg-destructive/15 text-destructive',
+                  insight.tone === 'info' && 'bg-muted text-muted-foreground',
+                )}
+              >
+                <Icon className="size-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium leading-snug">{insight.title}</p>
+                <p className="text-muted-foreground mt-0.5 text-xs leading-snug">
+                  {insight.description}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium leading-snug">{insight.title}</p>
-              <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-                {insight.description}
-              </p>
-              {insight.action ? (
-                <Link
-                  to={insight.action.to}
-                  search={insight.action.search as never}
-                  className="text-brand mt-2 inline-flex items-center gap-1 text-xs font-medium hover:underline"
-                >
-                  {insight.action.label}
-                  <ArrowRight className="size-3" />
-                </Link>
-              ) : null}
-            </div>
+
+            {insight.action ? (
+              <Link
+                to={insight.action.to}
+                search={insight.action.search as never}
+                className="text-brand inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors hover:bg-muted"
+              >
+                {insight.action.label}
+                <ArrowRight className="size-3" />
+              </Link>
+            ) : null}
           </div>
         )
       })}

@@ -790,12 +790,12 @@ function buildInsights(ctx: {
     insights.push({
       id: 'calendar-gap',
       tone: 'info',
-      title: 'Agenda dos próximos 7 dias está vazia',
+      title: 'Próximos 7 dias livres',
       description:
         ctx.kpis.inProgressCount > 0
-          ? `Você tem ${ctx.kpis.inProgressCount} ${ctx.kpis.inProgressCount === 1 ? 'item' : 'itens'} em produção que podem preencher a semana.`
-          : 'Que tal planejar os próximos conteúdos no calendário?',
-      action: { label: 'Ir ao calendário', to: '/calendar' },
+          ? `${ctx.kpis.inProgressCount} ${ctx.kpis.inProgressCount === 1 ? 'conteúdo em produção pronto' : 'conteúdos em produção prontos'} pra encaixar na agenda.`
+          : 'Nenhum post agendado para esta semana.',
+      action: { label: 'Calendário', to: '/calendar' },
     })
   }
 
@@ -804,10 +804,9 @@ function buildInsights(ctx: {
     insights.push({
       id: 'connect-social',
       tone: 'info',
-      title: 'Conecte suas redes para ver alcance e engajamento',
-      description:
-        'Com uma conta conectada, o Zora coleta automaticamente visualizações, curtidas, comentários e taxa de engajamento.',
-      action: { label: 'Abrir Conexões', to: '/connections' },
+      title: 'Conecte suas redes',
+      description: 'Veja views, curtidas, comentários e salvos direto por aqui.',
+      action: { label: 'Conectar', to: '/connections' },
     })
   }
 

@@ -96,7 +96,7 @@ function AnalyticsPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <PageHeader
           title="Analytics"
-          description="Resumo claro do seu ritmo editorial e do desempenho nas redes conectadas."
+          description="Veja como seu conteúdo está indo nas redes e no calendário."
           className="mb-0"
         />
 
@@ -172,13 +172,10 @@ function AnalyticsPage() {
         ) : null}
       </div>
 
-      {/* Layer 1: Hero KPIs + Friendly narrative highlights + Platform-native spotlight */}
+      {/* Layer 1: Hero KPIs + Compact notices + Platform-native signals (when a channel has data) */}
       <AnalyticsKpiStrip kpis={data.kpis} />
       <AnalyticsInsights insights={data.insights} />
-      <AnalyticsChannelSpotlight
-        spotlight={data.channelSpotlight}
-        onSelectChannel={(ch) => setChannel(ch)}
-      />
+      <AnalyticsChannelSpotlight spotlight={data.channelSpotlight} />
 
       {/* Layer 2: Interactive cadence & traction chart + Channel/Pipeline/Format breakdown */}
       <AnalyticsCadenceChart

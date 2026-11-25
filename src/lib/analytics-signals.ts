@@ -275,7 +275,7 @@ export function computeChannelSignalsFromTotals(
         role: 'discovery',
         strength: strengthFrom(rate, 0.5, 1.5),
         explanation:
-          'Percentual de pessoas alcançadas que enviaram o post por DM ou compartilharam. Principal motor para atingir não-seguidores.',
+          'Quem viu o post e mandou por DM ou compartilhou. Ajuda a alcançar gente nova.',
       })
     }
     if (exposure && totals.saves != null) {
@@ -290,7 +290,7 @@ export function computeChannelSignalsFromTotals(
         role: 'utility',
         strength: strengthFrom(rate, 0.8, 2.0),
         explanation:
-          'Indica quantas pessoas guardaram o post para consultar depois — ótimo sinal de utilidade e valor prático.',
+          'Quem salvou o post para ver depois. Forte em carrosséis, tutoriais e listas.',
       })
     }
     if (totals.avgWatchTimeMs != null && totals.avgWatchTimeMs > 0) {
@@ -305,7 +305,7 @@ export function computeChannelSignalsFromTotals(
         role: 'retention',
         strength: strengthFrom(seconds, 6, 12),
         explanation:
-          'Tempo médio que o público permaneceu assistindo ao Reel. Retenção alta mantém o vídeo em distribuição.',
+          'Quanto tempo em média o público ficou assistindo ao Reel.',
       })
     }
     if (exposure && totals.likes != null) {
@@ -320,7 +320,7 @@ export function computeChannelSignalsFromTotals(
         role: 'community',
         strength: strengthFrom(rate, 2.5, 5.0),
         explanation:
-          'Mostra o quanto o conteúdo agradou a quem o viu — ajuda a medir a sintonia com seus seguidores.',
+          'Quem viu o post e curtiu. Mede a resposta da sua base.',
       })
     }
     return signals
@@ -339,7 +339,7 @@ export function computeChannelSignalsFromTotals(
         role: 'discovery',
         strength: strengthFrom(rate, 0.5, 1.5),
         explanation:
-          'Proporção de espectadores que enviaram o vídeo para alguém — sinal chave de potencial viral no Para Você.',
+          'Quem assistiu e compartilhou o vídeo. Puxa novas entregas no Para Você.',
       })
     }
     if (views) {
@@ -355,7 +355,7 @@ export function computeChannelSignalsFromTotals(
         role: 'community',
         strength: strengthFrom(rate, 3.0, 6.0),
         explanation:
-          'Percentual de visualizações que viraram curtida, comentário ou compartilhamento (referência saudável: acima de 3%).',
+          'Curtidas, comentários e compartilhamentos a cada view (acima de 3% é saudável).',
       })
     }
     if (views && totals.comments != null) {
@@ -521,7 +521,7 @@ export function diagnosePost(
       return {
         badge: 'Alto potencial de descoberta',
         tone: 'positive',
-        summary: `Teve ${sends.formattedValue} de envios por alcance — ótimo sinal de que o público está indicando este post para outras pessoas.`,
+        summary: `${sends.formattedValue} de envios por alcance. Muita gente mandou este post para outros.`,
       }
     }
     const saves = byId.get('saves_per_reach')
@@ -529,7 +529,7 @@ export function diagnosePost(
       return {
         badge: 'Conteúdo de referência',
         tone: 'positive',
-        summary: `Alcançou ${saves.formattedValue} de salvamentos — o público considerou este conteúdo útil para guardar.`,
+        summary: `${saves.formattedValue} de salvamentos. O público guardou este post para consultar depois.`,
       }
     }
     const watch = byId.get('avg_watch_time')
@@ -537,7 +537,7 @@ export function diagnosePost(
       return {
         badge: 'Ótima retenção',
         tone: 'positive',
-        summary: `Tempo médio assistido de ${watch.formattedValue} — o gancho segurou bem a atenção no Reel.`,
+        summary: `Tempo médio de ${watch.formattedValue}. O começo do Reel segurou bem a atenção.`,
       }
     }
   }
@@ -548,7 +548,7 @@ export function diagnosePost(
       return {
         badge: 'Alto potencial viral',
         tone: 'positive',
-        summary: `${shares.formattedValue} das visualizações viraram compartilhamentos — sinal forte para distribuição no Para Você.`,
+        summary: `${shares.formattedValue} das views viraram compartilhamentos no Para Você.`,
       }
     }
   }
@@ -559,7 +559,7 @@ export function diagnosePost(
       return {
         badge: 'Conteúdo de alto valor',
         tone: 'positive',
-        summary: `Teve ${bookmarks.formattedValue} de bookmarks por impressão — sinal de post que as pessoas querem reler.`,
+        summary: `${bookmarks.formattedValue} de bookmarks por impressão. Post que o pessoal salvou para reler.`,
       }
     }
     const amp = byId.get('amplification_per_view')
@@ -589,7 +589,7 @@ export function diagnosePost(
       return {
         badge: 'Gerou boa conversa',
         tone: 'positive',
-        summary: `${comments.formattedValue} comentários — ótimo volume para ampliar alcance para conexões de 2º grau.`,
+        summary: `${comments.formattedValue} comentários, puxando o post para fora da sua bolha.`,
       }
     }
   }
@@ -617,7 +617,7 @@ export function diagnosePost(
     return {
       badge: 'Desempenho consistente',
       tone: 'info',
-      summary: `${best.label}: ${best.formattedValue} — dentro do ritmo esperado para este canal.`,
+      summary: `${best.label}: ${best.formattedValue}, dentro do ritmo esperado.`,
     }
   }
 
