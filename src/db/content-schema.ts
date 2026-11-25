@@ -391,6 +391,59 @@ export const socialPublishJob = sqliteTable(
 )
 
 /**
+ * Periodic snapshot of social engagement metrics collected for a published
+ * content item. Multiple snapshots per item let the UI show growth over time
+ * while keeping the latest snapshot fast to query.
+ */
+export const socialMetricSnapshot = sqliteTable(
+  'social_metric_snapshot',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organization.id, { onDelete: 'restrict' }),
+    contentItemId: text('content_item_id')
+      .notNull()
+      .references(() => contentItem.id, { onDelete: 'cascade' }),
+    publishJobId: text('publish_job_id').references(() => socialPublishJob.id, {
+      onDelete: 'set null',
+    }),
+    channel: text('channel', { enum: SOCIAL_CHANNELS }).notNull(),
+    remotePostId: text('remote_post_id').notNull(),
+    views: integer('views'),
+    reach: integer('reach'),
+    likes: integer('likes'),
+    comments: integer('comments'),
+    shares: integer('shares'),
+    saves: integer('saves'),
+    clicks: integer('clicks'),
+    // Average watch time in milliseconds (e.g. Instagram Reels `ig_reels_avg_watch_time`).
+    avgWatchTimeMs: integer('avg_watch_time_ms'),
+    // Engagement rate stored in basis points (e.g. 425 = 4.25%) for exact SQLite math.
+    engagementRateBps: integer('engagement_rate_bps'),
+    rawPayload: text('raw_payload', { mode: 'json' })
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    collectedAt: instant('collected_at').notNull().default(now),
+  },
+  (table) => [
+    index('social_metric_snapshot_org_collected_idx').on(
+      table.organizationId,
+      table.collectedAt,
+    ),
+    index('social_metric_snapshot_item_collected_idx').on(
+      table.contentItemId,
+      table.collectedAt,
+    ),
+    index('social_metric_snapshot_remote_idx').on(table.remotePostId, table.collectedAt),
+    check('social_metric_snapshot_channel_valid', oneOf(table.channel, SOCIAL_CHANNELS)),
+  ],
+)
+
+/**
  * Remembers which workspace an authenticated user selected through MCP
  * (`switch_workspace` / `create_workspace`), because MCP requests are
  * stateless and carry a user-scoped OAuth token rather than a browser session.

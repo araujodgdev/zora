@@ -10,6 +10,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import {
+  BarChart3,
   CalendarDays,
   Check,
   ChevronsUpDown,
@@ -64,6 +65,7 @@ const navItems = [
   { to: '/calendar', label: 'Calendário', icon: CalendarDays },
   { to: '/pipeline', label: 'Pipeline', icon: SquareKanban },
   { to: '/content', label: 'Conteúdos', icon: List },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/connections', label: 'Conexões', icon: Share2 },
   { to: '/team', label: 'Equipe', icon: Users },
 ] as const

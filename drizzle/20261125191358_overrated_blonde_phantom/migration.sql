@@ -1,0 +1,1 @@
+ALTER TABLE `social_metric_snapshot` ADD `avg_watch_time_ms` integer;

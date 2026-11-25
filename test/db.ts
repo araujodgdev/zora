@@ -16,6 +16,7 @@ import {
   organization,
   session,
   socialConnection,
+  socialMetricSnapshot,
   socialPublishJob,
   user,
   verification,
@@ -75,6 +76,7 @@ export async function seedWorkspace(
 export async function resetDatabase(db: Database): Promise<void> {
   for (const table of [
     mcpWorkspaceState,
+    socialMetricSnapshot,
     socialPublishJob,
     socialConnection,
     contentPhotoEditVersion,

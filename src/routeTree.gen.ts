@@ -17,6 +17,7 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as DotwellKnownSplatRouteImport } from './routes/[.]well-known/$'
+import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
 import { Route as AppConnectionsRouteImport } from './routes/_app/connections'
 import { Route as AppPipelineRouteImport } from './routes/_app/pipeline'
@@ -83,6 +84,11 @@ const DotwellKnownSplatRoute = DotwellKnownSplatRouteImport.update({
   id: '/.well-known/$',
   path: '/.well-known/$',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppCalendarRoute = AppCalendarRouteImport.update({
   id: '/calendar',
@@ -239,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/.well-known/$': typeof DotwellKnownSplatRoute
+  '/analytics': typeof AppAnalyticsRoute
   '/calendar': typeof AppCalendarRoute
   '/connections': typeof AppConnectionsRoute
   '/pipeline': typeof AppPipelineRoute
@@ -275,6 +282,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/.well-known/$': typeof DotwellKnownSplatRoute
+  '/analytics': typeof AppAnalyticsRoute
   '/calendar': typeof AppCalendarRoute
   '/connections': typeof AppConnectionsRoute
   '/pipeline': typeof AppPipelineRoute
@@ -313,6 +321,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/.well-known/$': typeof DotwellKnownSplatRoute
+  '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/calendar': typeof AppCalendarRoute
   '/_app/connections': typeof AppConnectionsRoute
   '/_app/pipeline': typeof AppPipelineRoute
@@ -351,6 +360,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/.well-known/$'
+    | '/analytics'
     | '/calendar'
     | '/connections'
     | '/pipeline'
@@ -387,6 +397,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/.well-known/$'
+    | '/analytics'
     | '/calendar'
     | '/connections'
     | '/pipeline'
@@ -424,6 +435,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/.well-known/$'
+    | '/_app/analytics'
     | '/_app/calendar'
     | '/_app/connections'
     | '/_app/pipeline'
@@ -539,6 +551,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/.well-known/$'
       preLoaderRoute: typeof DotwellKnownSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/analytics': {
+      id: '/_app/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AppAnalyticsRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/calendar': {
       id: '/_app/calendar'
@@ -733,6 +752,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppConnectionsRoute: typeof AppConnectionsRoute
   AppPipelineRoute: typeof AppPipelineRoute
@@ -745,6 +765,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAnalyticsRoute: AppAnalyticsRoute,
   AppCalendarRoute: AppCalendarRoute,
   AppConnectionsRoute: AppConnectionsRoute,
   AppPipelineRoute: AppPipelineRoute,

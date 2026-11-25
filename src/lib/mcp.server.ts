@@ -12,7 +12,11 @@ import { user as userTable } from '../db/schema'
 import type { Database } from '../db/client.server'
 import { AGENT_INSTRUCTIONS, agentActions } from './agent-tools'
 import type { AgentActionName } from './agent-tools'
+import { ANALYTICS_PERIODS } from './analytics'
+import { CHANNEL_METRIC_GUIDES } from './analytics-signals'
+import * as analyticsServer from './analytics.server'
 import {
+  CHANNELS,
   changeContentItemStatusSchema,
   contentListFiltersSchema,
   createContentItemSchema,
@@ -56,6 +60,7 @@ import {
   socialPublishOptionsSchema,
 } from './social'
 import * as socialConnections from './social-connections.server'
+import * as socialMetrics from './social-metrics.server'
 import * as socialPublish from './social-publish.server'
 import * as engine from './studio-engine.server'
 import type { EngineRunResult, StudioEngineTransport } from './studio-engine.server'
@@ -1923,6 +1928,90 @@ export const zoraTools = [
           finishedAt: job.finishedAt,
         })),
       })
+    },
+  }),
+  defineTool({
+    name: 'get_workspace_analytics',
+    title: 'Get workspace analytics',
+    description:
+      'Returns editorial and platform-native social performance analytics for the active workspace: KPIs with period comparison, human-friendly highlights, per-network native signals and beginner-friendly metric guides (e.g. Instagram sends/reach, saves/reach, Reels watch time; X bookmarks/impressions; TikTok shares/views; LinkedIn comments), channel/format breakdown, pipeline health, team vs. agent collaboration, diagnosed top posts, and recent publish failures.',
+    inputSchema: z.object({
+      period: z
+        .enum(ANALYTICS_PERIODS)
+        .optional()
+        .describe('Time window: 7d, 30d (default), 90d, or all.'),
+      channel: z
+        .enum(CHANNELS)
+        .optional()
+        .describe('Optional channel filter (x, linkedin, instagram, tiktok, youtube, blog).'),
+    }),
+    annotations: readOnly,
+    run: async ({ period, channel }, { db, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
+      const data = await analyticsServer.getWorkspaceAnalytics(db, active.id, {
+        period: period ?? '30d',
+        channel,
+      })
+      const base = appUrl.replace(/\/+$/, '')
+      return ok({
+        ...data,
+        analyticsUrl: `${base}/analytics`,
+        channelGuides: channel
+          ? { [channel]: CHANNEL_METRIC_GUIDES[channel] }
+          : CHANNEL_METRIC_GUIDES,
+        topContent: data.topContent.map((entry) => ({
+          ...entry,
+          url: `${base}/content/${entry.id}`,
+        })),
+      })
+    },
+  }),
+  defineTool({
+    name: 'get_item_analytics',
+    title: 'Get analytics for one content item',
+    description:
+      'Returns collected social metrics, platform-native signals with beginner-friendly explanations, a single-sentence post diagnosis, growth history, channel metric guide, and editorial cycle time for one content item.',
+    inputSchema: z.object({
+      id: z.uuid().describe('Content item id (UUID).'),
+    }),
+    annotations: readOnly,
+    run: async ({ id }, { db, workspace, appUrl }) => {
+      const active = requireWorkspace(workspace)
+      const data = await analyticsServer.getItemAnalytics(db, active.id, id)
+      if (!data) notFound('content item', id)
+      return ok({
+        ...data,
+        url: `${appUrl.replace(/\/+$/, '')}/content/${id}`,
+      })
+    },
+  }),
+  defineTool({
+    name: 'sync_social_metrics',
+    title: 'Refresh social engagement metrics',
+    description:
+      'Pulls fresh views, likes, comments, shares and saves from connected social accounts for one content item (when itemId is given) or for recent published posts in the active workspace.',
+    inputSchema: z.object({
+      itemId: z.uuid().optional().describe('Optional content item id to refresh; omit to refresh recent workspace posts.'),
+    }),
+    annotations: fetchesAndWrites,
+    run: async ({ itemId }, { db, workspace, treg }) => {
+      const active = requireWorkspace(workspace)
+      if (itemId) {
+        const existing = await content.getContentItem(db, active.id, itemId)
+        if (!existing) notFound('content item', itemId)
+        return ok(
+          await socialMetrics.syncItemSocialMetrics(
+            { db, treg: treg ?? null },
+            { organizationId: active.id, itemId },
+          ),
+        )
+      }
+      return ok(
+        await socialMetrics.syncWorkspaceSocialMetrics(
+          { db, treg: treg ?? null },
+          { organizationId: active.id },
+        ),
+      )
     },
   }),
 ]

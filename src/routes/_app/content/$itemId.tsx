@@ -1,11 +1,13 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, createFileRoute, notFound } from '@tanstack/react-router'
 import { PageHeader } from '@/components/app-shell'
+import { ItemAnalyticsCard } from '@/components/analytics/item-analytics-card'
 import { ContentAssets } from '@/components/content/content-assets'
 import { ContentDesigns } from '@/components/content/content-designs'
 import { ContentItemForm } from '@/components/content/content-item-form'
 import { ContentPhotoEdits } from '@/components/content/content-photo-edits'
 import { ContentPublish } from '@/components/content/content-publish'
+import { itemAnalyticsQueryOptions } from '@/lib/analytics.queries'
 import { contentItemIdSchema } from '@/lib/content'
 import { contentDesignsQueryOptions } from '@/lib/content-designs.queries'
 import { contentPhotoEditsQueryOptions } from '@/lib/content-photo-edits.queries'
@@ -39,6 +41,7 @@ export const Route = createFileRoute('/_app/content/$itemId')({
       loadQuery(context.queryClient, contentPhotoEditsQueryOptions(params.itemId)),
       loadQuery(context.queryClient, socialConnectionsQueryOptions()),
       loadQuery(context.queryClient, itemPublishJobsQueryOptions(params.itemId)),
+      loadQuery(context.queryClient, itemAnalyticsQueryOptions(params.itemId)),
     ])
     return { title: item.title }
   },
@@ -69,12 +72,15 @@ function EditContentItemPage() {
       }
       media={<ContentAssets itemId={item.id} />}
       renderPublish={({ isDirty, channel, onPublished }) => (
-        <ContentPublish
-          item={item}
-          currentChannel={channel}
-          isDirty={isDirty}
-          onPublished={onPublished}
-        />
+        <div className="space-y-4">
+          <ContentPublish
+            item={item}
+            currentChannel={channel}
+            isDirty={isDirty}
+            onPublished={onPublished}
+          />
+          <ItemAnalyticsCard item={item} />
+        </div>
       )}
     />
   )

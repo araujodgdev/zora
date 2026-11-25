@@ -14,6 +14,7 @@ import {
   resolvePublishFailureRecipients,
   runScheduledPublishes,
 } from './lib/social-publish.server'
+import { runScheduledMetricsSync } from './lib/social-metrics.server'
 import { createTregClient } from './lib/treg.server'
 
 export { StudioEngine } from './lib/studio-engine-container.server'
@@ -39,7 +40,7 @@ export default {
   fetch(request: Request, opts?: unknown) {
     return (handler.fetch as (req: Request, o?: unknown) => Promise<Response>)(request, opts)
   },
-  scheduled(_controller: ScheduledController, workerEnv: CronEnv | undefined, ctx: ExecutionContext) {
+  scheduled(controller: ScheduledController, workerEnv: CronEnv | undefined, ctx: ExecutionContext) {
     ctx.waitUntil(
       (async () => {
         const alertRecipients = parseAlertRecipients(
@@ -79,6 +80,20 @@ export default {
                 appUrl,
               }),
             )
+          }
+        }
+
+        // Refresh social engagement snapshots every 15 minutes (isolated so it
+        // can never affect scheduled publishing).
+        const scheduledDate = new Date(controller.scheduledTime)
+        if (scheduledDate.getUTCMinutes() % 15 === 0) {
+          try {
+            const metricsSummary = await runScheduledMetricsSync({ db, treg }, scheduledDate)
+            if (metricsSummary.checked > 0) {
+              console.log('[cron] social metrics:', JSON.stringify(metricsSummary))
+            }
+          } catch (metricsError) {
+            console.error('[cron] social metrics sync failed:', metricsError)
           }
         }
       })().catch(async (error: unknown) => {
