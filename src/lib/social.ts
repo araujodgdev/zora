@@ -116,7 +116,7 @@ export const SOCIAL_CHANNEL_INFO: Record<
   instagram: {
     summary: 'Publica Posts (imagem), Carrosséis (2 a 10 mídias), Reels e Stories.',
     caveat: 'Exige conta Profissional (Business ou Creator). Mídias são enviadas via URL temporária.',
-    defaultCapability: 'manage',
+    defaultCapability: 'post',
     supportsResourcePicker: false,
   },
   tiktok: {

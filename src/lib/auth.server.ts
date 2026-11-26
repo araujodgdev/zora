@@ -6,6 +6,8 @@ import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import * as authSchema from '../db/auth-schema'
 import type { Database } from '../db/client.server'
 import type { ServerEnv } from './env.server'
+import type { Mailer } from './mailer.server'
+import { passwordResetEmail } from './password-reset-email'
 import { initialWorkspaceId } from './workspace.server'
 
 /**
@@ -24,12 +26,16 @@ export type AuthEnv = Pick<
   'BETTER_AUTH_SECRET' | 'BETTER_AUTH_URL'
 >
 
+export type CreateAuthOptions = {
+  mailer?: Mailer
+}
+
 /**
  * Builds the Better Auth instance for one database client.
  *
  * The app calls this once per request through `getRequestServices()`.
  */
-export function createAuth(db: Database, env: AuthEnv) {
+export function createAuth(db: Database, env: AuthEnv, options?: CreateAuthOptions) {
   return betterAuth({
     appName: 'Zora',
     baseURL: env.BETTER_AUTH_URL,
@@ -37,6 +43,26 @@ export function createAuth(db: Database, env: AuthEnv) {
     database: drizzleAdapter(db, { provider: 'sqlite', schema: authSchema }),
     emailAndPassword: {
       enabled: true,
+      resetPasswordTokenExpiresIn: 60 * 60,
+      revokeSessionsOnPasswordReset: true,
+      async sendResetPassword({ user, url }) {
+        if (!options?.mailer) {
+          console.warn('[auth] sendResetPassword called without a configured mailer')
+          return
+        }
+        try {
+          await options.mailer.send(
+            passwordResetEmail({
+              to: user.email,
+              name: user.name,
+              url,
+            }),
+          )
+        } catch (error) {
+          // Log server-side without revealing whether an account exists.
+          console.error('[auth] failed to send password reset email:', error)
+        }
+      },
     },
     // Every server function opens the session. Without this each one read it
     // from D1 first, a round trip to the database's region (ENAM) on every
@@ -59,6 +85,7 @@ export function createAuth(db: Database, env: AuthEnv) {
       storage: 'database',
       customRules: {
         '/oauth2/register': { window: 60, max: 10 },
+        '/request-password-reset': { window: 60, max: 5 },
       },
     },
     databaseHooks: {

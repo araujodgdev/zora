@@ -316,6 +316,7 @@ export type SyncItemMetricsResult = {
 export type SyncWorkspaceMetricsResult = {
   checked: number
   updated: number
+  imported: number
   skipped: number
   warnings: Array<string>
 }

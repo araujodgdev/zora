@@ -22,6 +22,7 @@ import {
   requireTregClient,
 } from './treg.server'
 import type { TregClient, TregConnectionSummary } from './treg.server'
+import { importRecentSocialPosts } from './social-metrics.server'
 
 type ConnectionRow = typeof socialConnection.$inferSelect
 
@@ -332,7 +333,20 @@ export async function pollChannelConnection(
     .where(eq(socialConnection.id, existing.id))
     .returning()
 
-  return { done: true, connection: toConnection(updated!), resources }
+  const connection = toConnection(updated!)
+  if (nextStatus === 'connected') {
+    try {
+      await importRecentSocialPosts(
+        { db, treg: client },
+        { organizationId, channel, limitPerChannel: 15 },
+        now,
+      )
+    } catch (error) {
+      console.warn('[social] initial post import failed:', channel, error)
+    }
+  }
+
+  return { done: true, connection, resources }
 }
 
 /** Refreshes health/expiry/metadata for every saved connection in the workspace. */
@@ -458,7 +472,17 @@ export async function selectChannelResource(
     })
     .where(eq(socialConnection.id, existing.id))
     .returning()
-  return toConnection(updated!)
+  const connection = toConnection(updated!)
+  try {
+    await importRecentSocialPosts(
+      { db, treg: client },
+      { organizationId: input.organizationId, channel: input.channel, limitPerChannel: 15 },
+      now,
+    )
+  } catch (error) {
+    console.warn('[social] initial post import failed:', input.channel, error)
+  }
+  return connection
 }
 
 /** Disconnects a workspace's social account locally and revokes it in treg. */

@@ -6,9 +6,12 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  useRouter,
 } from '@tanstack/react-router'
+import type { ErrorComponentProps } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { registerServiceWorker } from '@/lib/pwa'
@@ -58,15 +61,45 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
   shellComponent: RootDocument,
   notFoundComponent: NotFound,
+  errorComponent: RootError,
 })
 
 function NotFound() {
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-2 p-6">
+    <main className="flex min-h-svh flex-col items-center justify-center gap-2 p-6 text-center">
       <h1 className="font-display text-4xl font-semibold">Página não encontrada</h1>
       <Link to="/" className="text-sm underline underline-offset-4">
         Ir para o calendário
       </Link>
+    </main>
+  )
+}
+
+function RootError({ reset }: ErrorComponentProps) {
+  const router = useRouter()
+
+  return (
+    <main className="flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="max-w-md space-y-2">
+        <h1 className="font-display text-3xl font-semibold">Algo deu errado</h1>
+        <p className="text-muted-foreground text-sm leading-relaxed">
+          Não foi possível carregar esta página agora. Tente novamente ou volte para o início.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center justify-center gap-2.5">
+        <Button
+          type="button"
+          onClick={() => {
+            reset()
+            void router.invalidate()
+          }}
+        >
+          Tentar novamente
+        </Button>
+        <Button asChild variant="outline">
+          <Link to="/">Ir para o calendário</Link>
+        </Button>
+      </div>
     </main>
   )
 }

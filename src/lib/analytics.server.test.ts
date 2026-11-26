@@ -19,6 +19,7 @@ import {
 import { getItemAnalytics, getWorkspaceAnalytics } from './analytics.server'
 import { runZoraTool, zoraTools } from './mcp.server'
 import {
+  importRecentSocialPosts,
   runScheduledMetricsSync,
   syncItemSocialMetrics,
   syncWorkspaceSocialMetrics,
@@ -447,5 +448,162 @@ describe('analytics and social metrics', () => {
     expect(parsed.period).toBe('7d')
     expect(parsed.analyticsUrl).toBe('https://zora.lume.software/analytics')
     expect(parsed.channelGuides.instagram?.headline).toContain('Instagram')
+  })
+
+  it('imports recent posts from Instagram, TikTok, and YouTube via treg without skewing editorial KPIs', async () => {
+    const now = new Date('2026-11-26T12:00:00Z')
+    const twoDaysAgoIso = new Date(now.getTime() - 2 * DAY_MS).toISOString()
+    const threeDaysAgoSec = Math.floor((now.getTime() - 3 * DAY_MS) / 1000)
+
+    await db.insert(socialConnection).values([
+      {
+        organizationId: orgId,
+        channel: 'instagram',
+        externalToolName: 'zora-instagram-test',
+        status: 'connected',
+        connectedById: userId,
+      },
+      {
+        organizationId: orgId,
+        channel: 'tiktok',
+        externalToolName: 'zora-tiktok-test',
+        status: 'connected',
+        connectedById: userId,
+      },
+      {
+        organizationId: orgId,
+        channel: 'youtube',
+        externalToolName: 'zora-youtube-test',
+        accountId: 'UC_TEST_1',
+        status: 'connected',
+        connectedById: userId,
+      },
+    ])
+
+    const mockFetch: typeof fetch = async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+      // Instagram media list + Reel insights
+      if (url.includes('/call/zora-instagram-test/me/media')) {
+        return Response.json({
+          data: [
+            {
+              id: 'ig_reel_1',
+              caption: 'Bastidores do estúdio\nSegunda linha da legenda',
+              media_type: 'VIDEO',
+              media_product_type: 'REELS',
+              permalink: 'https://www.instagram.com/reel/ig_reel_1/',
+              timestamp: twoDaysAgoIso,
+              like_count: 140,
+              comments_count: 18,
+            },
+          ],
+        })
+      }
+      if (url.includes('/call/zora-instagram-test/ig_reel_1/insights')) {
+        return Response.json({
+          data: [
+            { name: 'views', values: [{ value: 4200 }] },
+            { name: 'reach', values: [{ value: 3000 }] },
+            { name: 'saved', values: [{ value: 85 }] },
+            { name: 'shares', values: [{ value: 60 }] },
+            { name: 'ig_reels_avg_watch_time', values: [{ value: 13200 }] },
+          ],
+        })
+      }
+
+      // TikTok video list
+      if (url.includes('/call/zora-tiktok-test/v2/video/list/')) {
+        return Response.json({
+          data: {
+            videos: [
+              {
+                id: 'tt_vid_1',
+                title: 'Dica rápida de iluminação',
+                video_description: 'Como montar luz suave em 2 minutos',
+                create_time: threeDaysAgoSec,
+                share_url: 'https://www.tiktok.com/@ana/video/tt_vid_1',
+                view_count: 9500,
+                like_count: 420,
+                comment_count: 35,
+                share_count: 110,
+              },
+            ],
+          },
+        })
+      }
+
+      // YouTube channels -> playlistItems -> videos
+      if (url.includes('/call/zora-youtube-test/youtube/v3/channels')) {
+        return Response.json({
+          items: [{ contentDetails: { relatedPlaylists: { uploads: 'UU_TEST_1' } } }],
+        })
+      }
+      if (url.includes('/call/zora-youtube-test/youtube/v3/playlistItems')) {
+        return Response.json({
+          items: [
+            {
+              contentDetails: { videoId: 'yt_short_1', videoPublishedAt: twoDaysAgoIso },
+              snippet: { title: 'Short de teste', description: 'Descrição do short' },
+            },
+          ],
+        })
+      }
+      if (url.includes('/call/zora-youtube-test/youtube/v3/videos')) {
+        return Response.json({
+          items: [
+            {
+              id: 'yt_short_1',
+              contentDetails: { duration: 'PT42S' },
+              statistics: { viewCount: '2500', likeCount: '130', commentCount: '12' },
+            },
+          ],
+        })
+      }
+
+      return Response.json({}, { status: 404 })
+    }
+
+    const treg = createTregClient({ token: 'test-token', fetch: mockFetch })!
+
+    const first = await importRecentSocialPosts(
+      { db, treg },
+      { organizationId: orgId, limitPerChannel: 10 },
+      now,
+    )
+    expect(first.imported).toBe(3)
+    expect(first.importedWithSnapshotIds).toHaveLength(3)
+    expect(first.warnings).toHaveLength(0)
+
+    // Re-running import must be 100% idempotent (zero duplicates).
+    const second = await importRecentSocialPosts(
+      { db, treg },
+      { organizationId: orgId, limitPerChannel: 10 },
+      now,
+    )
+    expect(second.imported).toBe(0)
+
+    const report = await getWorkspaceAnalytics(db, orgId, { period: '30d' }, now)
+    expect(report.kpis.publishedCount).toBe(3)
+    expect(report.kpis.trackedPostsCount).toBe(3)
+    expect(report.kpis.totalViews).toBe(4200 + 9500 + 2500)
+    // Editorial metrics must NOT be skewed by imported external posts.
+    expect(report.kpis.avgLeadTimeHours).toBeNull()
+    expect(report.kpis.publishSuccessRate).toBeNull()
+    expect(report.collaboration.publishesManual).toBe(0)
+
+    // Verify format mapping (IG Reel -> reel, TikTok -> video, YT <= 60s -> short).
+    const formats = new Set(report.topContent.map((entry) => `${entry.channel}:${entry.format}`))
+    expect(formats.has('instagram:reel')).toBe(true)
+    expect(formats.has('tiktok:video')).toBe(true)
+    expect(formats.has('youtube:short')).toBe(true)
+
+    // Verify item analytics also treats imported items cleanly.
+    const igItemId = report.topContent.find((e) => e.channel === 'instagram')!.id
+    const igReport = await getItemAnalytics(db, orgId, igItemId)
+    expect(igReport?.editorial.leadTimeHours).toBeNull()
+    expect(igReport?.editorial.publishAttempts).toBe(0)
+    expect(igReport?.latest?.avgWatchTimeMs).toBe(13200)
+    expect(igReport?.canSync).toBe(true)
   })
 })

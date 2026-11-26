@@ -121,21 +121,34 @@ function SignInPage() {
               </form.Field>
               <form.Field name="password">
                 {(field) => (
-                  <FormField
-                    id={field.name}
-                    label="Senha"
-                    error={firstErrorMessage(field.state.meta.errors)}
-                  >
-                    <Input
+                  <div className="grid gap-1.5">
+                    <FormField
                       id={field.name}
-                      name={field.name}
-                      type="password"
-                      autoComplete="current-password"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(event) => field.handleChange(event.target.value)}
-                    />
-                  </FormField>
+                      label="Senha"
+                      error={firstErrorMessage(field.state.meta.errors)}
+                    >
+                      <Input
+                        id={field.name}
+                        name={field.name}
+                        type="password"
+                        autoComplete="current-password"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(event) => field.handleChange(event.target.value)}
+                      />
+                    </FormField>
+                    {oauthSearch ? null : (
+                      <div className="flex justify-end">
+                        <Link
+                          to="/forgot-password"
+                          search={{ email: form.state.values.email || search.email }}
+                          className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4"
+                        >
+                          Esqueci minha senha
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 )}
               </form.Field>
             </fieldset>

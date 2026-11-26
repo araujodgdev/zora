@@ -6,6 +6,7 @@ import { createAuth } from './auth.server'
 import type { Auth } from './auth.server'
 import { getServerEnv } from './env.server'
 import type { ServerEnv } from './env.server'
+import { getMailer } from './mailer.server'
 
 export type RequestServices = {
   env: ServerEnv
@@ -30,7 +31,7 @@ export function getRequestServices(): RequestServices {
   if (!services) {
     const env = getServerEnv()
     const db = createDb(bindings.DB)
-    services = { env, db, auth: createAuth(db, env) }
+    services = { env, db, auth: createAuth(db, env, { mailer: getMailer() }) }
     servicesByRequest.set(request, services)
   }
   return services

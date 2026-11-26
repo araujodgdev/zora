@@ -69,7 +69,17 @@ function AnalyticsPage() {
   async function handleSync() {
     try {
       const result = await sync.mutateAsync()
-      if (result.updated > 0) {
+      if (result.imported > 0 && result.updated > 0) {
+        toast.success(
+          `${result.imported === 1 ? '1 post recente importado' : `${result.imported} posts recentes importados`} e métricas atualizadas.`,
+        )
+      } else if (result.imported > 0) {
+        toast.success(
+          result.imported === 1
+            ? '1 post recente importado da sua conta conectada.'
+            : `${result.imported} posts recentes importados das suas contas conectadas.`,
+        )
+      } else if (result.updated > 0) {
         toast.success(
           result.updated === 1
             ? 'Métricas de 1 publicação atualizadas.'

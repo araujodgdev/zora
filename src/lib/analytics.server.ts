@@ -267,15 +267,35 @@ export async function getWorkspaceAnalytics(
     (item) => item.status === 'idea' || item.status === 'draft' || item.status === 'ready',
   ).length
 
+  // Identify items imported from external accounts (stage === 'imported') so
+  // they do not skew editorial lead time or Zora publish-success metrics.
+  const jobsByItem = new Map<string, Array<typeof socialPublishJob.$inferSelect>>()
+  for (const job of allJobs) {
+    const list = jobsByItem.get(job.contentItemId)
+    if (list) list.push(job)
+    else jobsByItem.set(job.contentItemId, [job])
+  }
+  const importedOnlyItemIds = new Set<string>()
+  for (const [id, itemJobs] of jobsByItem) {
+    if (itemJobs.length > 0 && itemJobs.every((j) => j.stage === 'imported')) {
+      importedOnlyItemIds.add(id)
+    }
+  }
+
   const currentLeadTimes = publishedItems
+    .filter((item) => !importedOnlyItemIds.has(item.id))
     .map(leadTimeHoursOf)
     .filter((v): v is number => v != null)
   const previousLeadTimes = previousPublishedItems
-    ? previousPublishedItems.map(leadTimeHoursOf).filter((v): v is number => v != null)
+    ? previousPublishedItems
+        .filter((item) => !importedOnlyItemIds.has(item.id))
+        .map(leadTimeHoursOf)
+        .filter((v): v is number => v != null)
     : []
 
-  // Jobs in range (filtered by channel when active).
+  // Jobs in range (filtered by channel when active, excluding historical imports).
   const jobsInRange = allJobs.filter((job) => {
+    if (job.stage === 'imported') return false
     if (channelFilter && job.channel !== channelFilter) return false
     return inRange(job.createdAt)
   })
@@ -336,7 +356,10 @@ export async function getWorkspaceAnalytics(
     const chInProgress = chItems.filter(
       (item) => item.status === 'idea' || item.status === 'draft' || item.status === 'ready',
     ).length
-    const chLeadTimes = chPublished.map(leadTimeHoursOf).filter((v): v is number => v != null)
+    const chLeadTimes = chPublished
+      .filter((item) => !importedOnlyItemIds.has(item.id))
+      .map(leadTimeHoursOf)
+      .filter((v): v is number => v != null)
     let views = 0
     let interactions = 0
     let tracked = 0
@@ -930,6 +953,9 @@ export async function getItemAnalytics(
     ? diagnosePost(item.channel, latest, signals, channelAvgEngagementRate)
     : null
 
+  const realPublishJobs = jobs.filter((j) => j.stage !== 'imported')
+  const isImportedOnly = jobs.length > 0 && realPublishJobs.length === 0
+
   return {
     contentItemId: item.id,
     channel: item.channel,
@@ -940,10 +966,10 @@ export async function getItemAnalytics(
     diagnosis,
     growth,
     editorial: {
-      leadTimeHours: leadTimeHoursOf(item),
+      leadTimeHours: isImportedOnly ? null : leadTimeHoursOf(item),
       designVersionsCount: designVersions.length,
       photoEditVersionsCount: photoVersions.length,
-      publishAttempts: jobs.length,
+      publishAttempts: realPublishJobs.length,
       channelAvgEngagementRate,
     },
     canSync: Boolean(publishedJob?.remotePostId && hasConnectedChannel),

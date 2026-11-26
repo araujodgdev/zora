@@ -7,6 +7,9 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
     'Já existe uma conta com este e-mail. Entre com ela.',
   PASSWORD_TOO_SHORT: 'A senha é curta demais.',
   PASSWORD_TOO_LONG: 'A senha é longa demais.',
+  INVALID_TOKEN: 'Este link de redefinição expirou ou já foi usado. Peça um novo link.',
+  EXPIRED_TOKEN: 'Este link de redefinição expirou. Peça um novo link.',
+  TOKEN_EXPIRED: 'Este link de redefinição expirou. Peça um novo link.',
   // Organization plugin (workspaces, members, invitations).
   USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION: 'Essa pessoa já faz parte do workspace.',
   USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION: 'Essa pessoa já tem um convite pendente.',
