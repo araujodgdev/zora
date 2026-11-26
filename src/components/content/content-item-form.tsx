@@ -1,4 +1,5 @@
 import { useForm } from '@tanstack/react-form'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ImageUp, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -10,6 +11,7 @@ import { StatusBadge } from '@/components/content/status-badge'
 import { FormField } from '@/components/form-field'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -19,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -48,6 +51,8 @@ import { fromDateTimeLocalValue, toDateTimeLocalValue } from '@/lib/dates'
 import { isMarkdownChannel } from '@/lib/post-text'
 import { editorReturnPath } from '@/lib/editor-search'
 import type { EditorOrigin } from '@/lib/editor-search'
+import { supportsRemoteDelete } from '@/lib/social'
+import { itemPublishJobsQueryOptions, socialConnectionsQueryOptions } from '@/lib/social.queries'
 
 const selectClassName =
   'border-input bg-input/30 hover:bg-input/50 h-9 w-full rounded-lg border px-2.5 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
@@ -222,7 +227,36 @@ export function ContentItemForm({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleteOnSocial, setDeleteOnSocial] = useState(false)
   const returnPath = editorReturnPath(from)
+
+  const publishJobsQuery = useQuery({
+    ...itemPublishJobsQueryOptions(item?.id ?? ''),
+    enabled: Boolean(item),
+  })
+  const connectionsQuery = useQuery({
+    ...socialConnectionsQueryOptions(),
+    enabled: Boolean(item),
+  })
+
+  const livePublishedJob =
+    publishJobsQuery.data?.find(
+      (job) =>
+        job.status === 'published' &&
+        Boolean(job.remotePostId) &&
+        !job.providerState.remoteDeletedAt,
+    ) ?? null
+  const liveChannelConnected = Boolean(
+    livePublishedJob &&
+      connectionsQuery.data?.connections.some(
+        (c) => c.channel === livePublishedJob.channel && c.status === 'connected',
+      ),
+  )
+  const canDeleteRemotely = Boolean(
+    livePublishedJob &&
+      supportsRemoteDelete(livePublishedJob.channel) &&
+      liveChannelConnected,
+  )
 
   const form = useForm({
     defaultValues: toFormValues(item, defaults),
@@ -275,8 +309,12 @@ export function ContentItemForm({
 
   async function confirmDelete() {
     if (!item) return
+    let result: { id: string; deletedRemotely: boolean }
     try {
-      await deleteItem.mutateAsync(item.id)
+      result = await deleteItem.mutateAsync({
+        id: item.id,
+        deleteOnSocial: canDeleteRemotely && deleteOnSocial,
+      })
     } catch (error) {
       setConfirmingDelete(false)
       setFormError(
@@ -286,7 +324,11 @@ export function ContentItemForm({
       )
       return
     }
-    toast.success('Item excluído.')
+    toast.success(
+      result.deletedRemotely && livePublishedJob
+        ? `Item excluído do Zora e do ${CHANNEL_LABELS[livePublishedJob.channel]}.`
+        : 'Item excluído.',
+    )
     await navigate({ to: returnPath })
   }
 
@@ -689,7 +731,13 @@ export function ContentItemForm({
       </aside>
 
       {item ? (
-        <Dialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
+        <Dialog
+          open={confirmingDelete}
+          onOpenChange={(open) => {
+            setConfirmingDelete(open)
+            if (!open) setDeleteOnSocial(false)
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Excluir este item?</DialogTitle>
@@ -698,6 +746,31 @@ export function ContentItemForm({
                 para desfazer.
               </DialogDescription>
             </DialogHeader>
+
+            {canDeleteRemotely && livePublishedJob ? (
+              <div className="bg-muted/50 flex items-start gap-2.5 rounded-xl p-3">
+                <Checkbox
+                  id="delete-on-social"
+                  checked={deleteOnSocial}
+                  onCheckedChange={(checked) => setDeleteOnSocial(checked === true)}
+                  className="mt-0.5"
+                />
+                <div className="grid gap-0.5">
+                  <Label htmlFor="delete-on-social" className="cursor-pointer text-sm font-medium">
+                    Apagar também no {CHANNEL_LABELS[livePublishedJob.channel]}
+                  </Label>
+                  <p className="text-muted-foreground text-xs">
+                    Remove a publicação que está no ar na sua conta conectada.
+                  </p>
+                </div>
+              </div>
+            ) : livePublishedJob ? (
+              <p className="text-muted-foreground text-xs">
+                Isso exclui apenas no Zora. O post publicado no{' '}
+                {CHANNEL_LABELS[livePublishedJob.channel]} continua no ar.
+              </p>
+            ) : null}
+
             <DialogFooter>
               <Button
                 type="button"
@@ -712,7 +785,11 @@ export function ContentItemForm({
                 disabled={deleteItem.isPending}
                 onClick={() => void confirmDelete()}
               >
-                {deleteItem.isPending ? 'Excluindo…' : 'Excluir item'}
+                {deleteItem.isPending
+                  ? 'Excluindo…'
+                  : canDeleteRemotely && deleteOnSocial && livePublishedJob
+                    ? `Excluir do Zora e do ${CHANNEL_LABELS[livePublishedJob.channel]}`
+                    : 'Excluir item'}
               </Button>
             </DialogFooter>
           </DialogContent>

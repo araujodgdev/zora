@@ -58,7 +58,7 @@ export type MetricsFetchContext = {
 
 export type MetricsFetchOutcome =
   | { ok: true; metrics: RawCollectedMetrics }
-  | { ok: false; supported: boolean; warning: string }
+  | { ok: false; supported: boolean; deletedRemotely?: boolean; warning: string }
 
 export type SocialMetricsFetcher = (ctx: MetricsFetchContext) => Promise<MetricsFetchOutcome>
 
@@ -161,7 +161,8 @@ function handleAdapterError(channel: SocialChannel, error: unknown): MetricsFetc
       return {
         ok: false,
         supported: true,
-        warning: `A publicação não foi encontrada no ${label} (pode ter sido removida).`,
+        deletedRemotely: true,
+        warning: `A publicação não foi encontrada no ${label} (foi removida na rede).`,
       }
     }
     if (error.status === 429) {
@@ -294,6 +295,14 @@ const fetchYouTubeMetrics: SocialMetricsFetcher = async (ctx) => {
     const items = Array.isArray(asRecord(res.data)?.items)
       ? (asRecord(res.data)?.items as Array<unknown>)
       : []
+    if (items.length === 0) {
+      return {
+        ok: false,
+        supported: true,
+        deletedRemotely: true,
+        warning: 'Este vídeo não foi encontrado no YouTube (foi removido na rede).',
+      }
+    }
     const stats = asRecord(asRecord(items[0])?.statistics)
     if (!stats) {
       return {
@@ -329,9 +338,32 @@ const fetchXMetrics: SocialMetricsFetcher = async (ctx) => {
       method: 'GET',
       query: { 'tweet.fields': 'public_metrics' },
     })
-    const tweet = asRecord(asRecord(res.data)?.data)
+    const bodyObj = asRecord(res.data)
+    const tweet = asRecord(bodyObj?.data)
     const pub = asRecord(tweet?.public_metrics)
     if (!pub) {
+      // X API v2 frequently returns HTTP 200 with `{ errors: [{ title: "Not Found Error" }] }`
+      // when a tweet has been deleted.
+      const errors = Array.isArray(bodyObj?.errors) ? (bodyObj.errors as Array<unknown>) : []
+      const notFound = errors.some((entry) => {
+        const err = asRecord(entry)
+        const title = typeof err?.title === 'string' ? err.title.toLowerCase() : ''
+        const type = typeof err?.type === 'string' ? err.type.toLowerCase() : ''
+        const detail = typeof err?.detail === 'string' ? err.detail.toLowerCase() : ''
+        return (
+          title.includes('not found') ||
+          type.includes('resource-not-found') ||
+          detail.includes('could not find tweet')
+        )
+      })
+      if (notFound) {
+        return {
+          ok: false,
+          supported: true,
+          deletedRemotely: true,
+          warning: 'Este post foi removido no X.',
+        }
+      }
       return {
         ok: false,
         supported: true,
@@ -376,7 +408,8 @@ const fetchTikTokMetrics: SocialMetricsFetcher = async (ctx) => {
       return {
         ok: false,
         supported: true,
-        warning: 'O TikTok ainda não retornou estatísticas para este vídeo.',
+        deletedRemotely: true,
+        warning: 'Este vídeo não foi encontrado no TikTok (pode ter sido removido).',
       }
     }
     return {
@@ -1092,6 +1125,14 @@ export async function syncItemSocialMetrics(
     }
   }
 
+  if (job.providerState.remoteDeletedAt) {
+    return {
+      snapshot: null,
+      supported: false,
+      warning: `Esta publicação foi removida no ${CHANNEL_LABELS[job.channel]}.`,
+    }
+  }
+
   const connection = await getWorkspaceConnection(deps.db, input.organizationId, job.channel)
   if (!connection || connection.status !== 'connected') {
     return {
@@ -1110,6 +1151,18 @@ export async function syncItemSocialMetrics(
   })
 
   if (!outcome.ok) {
+    if (outcome.deletedRemotely) {
+      await deps.db
+        .update(socialPublishJob)
+        .set({
+          providerState: {
+            ...job.providerState,
+            remoteDeletedAt: now.toISOString(),
+          },
+          updatedAt: now,
+        })
+        .where(eq(socialPublishJob.id, job.id))
+    }
     return {
       snapshot: null,
       supported: outcome.supported,
@@ -1167,6 +1220,7 @@ export async function syncWorkspaceSocialMetrics(
       contentItemId: socialPublishJob.contentItemId,
       channel: socialPublishJob.channel,
       remotePostId: socialPublishJob.remotePostId,
+      providerState: socialPublishJob.providerState,
       finishedAt: socialPublishJob.finishedAt,
     })
     .from(socialPublishJob)
@@ -1182,12 +1236,13 @@ export async function syncWorkspaceSocialMetrics(
     .limit(limit * 2)
 
   // Keep only the latest published job per content item, skipping items that
-  // already received a fresh snapshot during the import step above.
+  // were confirmed deleted on the network or already received a fresh snapshot.
   const seenItems = new Set<string>()
   const uniqueJobs = jobs
     .filter((job) => {
       if (
         !job.remotePostId ||
+        job.providerState.remoteDeletedAt ||
         seenItems.has(job.contentItemId) ||
         freshlySnapshotted.has(job.contentItemId)
       ) {
@@ -1242,6 +1297,7 @@ export async function runScheduledMetricsSync(
       contentItemId: socialPublishJob.contentItemId,
       channel: socialPublishJob.channel,
       remotePostId: socialPublishJob.remotePostId,
+      providerState: socialPublishJob.providerState,
       finishedAt: socialPublishJob.finishedAt,
       createdAt: socialPublishJob.createdAt,
     })
@@ -1267,7 +1323,12 @@ export async function runScheduledMetricsSync(
 
   const seen = new Set<string>()
   const uniqueCandidates = candidates.filter((row) => {
-    if (!isSocialChannel(row.channel) || !row.remotePostId || seen.has(row.contentItemId)) {
+    if (
+      !isSocialChannel(row.channel) ||
+      !row.remotePostId ||
+      row.providerState.remoteDeletedAt ||
+      seen.has(row.contentItemId)
+    ) {
       return false
     }
     seen.add(row.contentItemId)

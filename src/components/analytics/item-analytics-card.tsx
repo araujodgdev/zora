@@ -1,6 +1,7 @@
-import { useSuspenseQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
+  AlertTriangle,
   BarChart3,
   Bookmark,
   Clock,
@@ -10,6 +11,7 @@ import {
   MessageCircle,
   RefreshCw,
   Share2,
+  Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { LocalDateTime } from '@/components/local-date-time'
@@ -23,6 +25,8 @@ import { formatWatchTimeSeconds } from '@/lib/analytics-signals'
 import { itemAnalyticsQueryOptions, useSyncItemMetrics } from '@/lib/analytics.queries'
 import { CHANNEL_LABELS } from '@/lib/content'
 import type { ContentItem } from '@/lib/content'
+import { useChangeContentItemStatus, useDeleteContentItem } from '@/lib/content.queries'
+import { socialKeys } from '@/lib/social.queries'
 import { cn } from '@/lib/utils'
 
 /**
@@ -31,10 +35,14 @@ import { cn } from '@/lib/utils'
  * without crowding the editor inspector.
  */
 export function ItemAnalyticsCard({ item }: { item: ContentItem }) {
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { data } = useSuspenseQuery(itemAnalyticsQueryOptions(item.id))
   const sync = useSyncItemMetrics(item.id)
+  const changeStatus = useChangeContentItemStatus()
+  const deleteItem = useDeleteContentItem()
 
-  if (item.status !== 'published' && !data.latest) return null
+  if (item.status !== 'published' && !data.latest && !data.remoteDeletedAt) return null
 
   const latest = data.latest
   const channelAvg = data.editorial.channelAvgEngagementRate
@@ -44,6 +52,7 @@ export function ItemAnalyticsCard({ item }: { item: ContentItem }) {
   async function handleSync() {
     try {
       const result = await sync.mutateAsync()
+      void queryClient.invalidateQueries({ queryKey: socialKeys.publishJobs(item.id) })
       if (result.snapshot) {
         toast.success('Métricas atualizadas!')
       } else if (result.warning) {
@@ -54,6 +63,29 @@ export function ItemAnalyticsCard({ item }: { item: ContentItem }) {
         error instanceof Error && error.message
           ? error.message
           : 'Não foi possível atualizar as métricas agora.',
+      )
+    }
+  }
+
+  async function handleBackToDraft() {
+    try {
+      await changeStatus.mutateAsync({ id: item.id, status: 'draft' })
+      toast.success('Movido para rascunho.')
+    } catch {
+      // useChangeContentItemStatus already shows an error toast on failure.
+    }
+  }
+
+  async function handleDeleteFromZora() {
+    try {
+      await deleteItem.mutateAsync({ id: item.id })
+      toast.success('Item excluído do Zora.')
+      await navigate({ to: '/content' })
+    } catch (error) {
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Não foi possível excluir o item.',
       )
     }
   }
@@ -86,6 +118,42 @@ export function ItemAnalyticsCard({ item }: { item: ContentItem }) {
           </Button>
         ) : null}
       </div>
+
+      {data.remoteDeletedAt ? (
+        <div className="bg-destructive/10 space-y-2.5 rounded-lg p-3 text-xs">
+          <div className="text-destructive flex items-start gap-2 font-medium">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              Este post foi apagado no {CHANNEL_LABELS[item.channel]}. O Zora parou de buscar novas
+              métricas dele.
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {item.status === 'published' ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                disabled={changeStatus.isPending}
+                onClick={() => void handleBackToDraft()}
+              >
+                Voltar para rascunho
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              disabled={deleteItem.isPending}
+              onClick={() => void handleDeleteFromZora()}
+            >
+              <Trash2 className="size-3" />
+              Excluir do Zora
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {latest ? (
         <>

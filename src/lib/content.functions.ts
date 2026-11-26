@@ -16,13 +16,17 @@ import {
   contentItemIdSchema,
   contentListFiltersSchema,
   createContentItemSchema,
+  deleteContentItemSchema,
   rescheduleContentItemSchema,
   updateContentItemSchema,
 } from './content'
 import type { ContentItem } from './content'
 import * as contentService from './content.server'
 import { deleteContentItemWithAssets } from './content-assets.server'
+import { getServerEnv } from './env.server'
 import { getMediaBucket } from './media-bucket.server'
+import { deleteRemoteSocialPost } from './social-publish.server'
+import { SocialPublishingError, TregNotConfiguredError, createTregClient } from './treg.server'
 
 /** Maps service errors to HTTP statuses; rule violations become 422. */
 async function withRuleErrors<T>(run: () => Promise<T>): Promise<T> {
@@ -120,8 +124,31 @@ export const changeContentItemStatus = createServerFn({ method: 'POST' })
 
 export const deleteContentItem = createServerFn({ method: 'POST' })
   .middleware([authMiddleware])
-  .validator(contentItemIdSchema)
-  .handler(async ({ context, data }): Promise<{ id: string }> => {
+  .validator(deleteContentItemSchema)
+  .handler(async ({ context, data }): Promise<{ id: string; deletedRemotely: boolean }> => {
+    let deletedRemotely = false
+    if (data.deleteOnSocial) {
+      try {
+        const env = getServerEnv()
+        const treg = createTregClient({
+          token: env.TREG_TOKEN,
+          baseUrl: env.TREG_BASE_URL,
+        })
+        const remote = await deleteRemoteSocialPost(
+          { db: context.db, treg },
+          { organizationId: context.workspace.id, itemId: data.id },
+        )
+        deletedRemotely = remote.deleted || remote.alreadyDeleted
+      } catch (error) {
+        if (error instanceof TregNotConfiguredError) {
+          setResponseStatus(503)
+        } else if (error instanceof SocialPublishingError) {
+          setResponseStatus(422)
+        }
+        throw error
+      }
+    }
+
     const deleted = await deleteContentItemWithAssets(
       context.db,
       getMediaBucket(),
@@ -129,5 +156,5 @@ export const deleteContentItem = createServerFn({ method: 'POST' })
       data.id,
     )
     if (!deleted) throw notFound()
-    return { id: data.id }
+    return { id: data.id, deletedRemotely }
   })

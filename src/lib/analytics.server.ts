@@ -955,6 +955,10 @@ export async function getItemAnalytics(
 
   const realPublishJobs = jobs.filter((j) => j.stage !== 'imported')
   const isImportedOnly = jobs.length > 0 && realPublishJobs.length === 0
+  const remoteDeletedAtRaw = publishedJob?.providerState.remoteDeletedAt
+  const remoteDeletedAt = remoteDeletedAtRaw ? new Date(remoteDeletedAtRaw) : null
+  const validRemoteDeletedAt =
+    remoteDeletedAt && !Number.isNaN(remoteDeletedAt.getTime()) ? remoteDeletedAt : null
 
   return {
     contentItemId: item.id,
@@ -972,7 +976,8 @@ export async function getItemAnalytics(
       publishAttempts: realPublishJobs.length,
       channelAvgEngagementRate,
     },
-    canSync: Boolean(publishedJob?.remotePostId && hasConnectedChannel),
+    canSync: Boolean(publishedJob?.remotePostId && hasConnectedChannel && !validRemoteDeletedAt),
     remotePostId: publishedJob?.remotePostId ?? null,
+    remoteDeletedAt: validRemoteDeletedAt,
   }
 }

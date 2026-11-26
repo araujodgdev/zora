@@ -317,29 +317,44 @@ export function ContentPublish({
 
       {latestJob && latestJob.status === 'published' ? (
         <div className="bg-muted grid gap-1 rounded-lg px-3 py-2 text-xs">
-          <p className="flex items-center gap-1.5 font-medium">
-            <CheckCircle2 className="text-brand size-3.5 shrink-0" />
-            {SOCIAL_PUBLISH_STATUS_LABELS[latestJob.status]}
-            {latestJob.finishedAt ? (
-              <span className="text-muted-foreground font-normal">
-                · <LocalDateTime value={latestJob.finishedAt} />
-              </span>
-            ) : null}
-          </p>
-          {latestJob.providerState.note ? (
-            <p className="text-muted-foreground">{latestJob.providerState.note}</p>
-          ) : null}
-          {latestJob.publishedUrl ? (
-            <a
-              href={latestJob.publishedUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-brand inline-flex items-center gap-1 underline underline-offset-4"
-            >
-              Abrir publicação
-              <ExternalLink className="size-3" />
-            </a>
-          ) : null}
+          {latestJob.providerState.remoteDeletedAt ? (
+            <>
+              <p className="text-destructive flex items-center gap-1.5 font-medium">
+                <AlertCircle className="size-3.5 shrink-0" />
+                Removido no {CHANNEL_LABELS[latestJob.channel]}
+              </p>
+              <p className="text-muted-foreground">
+                A publicação original não está mais no ar. Você pode editar e publicar de novo ou
+                excluir este item.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="flex items-center gap-1.5 font-medium">
+                <CheckCircle2 className="text-brand size-3.5 shrink-0" />
+                {SOCIAL_PUBLISH_STATUS_LABELS[latestJob.status]}
+                {latestJob.finishedAt ? (
+                  <span className="text-muted-foreground font-normal">
+                    · <LocalDateTime value={latestJob.finishedAt} />
+                  </span>
+                ) : null}
+              </p>
+              {latestJob.providerState.note ? (
+                <p className="text-muted-foreground">{latestJob.providerState.note}</p>
+              ) : null}
+              {latestJob.publishedUrl ? (
+                <a
+                  href={latestJob.publishedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-brand inline-flex items-center gap-1 underline underline-offset-4"
+                >
+                  Abrir publicação
+                  <ExternalLink className="size-3" />
+                </a>
+              ) : null}
+            </>
+          )}
         </div>
       ) : null}
 

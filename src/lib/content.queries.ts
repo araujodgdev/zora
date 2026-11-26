@@ -192,10 +192,16 @@ export function useChangeContentItemStatus() {
 export function useDeleteContentItem() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => deleteContentItem({ data: { id } }),
+    mutationFn: (input: string | { id: string; deleteOnSocial?: boolean }) => {
+      const payload = typeof input === 'string' ? { id: input } : input
+      return deleteContentItem({ data: payload })
+    },
     onSuccess: ({ id }) => {
       queryClient.removeQueries({ queryKey: contentKeys.detail(id) })
-      return queryClient.invalidateQueries({ queryKey: contentKeys.lists() })
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: contentKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: ['analytics'] }),
+      ])
     },
   })
 }

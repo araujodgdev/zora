@@ -24,6 +24,7 @@ import {
   syncItemSocialMetrics,
   syncWorkspaceSocialMetrics,
 } from './social-metrics.server'
+import { deleteRemoteSocialPost } from './social-publish.server'
 import { createTregClient } from './treg.server'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -605,5 +606,140 @@ describe('analytics and social metrics', () => {
     expect(igReport?.editorial.publishAttempts).toBe(0)
     expect(igReport?.latest?.avgWatchTimeMs).toBe(13200)
     expect(igReport?.canSync).toBe(true)
+  })
+
+  it('detects posts deleted on X, stops future cron polling, and supports remote deletion from Zora', async () => {
+    const now = new Date('2026-11-26T14:00:00Z')
+    const [deletedOnXItem, deleteViaZoraItem] = await db
+      .insert(contentItem)
+      .values([
+        {
+          organizationId: orgId,
+          title: 'Tweet apagado fora do Zora',
+          channel: 'x',
+          format: 'post',
+          status: 'published',
+          publishedAt: new Date(now.getTime() - DAY_MS),
+          publishedUrl: 'https://x.com/ana/status/111',
+          createdById: userId,
+          createdAt: new Date(now.getTime() - 2 * DAY_MS),
+        },
+        {
+          organizationId: orgId,
+          title: 'Thread para apagar pelo Zora',
+          channel: 'x',
+          format: 'thread',
+          status: 'published',
+          publishedAt: new Date(now.getTime() - DAY_MS),
+          publishedUrl: 'https://x.com/ana/status/222',
+          createdById: userId,
+          createdAt: new Date(now.getTime() - 2 * DAY_MS),
+        },
+      ])
+      .returning()
+
+    await db.insert(socialConnection).values({
+      organizationId: orgId,
+      channel: 'x',
+      externalToolName: 'zora-x-test',
+      status: 'connected',
+      connectedById: userId,
+    })
+
+    await db.insert(socialPublishJob).values([
+      {
+        organizationId: orgId,
+        contentItemId: deletedOnXItem!.id,
+        channel: 'x',
+        trigger: 'manual',
+        status: 'published',
+        remotePostId: '111',
+        publishedUrl: 'https://x.com/ana/status/111',
+        createdAt: new Date(now.getTime() - DAY_MS),
+        finishedAt: new Date(now.getTime() - DAY_MS),
+      },
+      {
+        organizationId: orgId,
+        contentItemId: deleteViaZoraItem!.id,
+        channel: 'x',
+        trigger: 'manual',
+        status: 'published',
+        remotePostId: '222',
+        publishedUrl: 'https://x.com/ana/status/222',
+        providerState: { remoteTweetIds: ['222', '223'] },
+        createdAt: new Date(now.getTime() - DAY_MS),
+        finishedAt: new Date(now.getTime() - DAY_MS),
+      },
+    ])
+
+    let xGetCalls = 0
+    const deletedPaths: Array<string> = []
+    const mockFetch: typeof fetch = async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      const method = init?.method ?? 'GET'
+      if (method === 'GET' && url.includes('/2/tweets/111')) {
+        xGetCalls += 1
+        // X v2 returns HTTP 200 with a Not Found Error payload for deleted tweets.
+        return Response.json({
+          errors: [
+            {
+              title: 'Not Found Error',
+              type: 'https://api.twitter.com/2/problems/resource-not-found',
+              detail: 'Could not find tweet with id: [111].',
+            },
+          ],
+        })
+      }
+      if (method === 'DELETE' && url.includes('/2/tweets/')) {
+        deletedPaths.push(new URL(url).pathname)
+        return Response.json({ data: { deleted: true } })
+      }
+      return Response.json({}, { status: 404 })
+    }
+
+    const treg = createTregClient({ token: 'test-token', fetch: mockFetch })!
+
+    // First sync discovers tweet 111 was deleted on X and marks remoteDeletedAt.
+    const firstSync = await syncItemSocialMetrics(
+      { db, treg },
+      { organizationId: orgId, itemId: deletedOnXItem!.id },
+      now,
+    )
+    expect(firstSync.snapshot).toBeNull()
+    expect(firstSync.warning).toContain('removido')
+    expect(xGetCalls).toBe(1)
+
+    // Subsequent sync and scheduled cron must NOT call X again for tweet 111.
+    const secondSync = await syncItemSocialMetrics(
+      { db, treg },
+      { organizationId: orgId, itemId: deletedOnXItem!.id },
+      new Date(now.getTime() + 6 * HOUR_MS),
+    )
+    expect(secondSync.snapshot).toBeNull()
+    expect(xGetCalls).toBe(1)
+
+    const itemReport = await getItemAnalytics(db, orgId, deletedOnXItem!.id)
+    expect(itemReport?.remoteDeletedAt).not.toBeNull()
+    expect(itemReport?.canSync).toBe(false)
+
+    // Deleting a thread via Zora sends DELETE for both tweets in reverse order.
+    const remoteDelete = await deleteRemoteSocialPost(
+      { db, treg },
+      { organizationId: orgId, itemId: deleteViaZoraItem!.id },
+      now,
+    )
+    expect(remoteDelete.deleted).toBe(true)
+    expect(remoteDelete.deletedIds).toEqual(['223', '222'])
+    expect(deletedPaths).toEqual([
+      '/call/zora-x-test/2/tweets/223',
+      '/call/zora-x-test/2/tweets/222',
+    ])
+
+    // Now neither item should be picked up by the scheduled metrics cron.
+    const cronRes = await runScheduledMetricsSync(
+      { db, treg },
+      new Date(now.getTime() + 8 * HOUR_MS),
+    )
+    expect(cronRes.checked).toBe(0)
   })
 })

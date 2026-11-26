@@ -153,6 +153,7 @@ const xPublisher: SocialPublisher = {
     let state: SocialPublishProviderState = {}
     let firstId: string | null = null
     let prevId: string | null = null
+    const tweetIds: Array<string> = []
 
     for (let i = 0; i < tweets.length; i += 1) {
       const payload: Record<string, unknown> = { text: tweets[i] }
@@ -174,7 +175,10 @@ const xPublisher: SocialPublisher = {
       }
       if (!firstId) firstId = tweetId
       prevId = tweetId
+      tweetIds.push(tweetId)
     }
+
+    state = { ...state, remoteTweetIds: tweetIds }
 
     const handle = ctx.connection.accountName?.replace(/^@/, '').trim()
     const publishedUrl = handle

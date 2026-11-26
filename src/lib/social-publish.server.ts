@@ -28,7 +28,7 @@ import type {
 import { getWorkspaceConnection } from './social-connections.server'
 import { SOCIAL_PUBLISHERS } from './social-publishers.server'
 import type { PublishContext, PublishStepResult, SocialPublisher } from './social-publishers.server'
-import { SocialPublishingError, requireTregClient } from './treg.server'
+import { SocialPublishingError, TregApiError, requireTregClient } from './treg.server'
 import type { TregClient } from './treg.server'
 
 const MAX_POLL_ATTEMPTS = 40
@@ -654,4 +654,98 @@ export async function runScheduledPublishes(
   }
 
   return summary
+}
+
+export type DeleteRemotePostResult = {
+  deleted: boolean
+  alreadyDeleted: boolean
+  deletedIds: Array<string>
+}
+
+/**
+ * Deletes a published post on the upstream social network (currently X via
+ * `DELETE /2/tweets/:id`, supporting both single tweets and threads).
+ * Treats upstream 404 as already deleted and records `remoteDeletedAt` on
+ * the publish job so metrics polling never hits it again.
+ */
+export async function deleteRemoteSocialPost(
+  deps: { db: Database; treg: TregClient | null },
+  input: { organizationId: string; itemId: string },
+  now: Date = new Date(),
+): Promise<DeleteRemotePostResult> {
+  const [job] = await deps.db
+    .select()
+    .from(socialPublishJob)
+    .where(
+      and(
+        eq(socialPublishJob.organizationId, input.organizationId),
+        eq(socialPublishJob.contentItemId, input.itemId),
+        eq(socialPublishJob.status, 'published'),
+      ),
+    )
+    .orderBy(desc(socialPublishJob.finishedAt), desc(socialPublishJob.createdAt))
+    .limit(1)
+
+  if (!job?.remotePostId) {
+    return { deleted: false, alreadyDeleted: false, deletedIds: [] }
+  }
+  if (job.providerState.remoteDeletedAt) {
+    return { deleted: false, alreadyDeleted: true, deletedIds: [] }
+  }
+  if (job.channel !== 'x') {
+    throw new SocialPublishingError(
+      'Esta rede social não permite apagar publicações automaticamente pelo Zora.',
+    )
+  }
+
+  const treg = requireTregClient(deps.treg)
+  const connection = await getWorkspaceConnection(deps.db, input.organizationId, job.channel)
+  if (!connection || connection.status !== 'connected') {
+    throw new SocialPublishingError(
+      'Conecte sua conta do X em Conexões para apagar a publicação na rede.',
+    )
+  }
+
+  const tweetIds =
+    job.providerState.remoteTweetIds && job.providerState.remoteTweetIds.length > 0
+      ? [...job.providerState.remoteTweetIds].reverse()
+      : [job.remotePostId]
+
+  const deletedIds: Array<string> = []
+  let alreadyDeleted = true
+
+  for (const tweetId of tweetIds) {
+    try {
+      await treg.callTool({
+        organizationId: input.organizationId,
+        toolName: connection.externalToolName,
+        path: `/2/tweets/${encodeURIComponent(tweetId)}`,
+        method: 'DELETE',
+      })
+      deletedIds.push(tweetId)
+      alreadyDeleted = false
+    } catch (error) {
+      if (error instanceof TregApiError && error.status === 404) {
+        continue
+      }
+      throw error
+    }
+  }
+
+  await deps.db
+    .update(socialPublishJob)
+    .set({
+      providerState: {
+        ...job.providerState,
+        remoteDeletedAt: now.toISOString(),
+      },
+      updatedAt: now,
+    })
+    .where(eq(socialPublishJob.id, job.id))
+
+  return {
+    deleted: deletedIds.length > 0,
+    alreadyDeleted: deletedIds.length === 0 && alreadyDeleted,
+    deletedIds,
+  }
 }

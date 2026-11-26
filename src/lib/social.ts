@@ -27,6 +27,11 @@ export function isSocialChannel(channel: Channel): channel is SocialChannel {
   return (SOCIAL_CHANNELS as ReadonlyArray<string>).includes(channel)
 }
 
+/** Channels whose official API + Treg OAuth scopes support deleting a published post. */
+export function supportsRemoteDelete(channel: Channel): boolean {
+  return channel === 'x'
+}
+
 /**
  * Backing provider of a social connection. Every connection starts on `treg`
  * (`https://treg.to`); adding `'native'` later lets any channel migrate to a
@@ -217,6 +222,10 @@ export type SocialPublishProviderState = {
   linkedinMediaKind?: 'video' | 'document'
   linkedinAuthorUrn?: string
   linkedinReadyAfterMs?: number
+  /** All tweet ids posted for an X post or thread (first is `remotePostId`). */
+  remoteTweetIds?: Array<string>
+  /** ISO timestamp recorded when the network confirmed this post was deleted. */
+  remoteDeletedAt?: string
   /** Audit trail of treg call ids and total metered micro-USD. */
   tregCallIds?: Array<string>
   costMicro?: number

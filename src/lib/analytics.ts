@@ -305,6 +305,7 @@ export type ItemAnalytics = {
   }
   canSync: boolean
   remotePostId: string | null
+  remoteDeletedAt: Date | null
 }
 
 export type SyncItemMetricsResult = {

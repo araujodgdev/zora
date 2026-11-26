@@ -245,6 +245,12 @@ export type ChangeContentItemStatusInput = z.input<
   typeof changeContentItemStatusSchema
 >
 
+/** Deletes a content item, optionally removing the live post on supported networks (X). */
+export const deleteContentItemSchema = contentItemIdSchema.extend({
+  deleteOnSocial: z.boolean().optional(),
+})
+export type DeleteContentItemInput = z.input<typeof deleteContentItemSchema>
+
 /**
  * Filters for listing items. All are optional and combined with AND.
  * `scheduledFrom`/`scheduledTo` form a half-open range
