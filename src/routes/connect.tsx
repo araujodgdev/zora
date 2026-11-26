@@ -29,16 +29,17 @@ function ConnectPage() {
   const guides = agentGuides(serverUrl)
   const agent: AgentId = search.agent ?? AGENT_IDS[0]
   const guide = guides.find((g) => g.id === agent) ?? guides[0]!
-  const home = user ? '/calendar' : '/sign-in'
+  const logoTarget = user ? '/calendar' : '/'
+  const actionTarget = user ? '/calendar' : '/sign-in'
 
   return (
     <div className="min-h-svh">
       <header className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-6 pt-[max(1.5rem,env(safe-area-inset-top))] sm:px-10">
-        <Link to={home} className="text-[1.5rem]">
+        <Link to={logoTarget} className="text-[1.5rem]">
           <ZoraLogo aria-label="Zora" />
         </Link>
         <Button variant="ghost" size="sm" asChild>
-          <Link to={home}>
+          <Link to={actionTarget}>
             <ArrowLeft data-icon="inline-start" />
             {user ? 'Voltar ao Zora' : 'Entrar'}
           </Link>

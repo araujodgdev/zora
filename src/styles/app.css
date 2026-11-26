@@ -411,3 +411,24 @@
     from { transform: scaleX(0); }
     to { transform: scaleX(0.9); }
 }
+
+/* Landing page lime marquee ribbon & subtle floating motion (off under reduced motion). */
+@keyframes zora-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+@layer components {
+    .zora-marquee-track {
+        display: flex;
+        width: max-content;
+        animation: zora-marquee 34s linear infinite;
+    }
+    .zora-marquee-track:hover {
+        animation-play-state: paused;
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .zora-marquee-track {
+            animation: none;
+        }
+    }
+}

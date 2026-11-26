@@ -11,6 +11,10 @@ variant can be produced in the same style.
 | `src/assets/brand/auth-hero.{webm,mp4,webp}` | the diorama loop (about 16 s, 960×1280: the cat plays, climbs the Z, naps, comes down) and its first frame | `AuthLayout` |
 | `src/assets/brand/cat-yarn-alpha.mp4` | the cat with the yarn ball, cut out (4 s, 320×242): colour on top, matte below | `CatLoader` (router pending page) via `AlphaLoop` |
 | `src/assets/brand/cat-yarn-still.webp` | its first frame, with alpha | `AlphaLoop` still (before playback, reduced motion) |
+| `src/assets/brand/landing-ai.{webm,mp4,webp}` | terracotta clay robot with lime clapperboard and Zora's sleeping cat (8 s loop, 960×540) | Landing page (`LandingConnectYourAi` via `ClayLoop` + hero orbiting poster) |
+| `src/assets/brand/landing-analytics.webp` | cream cat beside lime clay donut and pastel bars on charcoal (1:1) | Landing page (hero + editorial card `01`) |
+| `src/assets/brand/landing-rocket.webp` | coral and lime plasticine rocket launching on deep midnight violet (1:1) | Landing page (hero + editorial card `03`) |
+| `src/assets/brand/landing-craft.webp` | sleeping cream cat peeking over clay camera lens, lime Bezier curve and pastel swatches (4:3) | Landing page (hero + desktop Studio & LightCraft showcase) |
 | `scripts/brand/app-icon.png` | 1024 px icon master on charcoal clay | `scripts/app-icon.html` -> `node scripts/generate-icons.mjs` |
 
 ## How they were made

@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import heroMp4 from '@/assets/brand/auth-hero.mp4'
 import heroWebm from '@/assets/brand/auth-hero.webm'
@@ -27,10 +28,10 @@ export function AuthLayout({
   return (
     <main className="grid min-h-svh grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr_auto_auto_1fr] [grid-template-areas:'logo'_'.'_'art'_'form'_'.'] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:grid-rows-[auto_1fr] lg:[grid-template-areas:'logo_art'_'form_art']">
       <div className="px-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-[1.625rem] [grid-area:logo] sm:px-10 lg:text-[2rem]">
-        <span className="zora-logo inline-flex items-center gap-[0.22em]">
+        <Link to="/" aria-label="Início do Zora" className="zora-logo inline-flex items-center gap-[0.22em]">
           <ZoraMark />
           <ZoraWordmark className="lg:hidden" />
-        </span>
+        </Link>
       </div>
       <aside aria-hidden="true" className="min-w-0 px-6 pt-6 [grid-area:art] sm:px-10 lg:p-3">
         <div className="relative mx-auto aspect-[4/3] max-h-[34svh] max-w-sm overflow-hidden rounded-[1.75rem] bg-[#a8d8e8] lg:sticky lg:top-3 lg:aspect-auto lg:h-[calc(100svh-1.5rem)] lg:max-h-none lg:max-w-none lg:rounded-[2rem]">
