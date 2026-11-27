@@ -1,7 +1,6 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import {
   ArrowRight,
-  ArrowUpRight,
   Download,
   Globe,
   Moon,
@@ -13,10 +12,10 @@ import heroWebm from '@/assets/brand/auth-hero.webm'
 import heroPoster from '@/assets/brand/auth-hero.webp'
 import catYarnAlpha from '@/assets/brand/cat-yarn-alpha.mp4'
 import catYarnStill from '@/assets/brand/cat-yarn-still.webp'
-import landingAiPoster from '@/assets/brand/landing-ai.webp'
-import landingAnalyticsArt from '@/assets/brand/landing-analytics.webp'
 import landingCraftArt from '@/assets/brand/landing-craft.webp'
-import landingRocketArt from '@/assets/brand/landing-rocket.webp'
+import landingHeroMp4 from '@/assets/brand/landing-hero.mp4'
+import landingHeroWebm from '@/assets/brand/landing-hero.webm'
+import landingHeroPoster from '@/assets/brand/landing-hero.webp'
 import { AlphaLoop, ClayLoop, ZORA_SLOGAN, ZoraLogo } from '@/components/brand'
 import {
   LandingConnectYourAi,
@@ -150,130 +149,23 @@ function LandingPage() {
       </header>
 
       <main>
-        {/* BAND 1 — Monumental Centered Affinity Hero with Orbiting Claymation Artworks */}
-        <section className="relative mx-auto flex min-h-[78svh] max-w-7xl flex-col items-center justify-center px-6 pt-14 pb-20 text-center sm:px-10 md:pt-20 md:pb-28">
-          {/* Orbiting artwork: top-left charcoal clay analytics sculpture (desktop) */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute top-10 left-4 hidden w-40 -rotate-4 overflow-hidden rounded-[1.5rem] bg-[#222223] shadow-2xl ring-1 ring-white/10 lg:block xl:left-6 xl:w-48"
-          >
-            <img
-              src={landingAnalyticsArt}
-              alt=""
-              width={640}
-              height={640}
-              draggable={false}
-              className="aspect-square w-full object-cover select-none"
+        {/* BAND 1 — Living Outdoor Claymation Hero Stage ("Criação sem ruído.") */}
+        <section className="mx-auto max-w-[1220px] px-4 pt-3 pb-12 sm:px-8 sm:pt-5 sm:pb-16">
+          <h1 className="sr-only">Criação sem ruído.</h1>
+
+          <div className="relative aspect-video w-full overflow-hidden rounded-[1.5rem] bg-[#b8dfec] shadow-2xl shadow-black/25 sm:rounded-[2.25rem]">
+            <ClayLoop
+              webm={landingHeroWebm}
+              mp4={landingHeroMp4}
+              poster={landingHeroPoster}
+              className="absolute inset-0 size-full"
             />
           </div>
 
-          {/* Orbiting artwork: top-right warm bone Studio & LightCraft clay desk (desktop) */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute top-8 right-4 hidden w-44 rotate-3 overflow-hidden rounded-[1.5rem] bg-[#efe9de] shadow-2xl ring-1 ring-black/10 lg:block xl:right-6 xl:w-56"
-          >
-            <img
-              src={landingCraftArt}
-              alt=""
-              width={640}
-              height={480}
-              draggable={false}
-              className="aspect-[4/3] w-full object-cover select-none"
-            />
-          </div>
-
-          {/* Orbiting artwork: bottom-left AI robot & sleeping clay cat (desktop) */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute bottom-10 left-8 hidden w-44 -rotate-3 overflow-hidden rounded-[1.5rem] bg-[#ebe4d6] shadow-2xl ring-1 ring-black/10 lg:block xl:left-14 xl:w-52"
-          >
-            <img
-              src={landingAiPoster}
-              alt=""
-              width={640}
-              height={360}
-              draggable={false}
-              className="aspect-video w-full object-cover select-none"
-            />
-          </div>
-
-          {/* Orbiting artwork: bottom-right midnight violet clay rocket (desktop) */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute right-8 bottom-8 hidden w-36 rotate-5 overflow-hidden rounded-[1.5rem] bg-[#262139] shadow-2xl ring-1 ring-white/10 lg:block xl:right-14 xl:w-44"
-          >
-            <img
-              src={landingRocketArt}
-              alt=""
-              width={640}
-              height={640}
-              draggable={false}
-              className="aspect-square w-full object-cover select-none"
-            />
-          </div>
-
-          {/* Centerpiece Affinity Typography (no pill above H1) */}
-          <div className="relative z-10 mx-auto max-w-2xl xl:max-w-3xl">
-            <h1 className="font-display text-[clamp(3.25rem,9.5vw,6.75rem)] leading-[0.93] font-semibold tracking-[-0.04em]">
-              Crie{' '}
-              <span className="relative inline-block italic">
-                <span className="relative z-10">livremente</span>
-                {/* Subtle Affinity vector bounding-box accent */}
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute -inset-x-2 -inset-y-0.5 rounded-sm border border-[#a7f175]/75"
-                >
-                  <span className="absolute -top-1 -left-1 size-2 rounded-[2px] bg-[#a7f175]" />
-                  <span className="absolute -top-1 -right-1 size-2 rounded-[2px] bg-[#a7f175]" />
-                  <span className="absolute -bottom-1 -left-1 size-2 rounded-[2px] bg-[#a7f175]" />
-                  <span className="absolute -right-1 -bottom-1 size-2 rounded-[2px] bg-[#a7f175]" />
-                </span>
-              </span>
-            </h1>
-
-            <p className="text-muted-foreground mx-auto mt-7 max-w-[46ch] text-base leading-relaxed sm:text-xl">
-              Calendário editorial, publicação automática, analytics para criadores e Claude,
-              ChatGPT ou Gemini conectados ao seu estúdio.
-            </p>
-
-            {/* Affinity twin pills: Electric Lime + Warm Bone */}
-            <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-              {user ? (
-                <Button
-                  asChild
-                  size="lg"
-                  className="h-12 rounded-full px-7 text-sm font-semibold sm:text-base"
-                >
-                  <Link to="/calendar">
-                    Abrir meu workspace
-                    <ArrowRight data-icon="inline-end" />
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  asChild
-                  size="lg"
-                  className="h-12 rounded-full px-7 text-sm font-semibold sm:text-base"
-                >
-                  <Link to="/sign-up">
-                    Criar conta grátis
-                    <ArrowRight data-icon="inline-end" />
-                  </Link>
-                </Button>
-              )}
-
-              <Button
-                asChild
-                size="lg"
-                className="h-12 rounded-full bg-[#efe9de] px-7 text-sm font-semibold text-[#0e1318] hover:bg-[#e5decb] sm:text-base"
-              >
-                <Link to="/connect">
-                  Conectar sua IA
-                  <ArrowUpRight data-icon="inline-end" />
-                </Link>
-              </Button>
-            </div>
-          </div>
+          <p className="text-muted-foreground mx-auto mt-7 max-w-[56ch] text-center text-base leading-relaxed sm:mt-8 sm:text-lg">
+            Calendário editorial, publicação automática, analytics para criadores e Claude, ChatGPT
+            ou Gemini conectados ao seu estúdio.
+          </p>
         </section>
 
         {/* BAND 2 — Full-Bleed Electric Lime Ticker Strip (Affinity & Later signature) */}
