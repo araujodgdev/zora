@@ -228,7 +228,7 @@ function FilterChip({
       className={cn(
         'rounded-full px-3 py-1 text-xs font-medium transition-colors',
         active
-          ? 'bg-secondary text-secondary-foreground'
+          ? 'clay-chip-on bg-secondary text-secondary-foreground'
           : 'bg-card text-muted-foreground hover:text-foreground',
       )}
     >

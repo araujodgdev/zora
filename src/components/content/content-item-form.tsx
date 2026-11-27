@@ -55,7 +55,7 @@ import { supportsRemoteDelete } from '@/lib/social'
 import { itemPublishJobsQueryOptions, socialConnectionsQueryOptions } from '@/lib/social.queries'
 
 const selectClassName =
-  'border-input bg-input/30 hover:bg-input/50 h-9 w-full rounded-lg border px-2.5 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+  'clay-native-select border-input bg-input/30 hover:bg-input/50 h-9 w-full rounded-lg border px-2.5 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 // The form renders in the browser only (`ssr: 'data-only'`), so `navigator` is there.
 const SAVE_SHORTCUT =

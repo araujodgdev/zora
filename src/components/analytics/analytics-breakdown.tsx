@@ -118,7 +118,7 @@ export function AnalyticsBreakdown({
     <section aria-label="Distribuição por rede, formato e pipeline" className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Donut 1: Channels */}
-        <div className="bg-card flex flex-col justify-between rounded-2xl p-5 md:p-6">
+        <div className="clay-panel bg-card flex flex-col justify-between rounded-2xl p-5 md:p-6">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <h2 className="font-display text-xl font-semibold tracking-[-0.01em]">
@@ -184,7 +184,7 @@ export function AnalyticsBreakdown({
         </div>
 
         {/* Donut 2: Formats */}
-        <div className="bg-card flex flex-col justify-between rounded-2xl p-5 md:p-6">
+        <div className="clay-panel bg-card flex flex-col justify-between rounded-2xl p-5 md:p-6">
           <div>
             <h2 className="font-display text-xl font-semibold tracking-[-0.01em]">
               Mix de formatos
@@ -204,7 +204,7 @@ export function AnalyticsBreakdown({
       </div>
 
       {/* Interactive Pipeline bar */}
-      <div className="bg-card rounded-2xl p-5 md:p-6">
+      <div className="clay-panel bg-card rounded-2xl p-5 md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="font-display text-xl font-semibold tracking-[-0.01em]">

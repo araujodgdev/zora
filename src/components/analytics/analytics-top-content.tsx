@@ -43,7 +43,7 @@ export function AnalyticsTopContent({ items }: { items: ReadonlyArray<TopContent
   })
 
   return (
-    <section aria-label="Conteúdos em destaque" className="bg-card rounded-2xl p-5 md:p-6">
+    <section aria-label="Conteúdos em destaque" className="clay-panel bg-card rounded-2xl p-5 md:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="font-display text-xl font-semibold tracking-[-0.01em]">

@@ -93,7 +93,7 @@ export function ItemAnalyticsCard({ item }: { item: ContentItem }) {
   return (
     <section
       aria-label="Desempenho do conteúdo"
-      className="bg-card space-y-3 rounded-xl p-4"
+      className="clay-panel bg-card space-y-3 rounded-xl p-4"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">

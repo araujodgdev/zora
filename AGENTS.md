@@ -284,7 +284,16 @@ both palettes.
   `ChannelBadge`/`StatusBadge` render their clay versions in fun mode, and
   `app.css` warms the surface tokens under `html[data-ui='fun']`. Classic
   mode is unchanged. New shared primitives should do the same with
-  `useUiMode()`.
+  `useUiMode()`. `ui/select`'s trigger becomes a cream clay button.
+- **Fun-mode skins** (end of `clay.css`, unlayered so they beat utilities):
+  markup that is not a Clay component is painted as clay by ARIA or
+  data-slot (toggle groups and `role="tablist"` rows become a tray with a
+  lime selected segment; the active sidebar item is lime clay; the sidebar
+  gets soft relief) or by a marker class: `clay-panel` (a big slab, soft
+  relief: the analytics sections), `clay-bar` (chart bars),
+  `clay-chip-on` (a selected chip), `clay-native-select` (native
+  `<select>`). Large surfaces behind text use the `-soft` relief maps;
+  full relief there reads as dirt.
 
 ## The content data layer (use this, do not re-implement it)
 

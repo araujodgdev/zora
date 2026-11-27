@@ -134,7 +134,7 @@ function KpiCard({
   subtitle: string
 }) {
   return (
-    <div className="bg-card flex flex-col justify-between gap-3 rounded-2xl p-5">
+    <div className="clay-panel bg-card flex flex-col justify-between gap-3 rounded-2xl p-5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground inline-flex items-center gap-2 text-xs font-medium tracking-wide uppercase">
           {icon}

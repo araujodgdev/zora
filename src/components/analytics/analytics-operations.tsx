@@ -44,7 +44,7 @@ export function AnalyticsOperations({
     collaboration.publishesManual + collaboration.publishesScheduled + collaboration.publishesMcp
 
   return (
-    <section aria-label="Detalhes operacionais e equipe" className="bg-card rounded-2xl p-5 md:p-6">
+    <section aria-label="Detalhes operacionais e equipe" className="clay-panel bg-card rounded-2xl p-5 md:p-6">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}

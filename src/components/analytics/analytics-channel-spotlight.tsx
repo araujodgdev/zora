@@ -31,7 +31,7 @@ export function AnalyticsChannelSpotlight({
   return (
     <section
       aria-label={`Sinais principais de ${CHANNEL_LABELS[spotlight.channel]}`}
-      className="bg-card rounded-2xl p-5"
+      className="clay-panel bg-card rounded-2xl p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">

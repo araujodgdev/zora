@@ -25,7 +25,7 @@ export function AnalyticsInsights({ insights }: { insights: ReadonlyArray<Analyt
         return (
           <div
             key={insight.id}
-            className="bg-card flex items-center justify-between gap-3 rounded-xl px-4 py-3"
+            className="clay-panel bg-card flex items-center justify-between gap-3 rounded-xl px-4 py-3"
           >
             <div className="flex min-w-0 items-start gap-3">
               <div

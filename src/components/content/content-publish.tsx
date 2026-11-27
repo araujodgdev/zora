@@ -59,7 +59,7 @@ const JOB_POLL_INTERVAL_MS = 6000
 const YOUTUBE_THUMB_MAX_BYTES = 2 * 1024 * 1024
 
 const selectClassName =
-  'border-input bg-input/30 hover:bg-input/50 h-9 w-full rounded-lg border px-2.5 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+  'clay-native-select border-input bg-input/30 hover:bg-input/50 h-9 w-full rounded-lg border px-2.5 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback

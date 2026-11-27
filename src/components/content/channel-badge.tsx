@@ -72,10 +72,21 @@ export function ChannelBadge({
       <ClayBadge
         {...props}
         size="sm"
-        color={channel === 'x' ? 'charcoal' : 'cream'}
+        color='cream'
         data-channel={channel}
         className={className}
-        style={{ '--clay': `var(--channel-${channel})`, ...props.style } as CSSProperties}
+        // The channel token for the clay; X flips between ink and bone with the
+        // theme, so its lettering takes the paired foreground token.
+        style={
+          {
+            '--clay': `var(--channel-${channel})`,
+            ...(channel === 'x' && {
+              '--clay-ink': 'var(--channel-x-foreground)',
+              '--clay-ink-shadow': 'transparent',
+            }),
+            ...props.style,
+          } as CSSProperties
+        }
       >
         {label}
       </ClayBadge>

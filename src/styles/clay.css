@@ -46,6 +46,20 @@
      * grey and blend in neutrally). Lumps are the uneven body, smears the
      * strokes of a thumb, pits the tiny dents in the surface.
      */
+    /*
+     * The relief maps, on :root so any piece (or a fun-mode skin) can use
+     * them. The `-soft` ones are for large surfaces behind text (cards,
+     * panels, the sidebar), where full relief would read as dirt.
+     */
+    :root {
+        --clay-lumps: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='l' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.011' numOctaves='3' seed='3' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='2.4' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E");
+        --clay-smears: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Cfilter id='s' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.05' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='1.4' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E");
+        --clay-pits: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='p' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.28' numOctaves='1' seed='5' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='0.5' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
+        --clay-lumps-soft: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='l' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.011' numOctaves='3' seed='3' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='1.1' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E");
+        --clay-smears-soft: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Cfilter id='s' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.05' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='0.6' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E");
+        --clay-pits-soft: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='p' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.28' numOctaves='1' seed='5' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='0.22' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
+    }
+
     .clay-btn,
     .clay-field,
     .clay-switch,
@@ -59,9 +73,6 @@
     .clay-progress,
     .clay-progress-fill,
     .clay-surface {
-        --clay-lumps: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='l' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.011' numOctaves='3' seed='3' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='2.4' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E");
-        --clay-smears: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Cfilter id='s' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.05' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='1.4' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E");
-        --clay-pits: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='p' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.28' numOctaves='1' seed='5' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='0.5' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
         --clay-hi: color-mix(in oklab, var(--clay), white 22%);
         --clay-lo: color-mix(in oklab, var(--clay), black 12%);
         --clay-edge: color-mix(in oklab, var(--clay), black 30%);
@@ -968,9 +979,159 @@
         border-radius: 1.3em 1.55em 1.4em 1.6em / 1.5em 1.3em 1.6em 1.4em;
     }
     .dark .clay-surface {
-        --clay: #34322f;
+        --clay: #292725;
     }
+    /* Big slab behind text: the soft relief, a gentler light, a thinner ledge. */
     .clay-surface::before {
+        background-image:
+            var(--clay-pits-soft),
+            var(--clay-smears-soft),
+            var(--clay-lumps-soft),
+            radial-gradient(160% 140% at 30% 0%, color-mix(in oklab, var(--clay), white 6%) 0%, var(--clay) 50%, color-mix(in oklab, var(--clay), black 5%) 100%);
         background-size: 140px, 560px, 680px, 100% 100%;
+        box-shadow:
+            inset 0 0.08em 0.24em color-mix(in oklab, white 14%, transparent),
+            inset -0.06em -0.12em 0.26em color-mix(in oklab, var(--clay-edge) 30%, transparent),
+            0 var(--clay-depth) 0.05em var(--clay-edge),
+            0 calc(var(--clay-depth) + 0.3em) 0.9em -0.25em rgb(0 0 0 / 0.22);
     }
+}
+
+/*
+ * Fun mode skins for markup that is not a Clay component: classic controls
+ * found by their ARIA or data-slot (Radix toggle groups, hand-made tab rows,
+ * the sidebar menu) or by a marker class (`clay-panel`, `clay-bar`, `clay-chip-on`,
+ * `clay-native-select`). The clay is painted on the element itself, with
+ * the same relief and light (no `::before`, so no wobbly edge). Unlayered,
+ * so it wins over the Tailwind utilities on that markup. Nothing here
+ * applies in classic mode.
+ */
+html[data-ui='fun'] {
+    --clay-tray: #e7dfd0;
+    --clay-panel: #f4eee3;
+}
+html.dark[data-ui='fun'] {
+    --clay-tray: #2c2a27;
+    --clay-panel: #292725;
+}
+
+/* A piece of clay: selected segments and tabs, the active nav item, chart
+   bars (lime), native selects (cream). */
+html[data-ui='fun'] :is(
+        [data-slot='toggle-group-item'][data-state='on'],
+        [role='tablist']:not(.clay-tabs-list) > [role='tab'][aria-selected='true'],
+        [data-slot='sidebar-menu-button'][data-active='true'],
+        .clay-chip-on,
+        .clay-bar
+    ) {
+    --clay: #a7f175;
+    --clay-ink: #0e1318;
+}
+html[data-ui='fun'] select.clay-native-select {
+    --clay: #efe6d4;
+    --clay-ink: #0e1318;
+}
+html[data-ui='fun'] :is(
+        [data-slot='toggle-group-item'][data-state='on'],
+        [role='tablist']:not(.clay-tabs-list) > [role='tab'][aria-selected='true'],
+        [data-slot='sidebar-menu-button'][data-active='true'],
+        .clay-chip-on,
+        .clay-bar,
+        select.clay-native-select
+    ) {
+    --clay-hi: color-mix(in oklab, var(--clay), white 22%);
+    --clay-lo: color-mix(in oklab, var(--clay), black 12%);
+    --clay-edge: color-mix(in oklab, var(--clay), black 30%);
+    color: var(--clay-ink);
+    border-color: transparent;
+    background-color: var(--clay);
+    background-image:
+        var(--clay-pits),
+        var(--clay-smears),
+        var(--clay-lumps),
+        radial-gradient(140% 190% at 32% 0%, var(--clay-hi) 0%, var(--clay) 45%, var(--clay-lo) 100%);
+    background-size: 140px, 280px, 320px, 100% 100%;
+    background-blend-mode: soft-light, soft-light, soft-light, normal;
+    box-shadow:
+        inset 0 0.1em 0.24em color-mix(in oklab, white 25%, transparent),
+        inset -0.06em -0.12em 0.24em color-mix(in oklab, var(--clay-edge) 50%, transparent),
+        0 0.12em 0.04em var(--clay-edge),
+        0 0.22em 0.4em -0.12em rgb(0 0 0 / 0.25);
+}
+html[data-ui='fun'] :is(
+        [data-slot='toggle-group-item'][data-state='on'],
+        [role='tablist']:not(.clay-tabs-list) > [role='tab'][aria-selected='true'],
+        [data-slot='sidebar-menu-button'][data-active='true'],
+        select.clay-native-select,
+        .clay-chip-on
+    ) {
+    font-weight: 700;
+    border-radius: 0.8em 0.95em 0.85em 1em / 0.9em 0.8em 0.95em 0.85em;
+}
+html[data-ui='fun'] select.clay-native-select {
+    height: auto;
+    padding-block: 0.55em;
+}
+
+/* A tray pressed into the table: segmented controls and hand-made tab rows. */
+html[data-ui='fun'] :is([data-slot='toggle-group'], [role='tablist']:not(.clay-tabs-list)) {
+    --clay: var(--clay-tray);
+    gap: 0.2rem;
+    padding: 0.25rem;
+    border-color: transparent;
+    border-radius: 0.85em 1em 0.9em 1.05em / 0.95em 0.85em 1em 0.9em;
+    background-color: color-mix(in oklab, var(--clay), black 6%);
+    background-image: var(--clay-pits), var(--clay-smears);
+    background-size: 140px, 280px;
+    background-blend-mode: soft-light, soft-light;
+    box-shadow:
+        inset 0.08em 0.12em 0.22em color-mix(in oklab, var(--clay), black 30%),
+        inset -0.04em -0.06em 0.12em color-mix(in oklab, white 30%, transparent);
+}
+html[data-ui='fun'] [data-slot='toggle-group-item'][data-state='off'] {
+    border-color: transparent;
+    background-color: transparent;
+}
+
+/* Panels (analytics sections): a big slab, with the soft relief. */
+html[data-ui='fun'] .clay-panel {
+    --clay: var(--clay-panel);
+    --clay-edge: color-mix(in oklab, var(--clay), black 30%);
+    background-color: var(--clay);
+    background-image:
+        var(--clay-pits-soft),
+        var(--clay-smears-soft),
+        var(--clay-lumps-soft),
+        radial-gradient(160% 140% at 30% 0%, color-mix(in oklab, var(--clay), white 6%) 0%, var(--clay) 50%, color-mix(in oklab, var(--clay), black 5%) 100%);
+    background-size: 140px, 560px, 680px, 100% 100%;
+    background-blend-mode: soft-light, soft-light, soft-light, normal;
+    border-radius: 1.3rem 1.55rem 1.4rem 1.6rem / 1.5rem 1.3rem 1.6rem 1.4rem;
+    box-shadow:
+        inset 0 0.08rem 0.24rem color-mix(in oklab, white 14%, transparent),
+        inset -0.06rem -0.12rem 0.26rem color-mix(in oklab, var(--clay-edge) 30%, transparent),
+        0 0.2rem 0.05rem var(--clay-edge),
+        0 0.5rem 0.9rem -0.25rem rgb(0 0 0 / 0.22);
+}
+html[data-ui='fun'] .clay-panel:nth-of-type(2n) {
+    background-position: 47px 113px, 211px 61px, 389px 167px, 0 0;
+}
+html[data-ui='fun'] .clay-panel:nth-of-type(3n) {
+    background-position: 93px 29px, 131px 277px, 53px 419px, 0 0;
+}
+
+/* The sidebar: a slab of clay along the left edge. */
+html[data-ui='fun'] [data-slot='sidebar-inner'] {
+    background-image: var(--clay-pits-soft), var(--clay-smears-soft), var(--clay-lumps-soft);
+    background-size: 140px, 560px, 680px;
+    background-blend-mode: soft-light, soft-light, soft-light;
+    box-shadow:
+        inset -0.4rem 0 0.7rem -0.35rem rgb(0 0 0 / 0.16),
+        inset 0.06rem 0 0.12rem color-mix(in oklab, white 20%, transparent);
+}
+html[data-ui='fun'] [data-slot='sidebar-menu-button']:not([data-active='true']):hover {
+    background-color: color-mix(in oklab, var(--sidebar-accent), transparent 20%);
+    border-radius: 0.8em 0.95em 0.85em 1em / 0.9em 0.8em 0.95em 0.85em;
+}
+html[data-ui='fun'] [data-slot='sidebar-menu-button'] > svg {
+    filter: url(#clay-relief);
 }

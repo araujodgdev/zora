@@ -2,6 +2,8 @@ import * as React from "react"
 import { cn } from "cn"
 import { Select as SelectPrimitive } from "radix-ui"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
+import { useClaySeed } from "@/components/clay/clay-button"
+import { useUiMode } from "@/lib/ui-mode"
 
 function Select({
   ...props
@@ -36,6 +38,29 @@ function SelectTrigger({
 }: React.ComponentProps<typeof SelectPrimitive.Trigger> & {
   size?: "sm" | "default"
 }) {
+  const uiMode = useUiMode()
+  const seed = useClaySeed()
+
+  // Fun mode: a cream clay button, the value and chevron in raised lettering.
+  if (uiMode === "fun") {
+    return (
+      <SelectPrimitive.Trigger
+        data-slot="select-trigger"
+        data-size="sm"
+        className={cn("clay-btn clay-cream justify-between", className)}
+        {...props}
+        style={{ ...seed, ...props.style }}
+      >
+        <span className="clay-lettering min-w-0 *:data-[slot=select-value]:line-clamp-1">
+          {children}
+          <SelectPrimitive.Icon asChild>
+            <ChevronDownIcon className="pointer-events-none" />
+          </SelectPrimitive.Icon>
+        </span>
+      </SelectPrimitive.Trigger>
+    )
+  }
+
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
