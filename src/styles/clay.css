@@ -1,0 +1,976 @@
+/*
+ * Zora Clay: UI components that look like plasticine, after the claymation
+ * on the landing page. Components live in `@/components/clay`; the showcase
+ * is `/ui`.
+ *
+ * Clay is a physical material, so a clay piece keeps its colour in both
+ * themes. Only the table it sits on (`.clay-table`) changes.
+ *
+ * Every size is in `em`: set a font size on a piece and the whole thing
+ * (padding, radius, depth, shadows) scales with it.
+ *
+ * A piece's body is its `::before`: a soft inner light from above and an
+ * inner shade at the bottom right make it round, a short ledge in the clay's
+ * darker tone gives it thickness, and a blurred drop shadow sits it on the
+ * table. The finish is matte, never glossy, and never smooth: lit relief maps
+ * add lumps, thumb smears and pits, and the `clay-wobble` SVG filter
+ * (`@/components/clay/clay-filters`, mounted in the root route) bends the
+ * edge, so it reads as clay shaped by hand, not plastic.
+ */
+
+@layer components {
+    .clay-table {
+        --clay-table: #efe9de;
+        --clay-table-ink: #0e1318;
+        background-color: var(--clay-table);
+        color: var(--clay-table-ink);
+    }
+    .clay-table[data-surface='dark'] {
+        --clay-table: #1b1a19;
+        --clay-table-ink: #efe9de;
+    }
+
+    /* Colours of clay. `--clay` is the body, `--clay-ink` the lettering. */
+    .clay-lime { --clay: #a7f175; --clay-ink: #0e1318; }
+    .clay-cream { --clay: #efe6d4; --clay-ink: #0e1318; }
+    .clay-sky { --clay: #5cc8ff; --clay-ink: #0e1318; }
+    .clay-pink { --clay: #ff8ad8; --clay-ink: #0e1318; }
+    .clay-butter { --clay: #f5c04a; --clay-ink: #0e1318; }
+    .clay-coral { --clay: #ff6b6b; --clay-ink: #0e1318; }
+    .clay-violet { --clay: #a370fc; --clay-ink: #ffffff; --clay-ink-shadow: rgb(0 0 0 / 0.28); }
+    .clay-charcoal { --clay: #34322f; --clay-ink: #efe9de; --clay-ink-shadow: rgb(0 0 0 / 0.5); }
+
+    /*
+     * Relief maps: noise turned into a height field and lit from the top
+     * left (SVG `feDiffuseLighting`, elevation 30°, so flat areas are mid
+     * grey and blend in neutrally). Lumps are the uneven body, smears the
+     * strokes of a thumb, pits the tiny dents in the surface.
+     */
+    .clay-btn,
+    .clay-field,
+    .clay-switch,
+    .clay-switch-knob,
+    .clay-check,
+    .clay-tabs-list,
+    .clay-tabs-pill,
+    .clay-card,
+    .clay-badge,
+    .clay-badge-dot,
+    .clay-progress,
+    .clay-progress-fill,
+    .clay-surface {
+        --clay-lumps: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='l' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.011' numOctaves='3' seed='3' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='2.4' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E");
+        --clay-smears: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Cfilter id='s' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.05' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='1.4' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E");
+        --clay-pits: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='p' color-interpolation-filters='sRGB' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.28' numOctaves='1' seed='5' stitchTiles='stitch'/%3E%3CfeDiffuseLighting surfaceScale='0.5' lighting-color='white'%3E%3CfeDistantLight azimuth='225' elevation='30'/%3E%3C/feDiffuseLighting%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
+        --clay-hi: color-mix(in oklab, var(--clay), white 22%);
+        --clay-lo: color-mix(in oklab, var(--clay), black 12%);
+        --clay-edge: color-mix(in oklab, var(--clay), black 30%);
+        --clay-depth: 0.16em;
+        /* Each piece shows a different patch of the relief (set per button). */
+        --clay-seed-x: 0px;
+        --clay-seed-y: 0px;
+        --clay-wobble: url(#clay-wobble);
+    }
+
+    .clay-btn {
+        position: relative;
+        isolation: isolate;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.45em;
+        padding: 0.6em 1.3em 0.64em;
+        border: 0;
+        background: transparent;
+        font-family: var(--font-sans);
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.015em;
+        white-space: nowrap;
+        color: var(--clay-ink);
+        text-decoration: none;
+        /* Lettering pressed on top: a little ledge below, a soft shadow. */
+        text-shadow:
+            0 0.045em 0 var(--clay-ink-shadow, rgb(0 0 0 / 0.22)),
+            0 0.08em 0.1em rgb(0 0 0 / 0.14);
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        border-radius: 0.95em 1.25em 1.1em 1.3em / 1.15em 1em 1.3em 1.05em;
+        transform: translateY(0);
+        transition:
+            transform 220ms cubic-bezier(0.34, 1.7, 0.5, 1),
+            filter 160ms ease-out;
+    }
+
+    /* The clay body: its own layer, so the relief and the wobbly edge never
+       bend the lettering. */
+    .clay-btn::before,
+    .clay-field::before,
+    .clay-switch::before,
+    .clay-switch-knob::before,
+    .clay-check::before,
+    .clay-tabs-list::before,
+    .clay-tabs-pill::before,
+    .clay-card::before,
+    .clay-badge::before,
+    .clay-badge-dot::before,
+    .clay-progress::before,
+    .clay-progress-fill::before,
+    .clay-surface::before {
+        content: '';
+        position: absolute;
+        z-index: -1;
+        inset: 0;
+        border-radius: inherit;
+        background-image:
+            var(--clay-pits),
+            var(--clay-smears),
+            var(--clay-lumps),
+            radial-gradient(140% 190% at 32% 0%, var(--clay-hi) 0%, var(--clay) 45%, var(--clay-lo) 100%);
+        background-size: 140px, 280px, 320px, 100% 100%;
+        background-position:
+            var(--clay-seed-y) var(--clay-seed-x),
+            var(--clay-seed-x) var(--clay-seed-y),
+            calc(var(--clay-seed-x) * -1) var(--clay-seed-y),
+            0 0;
+        background-blend-mode: soft-light, soft-light, soft-light, normal;
+        /* A hand-rolled shape: no two corners quite alike, the edge uneven. */
+        filter: var(--clay-wobble);
+        box-shadow:
+            inset 0 0.1em 0.28em color-mix(in oklab, white 25%, transparent),
+            inset -0.08em -0.16em 0.3em color-mix(in oklab, var(--clay-edge) 50%, transparent),
+            0 var(--clay-depth) 0.05em var(--clay-edge),
+            0 calc(var(--clay-depth) + 0.22em) 0.55em -0.15em rgb(0 0 0 / 0.26);
+        transition: box-shadow 220ms cubic-bezier(0.34, 1.7, 0.5, 1);
+        pointer-events: none;
+    }
+
+    /* Text and icons are raised clay too: `clay-relief` gives them lumps,
+       dents and an uneven outline (`@/components/clay/clay-filters`). */
+    .clay-lettering {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45em;
+        filter: url(#clay-relief);
+    }
+
+    .clay-lettering > svg {
+        width: 1.1em;
+        height: 1.1em;
+        flex-shrink: 0;
+        stroke-width: 2.75;
+        filter: drop-shadow(0 0.045em 0 var(--clay-ink-shadow, rgb(0 0 0 / 0.22)));
+    }
+
+    /* Sizes: only the font size changes; everything else follows. */
+    .clay-btn[data-size='sm'] { font-size: 0.875rem; --clay-wobble: url(#clay-wobble-soft); }
+    .clay-btn[data-size='md'] { font-size: 1rem; }
+    .clay-btn[data-size='lg'] { font-size: 1.25rem; }
+    .clay-btn[data-size='icon'] {
+        font-size: 1rem;
+        width: 2.6em;
+        height: 2.6em;
+        padding: 0;
+        --clay-wobble: url(#clay-wobble-soft);
+        /* A ball of clay rather than a slab. */
+        border-radius: 52% 48% 55% 45% / 47% 55% 45% 53%;
+    }
+    .clay-btn[data-size='icon'] .clay-lettering > svg {
+        width: 1.25em;
+        height: 1.25em;
+    }
+
+    @media (hover: hover) {
+        .clay-btn:hover {
+            animation: clay-squish 520ms cubic-bezier(0.3, 1.4, 0.5, 1);
+            filter: brightness(1.03);
+        }
+    }
+
+    /* Pressed: the piece sinks into the table and spreads out a little. */
+    .clay-btn:active,
+    .clay-btn[data-pressed] {
+        animation: none;
+        transform: translateY(calc(var(--clay-depth) * 0.8)) scale(1.035, 0.94);
+        transition-duration: 70ms;
+    }
+    .clay-btn:active::before,
+    .clay-btn[data-pressed]::before {
+        transition-duration: 70ms;
+        box-shadow:
+            inset 0 0.1em 0.28em color-mix(in oklab, white 20%, transparent),
+            inset -0.08em -0.16em 0.3em color-mix(in oklab, var(--clay-edge) 55%, transparent),
+            0 0.03em 0.03em var(--clay-edge),
+            0 0.1em 0.25em -0.08em rgb(0 0 0 / 0.26);
+    }
+
+    .clay-btn:focus-visible {
+        outline: 0.16em solid var(--violet);
+        outline-offset: 0.3em;
+    }
+
+    .clay-btn:disabled,
+    .clay-btn[aria-disabled='true'] {
+        cursor: not-allowed;
+        animation: none;
+        transform: none;
+        filter: saturate(0.35) brightness(0.98);
+        opacity: 0.6;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .clay-btn,
+        .clay-btn:hover {
+            animation: none;
+            transition-duration: 0ms;
+        }
+        .clay-btn:active,
+        .clay-btn[data-pressed] {
+            transform: translateY(calc(var(--clay-depth) * 0.8));
+        }
+    }
+}
+
+@keyframes clay-squish {
+    0% { transform: none; }
+    30% { transform: scale(1.05, 0.94); }
+    55% { transform: scale(0.97, 1.04); }
+    78% { transform: scale(1.015, 0.99); }
+    100% { transform: none; }
+}
+
+/* Registered so a piece can change clay smoothly (the field's rim on focus). */
+@property --clay {
+    syntax: '<color>';
+    inherits: true;
+    initial-value: #efe6d4;
+}
+
+/*
+ * Field: a slab of clay (the rim, `::before`, shared with the button) with a
+ * groove pressed into it, where the text goes. The groove is lit the other
+ * way round: shade at the top left, a lit lip at the bottom right. The groove
+ * carries its own colour class, so on focus only the rim turns lime (coral
+ * when invalid).
+ */
+@layer components {
+    .clay-field {
+        --clay-depth: 0.13em;
+        /* Long edges ripple like torn paper with the full wobble. */
+        --clay-wobble: url(#clay-wobble-soft);
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        width: 100%;
+        padding: 0.3em;
+        font-family: var(--font-sans);
+        border-radius: 1em 1.2em 1.05em 1.25em / 1.1em 1em 1.2em 1.05em;
+        transition:
+            --clay 260ms ease-out,
+            transform 260ms cubic-bezier(0.34, 1.7, 0.5, 1);
+    }
+    .clay-field[data-size='sm'] { font-size: 0.875rem; }
+    .clay-field[data-size='md'] { font-size: 1rem; }
+    .clay-field[data-size='lg'] { font-size: 1.25rem; }
+
+    .clay-field-groove {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        gap: 0.55em;
+        min-width: 0;
+        padding: 0.55em 0.85em;
+        color: var(--clay-ink);
+        border-radius: 0.75em 0.95em 0.8em 1em / 0.85em 0.75em 0.95em 0.8em;
+        background-image:
+            var(--clay-pits),
+            var(--clay-smears),
+            linear-gradient(170deg, color-mix(in oklab, var(--clay), black 9%), color-mix(in oklab, var(--clay), black 3%));
+        background-size: 140px, 280px, 100% 100%;
+        background-position: var(--clay-seed-x) var(--clay-seed-y), var(--clay-seed-y) var(--clay-seed-x), 0 0;
+        background-blend-mode: soft-light, soft-light, normal;
+        box-shadow:
+            inset 0.1em 0.16em 0.28em color-mix(in oklab, var(--clay), black 32%),
+            inset -0.06em -0.1em 0.18em color-mix(in oklab, white 45%, transparent);
+    }
+    .clay-field-groove > svg {
+        width: 1.1em;
+        height: 1.1em;
+        flex-shrink: 0;
+        stroke-width: 2.5;
+        opacity: 0.6;
+        filter: url(#clay-relief);
+    }
+
+    .clay-field-input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        padding: 0;
+        background: transparent;
+        outline: none;
+        font: inherit;
+        font-weight: 600;
+        line-height: 1.25;
+        color: inherit;
+    }
+    .clay-field-input::placeholder {
+        color: color-mix(in oklab, var(--clay-ink), transparent 52%);
+        font-weight: 500;
+    }
+    .clay-field-input::selection {
+        background: #a7f175;
+        color: #0e1318;
+    }
+
+    /* Focus: the rim turns to lime clay and the slab lifts a little. */
+    .clay-field:has(.clay-field-input:focus-visible),
+    .clay-field:has(.clay-field-input[data-focused]) {
+        --clay: #a7f175;
+        transform: translateY(-0.06em);
+    }
+    .clay-field.clay-lime:has(.clay-field-input:focus-visible),
+    .clay-field.clay-lime:has(.clay-field-input[data-focused]) {
+        --clay: #7fd94a;
+    }
+    .clay-field:has(.clay-field-input[aria-invalid='true']) {
+        --clay: #ff6b6b;
+    }
+
+    .clay-field:has(.clay-field-input:disabled) {
+        opacity: 0.6;
+        filter: saturate(0.4);
+        cursor: not-allowed;
+    }
+    .clay-field-input:disabled {
+        cursor: not-allowed;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .clay-field {
+            transition: none;
+        }
+        .clay-field:has(.clay-field-input:focus-visible),
+        .clay-field:has(.clay-field-input[data-focused]) {
+            transform: none;
+        }
+    }
+}
+
+/*
+ * Switch: a pill of clay (`::before`, shared) with a groove pressed into it
+ * and a ball of clay in the groove. On, the ball rolls to the right and the
+ * groove fills with the "on" clay (the component swaps the groove's colour
+ * class; `--clay` is registered, so the colour flows). The ball squashes as
+ * it rolls (`scale`, separate from the `translate` that moves it).
+ */
+@layer components {
+    .clay-switch {
+        --clay-depth: 0.12em;
+        --clay-wobble: url(#clay-wobble-soft);
+        position: relative;
+        isolation: isolate;
+        display: inline-flex;
+        flex-shrink: 0;
+        width: 3.5em;
+        height: 2em;
+        padding: 0.24em;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        border-radius: 1.05em 1.15em 1em 1.2em / 1em 1.1em 1.05em 1em;
+        vertical-align: middle;
+    }
+    .clay-switch[data-size='sm'] { font-size: 0.8rem; }
+    .clay-switch[data-size='md'] { font-size: 1rem; }
+    .clay-switch[data-size='lg'] { font-size: 1.25rem; }
+
+    .clay-switch-groove {
+        position: relative;
+        flex: 1;
+        border-radius: 0.8em 0.9em 0.75em 0.95em / 0.75em 0.85em 0.8em 0.8em;
+        background-image:
+            var(--clay-pits),
+            var(--clay-smears),
+            linear-gradient(170deg, color-mix(in oklab, var(--clay), black 10%), color-mix(in oklab, var(--clay), black 2%));
+        background-size: 140px, 280px, 100% 100%;
+        background-position: var(--clay-seed-x) var(--clay-seed-y), var(--clay-seed-y) var(--clay-seed-x), 0 0;
+        background-blend-mode: soft-light, soft-light, normal;
+        box-shadow:
+            inset 0.1em 0.15em 0.26em color-mix(in oklab, var(--clay), black 34%),
+            inset -0.05em -0.08em 0.16em color-mix(in oklab, white 45%, transparent);
+        transition: --clay 280ms ease-out;
+    }
+
+    .clay-switch-knob {
+        --clay-depth: 0.1em;
+        --clay-wobble: none;
+        position: absolute;
+        isolation: isolate;
+        top: 0.11em;
+        left: 0.11em;
+        width: 1.3em;
+        height: 1.3em;
+        border-radius: 52% 48% 55% 45% / 47% 55% 45% 53%;
+        translate: 0 0;
+        transition: translate 340ms cubic-bezier(0.34, 1.45, 0.5, 1);
+    }
+    .clay-switch[aria-checked='true'] .clay-switch-knob {
+        translate: 1.5em 0;
+    }
+    /* Squash while rolling; only after the person has touched it, so the
+       page does not play it on load. */
+    .clay-switch[data-touched][aria-checked='true'] .clay-switch-knob {
+        animation: clay-roll-on 420ms ease-out;
+    }
+    .clay-switch[data-touched][aria-checked='false'] .clay-switch-knob {
+        animation: clay-roll-off 420ms ease-out;
+    }
+    .clay-switch:active .clay-switch-knob {
+        scale: 1.12 0.9;
+    }
+
+    .clay-switch:focus-visible {
+        outline: 0.12em solid var(--violet);
+        outline-offset: 0.25em;
+    }
+    .clay-switch:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+        filter: saturate(0.4);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .clay-switch-groove,
+        .clay-switch-knob {
+            transition: none;
+        }
+        .clay-switch[data-touched] .clay-switch-knob {
+            animation: none;
+        }
+    }
+}
+
+/* Two names so the animation restarts on every flip. */
+@keyframes clay-roll-on {
+    0% { scale: 1 1; }
+    35% { scale: 1.28 0.84; }
+    70% { scale: 0.94 1.06; }
+    100% { scale: 1 1; }
+}
+@keyframes clay-roll-off {
+    0% { scale: 1 1; }
+    35% { scale: 1.28 0.84; }
+    70% { scale: 0.94 1.06; }
+    100% { scale: 1 1; }
+}
+
+/*
+ * Checkbox: a small square of clay (`::before`, shared) with a cup pressed
+ * into it. Checked, a snake of clay rolls into a tick on top: one SVG path,
+ * shaded matte and dented by the `clay-roll` filter (no highlight, no shine),
+ * drawn in with `stroke-dashoffset` as if rolled out by a finger. The real `<input>` sits on top, invisible, so
+ * clicks, keyboard and forms are native.
+ */
+@layer components {
+    .clay-check {
+        --clay-depth: 0.1em;
+        --clay-wobble: none;
+        position: relative;
+        isolation: isolate;
+        display: inline-flex;
+        flex-shrink: 0;
+        width: 1.6em;
+        height: 1.6em;
+        padding: 0.2em;
+        border-radius: 0.5em 0.6em 0.45em 0.62em / 0.55em 0.48em 0.6em 0.5em;
+        vertical-align: middle;
+    }
+    .clay-check[data-size='sm'] { font-size: 0.8rem; }
+    .clay-check[data-size='md'] { font-size: 1rem; }
+    .clay-check[data-size='lg'] { font-size: 1.3rem; }
+
+    .clay-check-cup {
+        flex: 1;
+        border-radius: 0.32em 0.4em 0.3em 0.42em / 0.36em 0.3em 0.4em 0.32em;
+        background-image:
+            var(--clay-pits),
+            linear-gradient(160deg, color-mix(in oklab, var(--clay), black 11%), color-mix(in oklab, var(--clay), black 3%));
+        background-size: 140px, 100% 100%;
+        background-position: var(--clay-seed-x) var(--clay-seed-y), 0 0;
+        background-blend-mode: soft-light, normal;
+        box-shadow:
+            inset 0.07em 0.1em 0.18em color-mix(in oklab, var(--clay), black 36%),
+            inset -0.04em -0.06em 0.1em color-mix(in oklab, white 45%, transparent);
+    }
+
+    .clay-check-input {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        margin: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+    .clay-check-input:disabled {
+        cursor: not-allowed;
+    }
+
+    /* The tick: a little bigger than the box, as if laid on by hand. */
+    .clay-check-mark {
+        position: absolute;
+        z-index: 1;
+        top: -0.22em;
+        left: -0.12em;
+        width: calc(100% + 0.42em);
+        height: calc(100% + 0.34em);
+        overflow: visible;
+        pointer-events: none;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        filter: drop-shadow(0.02em 0.07em 0.09em rgb(0 0 0 / 0.2));
+    }
+    .clay-check-mark g {
+        filter: url(#clay-roll);
+    }
+    .clay-check-tick,
+    .clay-check-dash {
+        transform-box: fill-box;
+        transform-origin: 40% 60%;
+    }
+    .clay-check-mark path {
+        stroke-dasharray: 1 2;
+        stroke-dashoffset: 1;
+        opacity: 0;
+        transition:
+            stroke-dashoffset 260ms cubic-bezier(0.5, 0, 0.3, 1),
+            opacity 60ms;
+    }
+    .clay-check-mark .clay-check-body { stroke: var(--clay); stroke-width: 4.6; }
+
+    .clay-check:has(.clay-check-input:checked:not(:indeterminate)) .clay-check-tick path,
+    .clay-check:has(.clay-check-input:indeterminate) .clay-check-dash path {
+        stroke-dashoffset: 0;
+        opacity: 1;
+    }
+    /* Laid down: a quick squash once the tick lands. */
+    .clay-check:has(.clay-check-input:checked:not(:indeterminate)) .clay-check-tick,
+    .clay-check:has(.clay-check-input:indeterminate) .clay-check-dash {
+        animation: clay-tick-land 380ms 200ms ease-out both;
+    }
+
+    .clay-check:has(.clay-check-input:focus-visible) {
+        outline: 0.12em solid var(--violet);
+        outline-offset: 0.22em;
+    }
+    .clay-check:has(.clay-check-input:disabled) {
+        opacity: 0.55;
+        filter: saturate(0.4);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .clay-check-mark path {
+            transition: none;
+        }
+        .clay-check:has(.clay-check-input:checked) .clay-check-tick,
+        .clay-check:has(.clay-check-input:indeterminate) .clay-check-dash {
+            animation: none;
+        }
+    }
+}
+
+@keyframes clay-tick-land {
+    0% { scale: 1 1; }
+    40% { scale: 1.08 0.9; }
+    75% { scale: 0.97 1.04; }
+    100% { scale: 1 1; }
+}
+
+/*
+ * Tabs: a slab of clay (`::before`, shared) with a tray pressed into it. The
+ * active tab is a pill of clay that slides along the tray to the tab picked
+ * (its box is measured and set as `--pill-*`) and squashes when it lands.
+ * Tab labels are raised clay lettering (`clay-relief`).
+ */
+@layer components {
+    .clay-tabs-list {
+        --clay-depth: 0.12em;
+        --clay-wobble: url(#clay-wobble-soft);
+        position: relative;
+        isolation: isolate;
+        display: inline-flex;
+        max-width: 100%;
+        padding: 0.3em;
+        font-family: var(--font-sans);
+        border-radius: 1em 1.2em 1.05em 1.25em / 1.1em 1em 1.2em 1.05em;
+    }
+    .clay-tabs-list[data-size='sm'] { font-size: 0.875rem; }
+    .clay-tabs-list[data-size='md'] { font-size: 1rem; }
+    .clay-tabs-list[data-size='lg'] { font-size: 1.15rem; }
+
+    .clay-tabs-tray {
+        position: absolute;
+        z-index: 0;
+        inset: 0.3em;
+        border-radius: 0.75em 0.95em 0.8em 1em / 0.85em 0.75em 0.95em 0.8em;
+        background-image:
+            var(--clay-pits),
+            var(--clay-smears),
+            linear-gradient(170deg, color-mix(in oklab, var(--clay), black 10%), color-mix(in oklab, var(--clay), black 3%));
+        background-size: 140px, 280px, 100% 100%;
+        background-position: var(--clay-seed-x) var(--clay-seed-y), var(--clay-seed-y) var(--clay-seed-x), 0 0;
+        background-blend-mode: soft-light, soft-light, normal;
+        box-shadow:
+            inset 0.1em 0.15em 0.26em color-mix(in oklab, var(--clay), black 32%),
+            inset -0.05em -0.08em 0.16em color-mix(in oklab, white 45%, transparent);
+    }
+
+    .clay-tabs-pill {
+        --clay-depth: 0.1em;
+        position: absolute;
+        z-index: 1;
+        top: var(--pill-top, 0.3em);
+        left: 0;
+        width: var(--pill-width, 0);
+        height: var(--pill-height, 0);
+        translate: var(--pill-left, 0) 0;
+        border-radius: 0.8em 0.95em 0.85em 1em / 0.9em 0.8em 0.95em 0.85em;
+        transition:
+            translate 380ms cubic-bezier(0.34, 1.35, 0.5, 1),
+            width 380ms cubic-bezier(0.34, 1.35, 0.5, 1),
+            --clay 280ms ease-out;
+    }
+    .clay-tabs-pill[data-hidden] {
+        opacity: 0;
+    }
+    /* No slide into place on load: only after the first change of tab. */
+    .clay-tabs-pill:not([data-flip]) {
+        transition: none;
+    }
+    .clay-tabs-pill[data-flip='a'] { animation: clay-tab-land-a 460ms ease-out; }
+    .clay-tabs-pill[data-flip='b'] { animation: clay-tab-land-b 460ms ease-out; }
+
+    .clay-tabs-trigger {
+        position: relative;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45em;
+        padding: 0.58em 1.1em 0.62em;
+        border: 0;
+        background: transparent;
+        font: inherit;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.015em;
+        white-space: nowrap;
+        color: color-mix(in oklab, var(--clay-ink, #0e1318), transparent 42%);
+        cursor: pointer;
+        border-radius: 0.8em;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 200ms ease-out;
+    }
+    .clay-tabs-trigger:hover {
+        color: color-mix(in oklab, var(--clay-ink, #0e1318), transparent 15%);
+    }
+    .clay-tabs-trigger[data-state='active'] {
+        color: var(--clay-tabs-active-ink, #0e1318);
+        text-shadow: 0 0.045em 0 var(--clay-tabs-active-ink-shadow, rgb(0 0 0 / 0.2));
+    }
+    .clay-tabs-trigger > .clay-lettering > svg {
+        width: 1.05em;
+        height: 1.05em;
+        stroke-width: 2.6;
+    }
+    .clay-tabs-trigger:focus-visible {
+        outline: 0.14em solid var(--violet);
+        outline-offset: 0.1em;
+    }
+    .clay-tabs-trigger:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+
+    .clay-tabs-content:focus-visible {
+        outline: 0.14em solid var(--violet);
+        outline-offset: 0.3em;
+        border-radius: 0.5em;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .clay-tabs-pill {
+            transition: none;
+            animation: none !important;
+        }
+    }
+}
+
+@keyframes clay-tab-land-a {
+    0%, 30% { scale: 1 1; }
+    55% { scale: 1.06 0.9; }
+    80% { scale: 0.98 1.03; }
+    100% { scale: 1 1; }
+}
+@keyframes clay-tab-land-b {
+    0%, 30% { scale: 1 1; }
+    55% { scale: 1.06 0.9; }
+    80% { scale: 0.98 1.03; }
+    100% { scale: 1 1; }
+}
+
+/*
+ * Card: a thick slab of clay (`::before`, shared), with an optional window
+ * pressed into it for a picture (`.clay-card-media`, its inner shade laid
+ * over the image) and a title of raised clay lettering. Interactive cards
+ * (links, buttons) lift and tilt a little on hover and sink when pressed.
+ */
+@layer components {
+    .clay-card {
+        --clay-depth: 0.24em;
+        --clay-wobble: url(#clay-wobble-soft);
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        flex-direction: column;
+        gap: 0.9em;
+        padding: 1.2em;
+        color: var(--clay-ink);
+        font-family: var(--font-sans);
+        text-align: left;
+        text-decoration: none;
+        border-radius: 1.6em 1.9em 1.7em 2em / 1.8em 1.6em 2em 1.7em;
+        transition: transform 260ms cubic-bezier(0.34, 1.6, 0.5, 1);
+    }
+    /* A big slab: bigger lumps and thumb strokes, the same small pits. */
+    .clay-card::before {
+        background-size: 140px, 560px, 680px, 100% 100%;
+    }
+    .clay-card[data-interactive] {
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+    @media (hover: hover) {
+        .clay-card[data-interactive]:hover {
+            transform: translateY(-0.2em) rotate(-0.5deg);
+        }
+    }
+    .clay-card[data-interactive]:active {
+        transform: translateY(0.15em) scale(1.01, 0.985);
+        transition-duration: 80ms;
+    }
+    .clay-card:focus-visible {
+        outline: 0.15em solid var(--violet);
+        outline-offset: 0.3em;
+    }
+
+    .clay-card-media {
+        position: relative;
+        overflow: hidden;
+        margin: -0.35em -0.35em 0.1em;
+        border-radius: 1.15em 1.4em 1.25em 1.45em / 1.3em 1.15em 1.45em 1.25em;
+        background: color-mix(in oklab, var(--clay), black 10%);
+    }
+    .clay-card-media > img,
+    .clay-card-media > video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    /* The window's own lip: shade on the top left, light on the bottom right. */
+    .clay-card-media::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        box-shadow:
+            inset 0.14em 0.2em 0.4em color-mix(in oklab, var(--clay), black 45%),
+            inset -0.08em -0.12em 0.22em color-mix(in oklab, white 50%, transparent);
+    }
+
+    .clay-card-title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: 1.45em;
+        font-weight: 600;
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+        text-shadow:
+            0 0.035em 0 var(--clay-ink-shadow, rgb(0 0 0 / 0.18)),
+            0 0.06em 0.08em rgb(0 0 0 / 0.12);
+        filter: url(#clay-relief);
+    }
+    .clay-card-text {
+        margin: 0;
+        font-size: 0.95em;
+        line-height: 1.5;
+        opacity: 0.75;
+    }
+    .clay-card-footer {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75em;
+        margin-top: auto;
+        padding-top: 0.2em;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .clay-card,
+        .clay-card[data-interactive]:hover,
+        .clay-card[data-interactive]:active {
+            transition: none;
+            transform: none;
+        }
+    }
+}
+
+/*
+ * Badge: a small, flat pill of clay (`::before`, shared) with raised
+ * lettering. An optional dot is a tiny ball of clay pressed on in front.
+ */
+@layer components {
+    .clay-badge {
+        --clay-depth: 0.1em;
+        --clay-wobble: url(#clay-wobble-soft);
+        position: relative;
+        isolation: isolate;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4em;
+        padding: 0.32em 0.75em 0.36em;
+        font-family: var(--font-sans);
+        font-size: 0.8125rem;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.005em;
+        white-space: nowrap;
+        color: var(--clay-ink);
+        text-shadow: 0 0.045em 0 var(--clay-ink-shadow, rgb(0 0 0 / 0.2));
+        border-radius: 0.8em 0.95em 0.85em 1em / 0.9em 0.8em 0.95em 0.85em;
+        vertical-align: middle;
+    }
+    .clay-badge[data-size='sm'] { font-size: 0.6875rem; }
+    .clay-badge[data-size='lg'] { font-size: 0.9375rem; }
+    .clay-badge .clay-lettering > svg {
+        width: 1.1em;
+        height: 1.1em;
+        stroke-width: 2.75;
+    }
+
+    .clay-badge-dot {
+        --clay-depth: 0.06em;
+        --clay-wobble: none;
+        position: relative;
+        isolation: isolate;
+        display: inline-block;
+        flex-shrink: 0;
+        width: 0.7em;
+        height: 0.7em;
+        margin-left: -0.1em;
+        border-radius: 52% 48% 55% 45% / 47% 55% 45% 53%;
+    }
+}
+
+/*
+ * Progress: a slab of clay (`::before`, shared) with a groove pressed into
+ * it, filled by a snake of clay that grows (springy) to `--clay-value`
+ * (0 to 1). Indeterminate: a short snake rolls back and forth.
+ */
+@layer components {
+    .clay-progress {
+        --clay-depth: 0.1em;
+        --clay-wobble: url(#clay-wobble-soft);
+        position: relative;
+        isolation: isolate;
+        display: block;
+        width: 100%;
+        height: 1.35em;
+        padding: 0.24em;
+        border-radius: 0.7em 0.8em 0.72em 0.85em / 0.75em 0.7em 0.8em 0.72em;
+    }
+    .clay-progress[data-size='sm'] { font-size: 0.75rem; }
+    .clay-progress[data-size='md'] { font-size: 1rem; }
+    .clay-progress[data-size='lg'] { font-size: 1.3rem; }
+
+    .clay-progress-groove {
+        position: relative;
+        height: 100%;
+        border-radius: 0.5em 0.6em 0.52em 0.62em / 0.55em 0.5em 0.6em 0.52em;
+        background-image:
+            var(--clay-pits),
+            var(--clay-smears),
+            linear-gradient(175deg, color-mix(in oklab, var(--clay), black 11%), color-mix(in oklab, var(--clay), black 3%));
+        background-size: 140px, 280px, 100% 100%;
+        background-position: var(--clay-seed-x) var(--clay-seed-y), var(--clay-seed-y) var(--clay-seed-x), 0 0;
+        background-blend-mode: soft-light, soft-light, normal;
+        box-shadow:
+            inset 0.08em 0.12em 0.22em color-mix(in oklab, var(--clay), black 34%),
+            inset -0.04em -0.06em 0.12em color-mix(in oklab, white 45%, transparent);
+    }
+
+    .clay-progress-fill {
+        --clay-depth: 0.06em;
+        --clay-wobble: none;
+        position: absolute;
+        isolation: isolate;
+        top: 0.08em;
+        bottom: 0.08em;
+        left: 0.08em;
+        min-width: 0.71em;
+        width: calc((100% - 0.16em) * var(--clay-value, 0));
+        border-radius: 0.45em 0.55em 0.5em 0.6em / 0.5em 0.45em 0.55em 0.5em;
+        transition: width 700ms cubic-bezier(0.34, 1.3, 0.5, 1);
+    }
+    .clay-progress[data-value='0'] .clay-progress-fill {
+        opacity: 0;
+    }
+    .clay-progress[data-indeterminate] .clay-progress-fill {
+        width: 34%;
+        transition: none;
+        animation: clay-progress-roll 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .clay-progress-fill {
+            transition: none;
+        }
+        .clay-progress[data-indeterminate] .clay-progress-fill {
+            animation: none;
+            left: 33%;
+        }
+    }
+}
+
+@keyframes clay-progress-roll {
+    0% { left: 0.08em; scale: 1 1; }
+    45% { scale: 1.06 0.9; }
+    100% { left: calc(66% - 0.08em); scale: 1 1; }
+}
+
+/*
+ * Surface: a clay slab behind an existing layout (fun mode's `ui/card`). It
+ * changes nothing in the box but its background: cream on the light theme,
+ * charcoal on the dark one, so the theme's text tokens stay readable.
+ */
+@layer components {
+    .clay-surface {
+        --clay: #f4eee3;
+        --clay-ink: var(--foreground);
+        --clay-depth: 0.2em;
+        --clay-wobble: url(#clay-wobble-soft);
+        position: relative;
+        isolation: isolate;
+        border-radius: 1.3em 1.55em 1.4em 1.6em / 1.5em 1.3em 1.6em 1.4em;
+    }
+    .dark .clay-surface {
+        --clay: #34322f;
+    }
+    .clay-surface::before {
+        background-size: 140px, 560px, 680px, 100% 100%;
+    }
+}

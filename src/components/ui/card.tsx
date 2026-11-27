@@ -1,20 +1,27 @@
 import * as React from "react"
 import { cn } from "cn"
+import { useClaySeed } from "@/components/clay/clay-button"
+import { useUiMode } from "@/lib/ui-mode"
 
 function Card({
   className,
   size = "default",
   ...props
 }: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+  const fun = useUiMode() === "fun"
+  const seed = useClaySeed()
   return (
     <div
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-foreground/10 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        "group/card flex flex-col gap-(--card-spacing) py-(--card-spacing) text-sm text-card-foreground [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(3)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
+        // Fun mode: the same layout on a slab of clay (`.clay-surface`).
+        fun ? "clay-surface" : "overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10",
         className
       )}
       {...props}
+      style={fun ? { ...seed, ...props.style } : props.style}
     />
   )
 }

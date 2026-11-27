@@ -5,6 +5,7 @@
 @import "@fontsource-variable/figtree/wght-italic.css";
 @import "@fontsource-variable/fraunces/full.css";
 @import "@fontsource-variable/fraunces/full-italic.css";
+@import "./clay.css";
 
 /*
  * Zora's design system, after Affinity. Two themes on the same brand:
@@ -431,4 +432,39 @@
             animation: none;
         }
     }
+}
+
+/*
+ * Fun mode (`html[data-ui='fun']`, `@/lib/ui-mode`): the app sits on a clay
+ * table. Surfaces take the warm tones of the clay films instead of the
+ * neutral greys; the shared primitives switch to Zora Clay
+ * (`src/styles/clay.css`). Classic mode is untouched.
+ */
+html[data-ui='fun'] {
+    --background: #efe9de;
+    --card: #f7f2e9;
+    --popover: #fbf8f2;
+    --muted: #e6dfd2;
+    --accent: #e6dfd2;
+    --border: rgb(52 40 24 / 0.1);
+    --input: rgb(52 40 24 / 0.18);
+    --muted-foreground: #6a645b;
+    --sidebar: #e8e1d4;
+    --sidebar-accent: #ddd4c5;
+    --sidebar-border: rgb(52 40 24 / 0.08);
+    --clay-table: #efe9de;
+}
+html.dark[data-ui='fun'] {
+    --background: #1b1a19;
+    --card: #252321;
+    --popover: #2a2826;
+    --muted: #302d2a;
+    --accent: #302d2a;
+    --border: rgb(239 233 222 / 0.09);
+    --input: rgb(239 233 222 / 0.14);
+    --muted-foreground: #a8a39b;
+    --sidebar: #211f1d;
+    --sidebar-accent: #34312d;
+    --sidebar-border: rgb(239 233 222 / 0.07);
+    --clay-table: #1b1a19;
 }

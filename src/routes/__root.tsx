@@ -13,11 +13,13 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
+import { ClayFilters } from '@/components/clay/clay-filters'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { registerServiceWorker } from '@/lib/pwa'
 import { loadQuery } from '@/lib/route-query'
 import { sessionStateQueryOptions } from '@/lib/session.queries'
 import { readTheme, useTheme } from '@/lib/theme'
+import { UiModeProvider, readUiMode, useUiMode } from '@/lib/ui-mode'
 import appCss from '@/styles/app.css?url'
 
 export type RouterContext = {
@@ -32,10 +34,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   // `workspace` is the one the user has open (null without any). It comes
   // from the Query cache after the first load: this runs before every
   // navigation, and a round trip here delayed every page change.
-  // The theme comes from a cookie, so the server renders the right one.
+  // The theme and the look (classic or fun) come from cookies, so the
+  // server renders the right ones.
   beforeLoad: async ({ context }) => ({
     ...(await loadQuery(context.queryClient, sessionStateQueryOptions())),
     theme: readTheme(),
+    uiMode: readUiMode(),
   }),
   head: () => ({
     meta: [
@@ -105,18 +109,35 @@ function RootError({ reset }: ErrorComponentProps) {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
+  const initialUiMode = Route.useRouteContext({ select: (context) => context.uiMode })
+  return (
+    <UiModeProvider initial={initialUiMode}>
+      <RootHtml>{children}</RootHtml>
+    </UiModeProvider>
+  )
+}
+
+/** The canvas colour per look and theme, for the browser and installed-app chrome. */
+const THEME_COLORS = {
+  classic: { dark: '#000000', light: '#f4f4f4' },
+  fun: { dark: '#1b1a19', light: '#efe9de' },
+} as const
+
+function RootHtml({ children }: { children: ReactNode }) {
   const initialTheme = Route.useRouteContext({ select: (context) => context.theme })
   const theme = useTheme(initialTheme)
+  const uiMode = useUiMode()
   useEffect(registerServiceWorker, [])
   return (
-    <html lang="pt-BR" className={theme === 'dark' ? 'dark' : undefined}>
+    <html lang="pt-BR" className={theme === 'dark' ? 'dark' : undefined} data-ui={uiMode}>
       <head>
         <HeadContent />
         {/* The browser and installed-app chrome follow the theme's canvas. */}
-        <meta name="theme-color" content={theme === 'dark' ? '#000000' : '#f4f4f4'} />
+        <meta name="theme-color" content={THEME_COLORS[uiMode][theme]} />
       </head>
       <body>
         <TooltipProvider>{children}</TooltipProvider>
+        <ClayFilters />
         {/* The one toast container: call `toast()` from `sonner` anywhere. */}
         <Toaster theme={theme} />
         <Scripts />

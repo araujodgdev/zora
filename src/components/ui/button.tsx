@@ -2,6 +2,9 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 import { Slot } from "radix-ui"
+import { ClayButton } from "@/components/clay/clay-button"
+import type { ClayColor } from "@/components/clay/clay-button"
+import { useUiMode } from "@/lib/ui-mode"
 
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -40,6 +43,21 @@ const buttonVariants = cva(
   }
 )
 
+const CLAY_VARIANT_COLORS: Partial<Record<NonNullable<VariantProps<typeof buttonVariants>["variant"]>, ClayColor>> = {
+  default: "lime",
+  secondary: "charcoal",
+  outline: "cream",
+  destructive: "coral",
+}
+
+/** Icon-only sizes as the clay ball's font size (it is 2.6em across). */
+const CLAY_ICON_FONT_SIZES: Partial<Record<NonNullable<VariantProps<typeof buttonVariants>["size"]>, string>> = {
+  "icon-xs": "0.6rem",
+  "icon-sm": "0.7rem",
+  icon: "0.8rem",
+  "icon-lg": "1rem",
+}
+
 function Button({
   className,
   variant = "default",
@@ -51,6 +69,27 @@ function Button({
     asChild?: boolean
   }) {
   const Comp = asChild ? Slot.Root : "button"
+  const uiMode = useUiMode()
+
+  // Fun mode: the clay button, for the variants that are a solid piece.
+  // Ghost and link buttons (toolbars, menus) keep their quiet classic look.
+  const clayColor = uiMode === "fun" && variant ? CLAY_VARIANT_COLORS[variant] : undefined
+  if (clayColor) {
+    const iconSize = size ? CLAY_ICON_FONT_SIZES[size] : undefined
+    return (
+      <ClayButton
+        data-variant={variant}
+        {...props}
+        color={clayColor}
+        size={iconSize ? "icon" : size === "lg" ? "md" : "sm"}
+        asChild={asChild}
+        className={className ?? undefined}
+        // Native buttons submit by default; keep that inside forms.
+        type={asChild ? undefined : (props.type ?? "submit")}
+        style={iconSize ? { fontSize: iconSize, ...props.style } : props.style}
+      />
+    )
+  }
 
   return (
     <Comp

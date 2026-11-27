@@ -17,10 +17,12 @@ import {
   Download,
   List,
   LogOut,
+  LayoutGrid,
   Moon,
   Plug,
   Plus,
   Share2,
+  Sparkles,
   SquareKanban,
   Sun,
   Users,
@@ -56,6 +58,7 @@ import { authClient } from '@/lib/auth-client'
 import { ZORA_DESKTOP_DOWNLOAD_URL, isZoraDesktop } from '@/lib/desktop-bridge'
 import { cn } from '@/lib/utils'
 import { setTheme, useTheme } from '@/lib/theme'
+import { setUiMode, useUiMode } from '@/lib/ui-mode'
 import { myWorkspacesQueryOptions, unwrapAuth } from '@/lib/workspace.queries'
 import { toast } from 'sonner'
 
@@ -266,6 +269,9 @@ function AppSidebar() {
             <ThemeSwitcher />
           </SidebarMenuItem>
           <SidebarMenuItem>
+            <UiModeSwitcher />
+          </SidebarMenuItem>
+          <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Sair"
               onClick={() => void signOut()}
@@ -355,6 +361,22 @@ function ThemeSwitcher() {
   return (
     <SidebarMenuButton tooltip={label} onClick={() => setTheme(next)}>
       {next === 'light' ? <Sun /> : <Moon />}
+      <span>{label}</span>
+    </SidebarMenuButton>
+  )
+}
+
+/**
+ * Switches between the classic look and fun mode (Zora Clay, the plasticine
+ * components); the choice is remembered (`@/lib/ui-mode`).
+ */
+function UiModeSwitcher() {
+  const mode = useUiMode()
+  const next = mode === 'fun' ? 'classic' : 'fun'
+  const label = next === 'fun' ? 'Modo Fun' : 'Modo clássico'
+  return (
+    <SidebarMenuButton tooltip={label} onClick={() => setUiMode(next)}>
+      {next === 'fun' ? <Sparkles /> : <LayoutGrid />}
       <span>{label}</span>
     </SidebarMenuButton>
   )

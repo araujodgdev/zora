@@ -18,6 +18,7 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as UiRouteImport } from './routes/ui'
 import { Route as DotwellKnownSplatRouteImport } from './routes/[.]well-known/$'
 import { Route as AppAnalyticsRouteImport } from './routes/_app/analytics'
 import { Route as AppCalendarRouteImport } from './routes/_app/calendar'
@@ -90,6 +91,11 @@ const SignInRoute = SignInRouteImport.update({
 const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UiRoute = UiRouteImport.update({
+  id: '/ui',
+  path: '/ui',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DotwellKnownSplatRoute = DotwellKnownSplatRouteImport.update({
@@ -258,6 +264,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/ui': typeof UiRoute
   '/.well-known/$': typeof DotwellKnownSplatRoute
   '/analytics': typeof AppAnalyticsRoute
   '/calendar': typeof AppCalendarRoute
@@ -297,6 +304,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/ui': typeof UiRoute
   '/.well-known/$': typeof DotwellKnownSplatRoute
   '/analytics': typeof AppAnalyticsRoute
   '/calendar': typeof AppCalendarRoute
@@ -338,6 +346,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/ui': typeof UiRoute
   '/.well-known/$': typeof DotwellKnownSplatRoute
   '/_app/analytics': typeof AppAnalyticsRoute
   '/_app/calendar': typeof AppCalendarRoute
@@ -379,6 +388,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
+    | '/ui'
     | '/.well-known/$'
     | '/analytics'
     | '/calendar'
@@ -418,6 +428,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
+    | '/ui'
     | '/.well-known/$'
     | '/analytics'
     | '/calendar'
@@ -458,6 +469,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sign-in'
     | '/sign-up'
+    | '/ui'
     | '/.well-known/$'
     | '/_app/analytics'
     | '/_app/calendar'
@@ -499,6 +511,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  UiRoute: typeof UiRoute
   DotwellKnownSplatRoute: typeof DotwellKnownSplatRoute
   InviteInvitationIdRoute: typeof InviteInvitationIdRoute
   LightcraftSplatRoute: typeof LightcraftSplatRoute
@@ -583,6 +596,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ui': {
+      id: '/ui'
+      path: '/ui'
+      fullPath: '/ui'
+      preLoaderRoute: typeof UiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/$': {
@@ -829,6 +849,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  UiRoute: UiRoute,
   DotwellKnownSplatRoute: DotwellKnownSplatRoute,
   InviteInvitationIdRoute: InviteInvitationIdRoute,
   LightcraftSplatRoute: LightcraftSplatRoute,

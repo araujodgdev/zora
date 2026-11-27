@@ -1,9 +1,11 @@
-import type { ComponentProps } from 'react'
+import type { CSSProperties, ComponentProps } from 'react'
+import { ClayBadge } from '@/components/clay/clay-badge'
 import { ChannelIcon } from '@/components/content/channel-icon'
 import { Badge } from '@/components/ui/badge'
 import { CHANNEL_LABELS } from '@/lib/content'
 import type { Channel } from '@/lib/content'
 import type { SocialChannel } from '@/lib/social'
+import { useUiMode } from '@/lib/ui-mode'
 import { cn } from '@/lib/utils'
 
 // The one place that decides how each channel looks: a solid fill in the
@@ -44,6 +46,7 @@ export function ChannelBadge({
   ...props
 }: ChannelBadgeProps) {
   const label = CHANNEL_LABELS[channel]
+  const uiMode = useUiMode()
 
   if (compact) {
     return (
@@ -60,6 +63,22 @@ export function ChannelBadge({
         <span aria-hidden="true">{label.slice(0, 2)}</span>
         <span className="sr-only">{label}</span>
       </span>
+    )
+  }
+
+  // Fun mode: a pill of clay in the channel's hue (the same token).
+  if (uiMode === 'fun') {
+    return (
+      <ClayBadge
+        {...props}
+        size="sm"
+        color={channel === 'x' ? 'charcoal' : 'cream'}
+        data-channel={channel}
+        className={className}
+        style={{ '--clay': `var(--channel-${channel})`, ...props.style } as CSSProperties}
+      >
+        {label}
+      </ClayBadge>
     )
   }
 

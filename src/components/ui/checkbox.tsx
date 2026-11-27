@@ -2,11 +2,41 @@ import * as React from "react"
 import { cn } from "cn"
 import { Checkbox as CheckboxPrimitive } from "radix-ui"
 import { CheckIcon } from "lucide-react"
+import { ClayCheckbox } from "@/components/clay/clay-checkbox"
+import { useUiMode } from "@/lib/ui-mode"
 
 function Checkbox({
   className,
   ...props
 }: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+  const uiMode = useUiMode()
+
+  // Fun mode: the clay checkbox (a native input). Maps Radix's API onto it:
+  // `checked` may be "indeterminate", `onCheckedChange` gets a boolean.
+  if (uiMode === "fun") {
+    const { checked, defaultChecked, onCheckedChange, id, name, value, required, disabled } = props
+    return (
+      <ClayCheckbox
+        data-slot="checkbox"
+        size="sm"
+        className={className}
+        id={id}
+        name={name}
+        value={value as string | undefined}
+        required={required}
+        disabled={disabled}
+        aria-label={props["aria-label"]}
+        aria-labelledby={props["aria-labelledby"]}
+        aria-describedby={props["aria-describedby"]}
+        aria-invalid={props["aria-invalid"]}
+        indeterminate={checked === "indeterminate"}
+        checked={checked === undefined ? undefined : checked === true}
+        defaultChecked={defaultChecked === undefined ? undefined : defaultChecked === true}
+        onCheckedChange={(next) => onCheckedChange?.(next)}
+      />
+    )
+  }
+
   return (
     <CheckboxPrimitive.Root
       data-slot="checkbox"

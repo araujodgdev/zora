@@ -261,6 +261,31 @@ both palettes.
 - Fonts come from `@fontsource-variable/figtree` and
   `@fontsource-variable/fraunces` (the `full` files carry the SOFT/WONK axes).
 
+### Zora Clay and fun mode
+
+- **Zora Clay** (`@/components/clay`, styles in `src/styles/clay.css`,
+  showcase at the public, unlisted `/ui`): UI components made of plasticine,
+  after the clay films. `ClayButton`, `ClayInput`, `ClaySwitch`,
+  `ClayCheckbox`, `ClayTabs*` (on Radix Tabs), `ClayCard*`, `ClayBadge`,
+  `ClayProgress`. Colours are `CLAY_COLORS` (lime is the action colour); a
+  piece keeps its colour in both themes, sizes are in `em`.
+- **Nothing is smooth or glossy.** Every body is a `::before` with lit relief
+  maps (lumps, thumb smears, pits) and the `clay-wobble` edge; drawn marks,
+  icons and lettering get the `clay-relief` filter, rolled marks (the tick)
+  `clay-roll` (matte, no highlight). The SVG filters are in
+  `clay-filters.tsx`, mounted once in the root route. A new piece joins the
+  shared body selectors at the top of `clay.css` and uses `useClaySeed()` so
+  no two pieces show the same lumps.
+- **Fun mode** (`@/lib/ui-mode`): a second look next to the classic one,
+  switched from the sidebar ("Modo Fun" / "Modo clássico"), kept in the
+  `zora_ui` cookie and read during SSR like the theme (`<html data-ui>`).
+  `ui/button` (all but ghost and link), `ui/input` (text fields),
+  `ui/checkbox`, `ui/badge` (not `asChild`), `ui/card` (`.clay-surface`) and
+  `ChannelBadge`/`StatusBadge` render their clay versions in fun mode, and
+  `app.css` warms the surface tokens under `html[data-ui='fun']`. Classic
+  mode is unchanged. New shared primitives should do the same with
+  `useUiMode()`.
+
 ## The content data layer (use this, do not re-implement it)
 
 ### Shared module: `@/lib/content`

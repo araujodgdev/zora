@@ -1,7 +1,20 @@
 import * as React from "react"
 import { cn } from "cn"
+import { ClayInput } from "@/components/clay/clay-input"
+import { useUiMode } from "@/lib/ui-mode"
+
+/** Fields that are not text boxes keep the classic input in fun mode. */
+const CLASSIC_ONLY_TYPES = new Set(["file", "hidden", "range", "color", "checkbox", "radio"])
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+  const uiMode = useUiMode()
+
+  // Fun mode: the clay field (a groove pressed into a slab). `className`
+  // sizes the slab; every other prop goes to the <input>.
+  if (uiMode === "fun" && !CLASSIC_ONLY_TYPES.has(type ?? "text")) {
+    return <ClayInput data-slot="input" type={type} className={className} {...props} size="sm" color="cream" />
+  }
+
   return (
     <input
       type={type}
