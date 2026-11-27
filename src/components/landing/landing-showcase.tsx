@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
   ArrowRight,
-  ArrowUpRight,
+  Check,
   Pause,
   Play,
   RotateCcw,
@@ -14,105 +14,17 @@ import landingAiMp4 from '@/assets/brand/landing-ai.mp4'
 import landingAiWebm from '@/assets/brand/landing-ai.webm'
 import landingAiPoster from '@/assets/brand/landing-ai.webp'
 import landingAnalyticsArt from '@/assets/brand/landing-analytics.webp'
+import landingPricingMp4 from '@/assets/brand/landing-pricing.mp4'
+import landingPricingWebm from '@/assets/brand/landing-pricing.webm'
+import landingPricingPoster from '@/assets/brand/landing-pricing.webp'
 import landingRocketArt from '@/assets/brand/landing-rocket.webp'
 import landingTourMp4 from '@/assets/brand/landing-tour.mp4'
 import landingTourWebm from '@/assets/brand/landing-tour.webm'
 import landingTourPoster from '@/assets/brand/landing-tour.webp'
 import { ClayLoop } from '@/components/brand'
-import { CHANNEL_LABELS } from '@/lib/content'
-import type { Channel } from '@/lib/content'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 const TOUR_DURATION_SECONDS = 32
-
-const CHANNEL_ACCENT: Record<Channel, string> = {
-  instagram: 'bg-channel-instagram',
-  tiktok: 'bg-channel-tiktok',
-  youtube: 'bg-channel-youtube',
-  linkedin: 'bg-channel-linkedin',
-  x: 'bg-channel-x',
-  blog: 'bg-channel-blog',
-}
-
-type AiAssistantId = 'claude' | 'chatgpt' | 'gemini'
-
-const AI_ASSISTANTS: ReadonlyArray<{
-  id: AiAssistantId
-  name: string
-  prompt: string
-  reply: string
-  createdItems: ReadonlyArray<{
-    title: string
-    channel: Channel
-    meta: string
-  }>
-}> = [
-  {
-    id: 'claude',
-    name: 'Claude',
-    prompt:
-      'Olha quais posts o pessoal mais salvou no meu Instagram este mês e monta 3 roteiros de Reel para a semana que vem.',
-    reply:
-      'Seus tutoriais curtos lideram em salvamentos. Já criei 3 roteiros prontos para gravar e deixei no seu calendário.',
-    createdItems: [
-      {
-        title: '3 ajustes de luz que mudam qualquer vídeo',
-        channel: 'instagram',
-        meta: 'Reel · Ter 18:00',
-      },
-      {
-        title: 'Bastidores: como gravo sem câmera cara',
-        channel: 'instagram',
-        meta: 'Reel · Qui 12:00',
-      },
-      {
-        title: 'Checklist antes de apertar publicar',
-        channel: 'instagram',
-        meta: 'Carrossel · Sáb 11:00',
-      },
-    ],
-  },
-  {
-    id: 'chatgpt',
-    name: 'ChatGPT',
-    prompt:
-      'Cria a legenda da minha thread de sexta, gera a capa do carrossel de quinta e deixa tudo agendado nos melhores horários.',
-    reply:
-      'Tudo pronto! A capa foi anexada ao carrossel de quinta e a thread já ficou programada para sexta às 18h.',
-    createdItems: [
-      {
-        title: 'Checklist de iluminação barata',
-        channel: 'instagram',
-        meta: 'Carrossel + capa · Qui 12:00',
-      },
-      {
-        title: 'O que funcionou publicando toda semana',
-        channel: 'x',
-        meta: 'Thread (5 posts) · Sex 18:00',
-      },
-    ],
-  },
-  {
-    id: 'gemini',
-    name: 'Gemini',
-    prompt:
-      'Resume o que funcionou melhor no meu TikTok e no YouTube nos últimos 30 dias e sugere o próximo vídeo.',
-    reply:
-      'Seus vídeos curtos de bastidores tiveram o maior volume de compartilhamentos. Já deixei dois roteiros prontos na fila.',
-    createdItems: [
-      {
-        title: 'Tour rápido do meu setup em 45 segundos',
-        channel: 'youtube',
-        meta: 'Short · Qua 19:00',
-      },
-      {
-        title: 'Antes e depois da cor em 1 clique',
-        channel: 'tiktok',
-        meta: 'Vídeo · Sex 19:30',
-      },
-    ],
-  },
-]
 
 /**
  * 100% stop-motion claymation product launch film (1080p, ~32s) with quiet
@@ -122,6 +34,9 @@ export function LandingStudioStage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const userPausedRef = useRef(false)
   const userStartedRef = useRef(false)
+  // Once the film has played to the end it holds its last frame: scrolling
+  // back into view must not start it again (only Play or Restart do).
+  const endedRef = useRef(false)
   const [playing, setPlaying] = useState(false)
   const [muted, setMuted] = useState(true)
   const [currentTime, setCurrentTime] = useState(0)
@@ -134,7 +49,7 @@ export function LandingStudioStage() {
     let visible = false
 
     const sync = () => {
-      if (visible && !reduce.matches && !userPausedRef.current) {
+      if (visible && !reduce.matches && !userPausedRef.current && !endedRef.current) {
         video.play().catch(() => {})
       } else if (!visible && !userStartedRef.current) {
         video.pause()
@@ -165,6 +80,7 @@ export function LandingStudioStage() {
     if (video.paused) {
       userPausedRef.current = false
       userStartedRef.current = true
+      endedRef.current = false
       if (video.readyState === 0) {
         video.load()
       }
@@ -181,7 +97,7 @@ export function LandingStudioStage() {
     const nextMuted = !muted
     video.muted = nextMuted
     setMuted(nextMuted)
-    if (!nextMuted && video.paused) {
+    if (!nextMuted && video.paused && !endedRef.current) {
       userPausedRef.current = false
       userStartedRef.current = true
       video.play().catch(() => {})
@@ -193,6 +109,7 @@ export function LandingStudioStage() {
     if (!video) return
     userPausedRef.current = false
     userStartedRef.current = true
+    endedRef.current = false
     video.currentTime = 0
     video.play().catch(() => {})
   }
@@ -203,6 +120,7 @@ export function LandingStudioStage() {
     <section
       id="produto"
       aria-labelledby="stage-heading"
+      data-header-theme="dark"
       className="bg-[#111110] text-white dark:bg-[#111110]"
     >
       <div className="mx-auto max-w-6xl px-6 py-24 sm:px-10 md:py-32">
@@ -225,13 +143,16 @@ export function LandingStudioStage() {
             <video
               ref={videoRef}
               muted={muted}
-              loop
               playsInline
               preload="auto"
               poster={landingTourPoster}
               onClick={togglePlay}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
+              onEnded={() => {
+                endedRef.current = true
+                setPlaying(false)
+              }}
               onLoadedMetadata={(e) => {
                 if (Number.isFinite(e.currentTarget.duration) && e.currentTarget.duration > 0) {
                   setDuration(e.currentTarget.duration)
@@ -294,21 +215,17 @@ export function LandingStudioStage() {
 }
 
 /**
- * Creator-friendly section focused on connecting the user's own favorite AI
- * (Claude, ChatGPT, Gemini) directly to Zora — clean typography, zero pill spam.
+ * Connect the user's own AI (Claude, ChatGPT, Gemini) to Zora's MCP server:
+ * title, a short subtitle, the clay loop and one button to /connect.
  */
 export function LandingConnectYourAi() {
-  const [activeId, setActiveId] = useState<AiAssistantId>('claude')
-  const assistant =
-    AI_ASSISTANTS.find((item) => item.id === activeId) ?? AI_ASSISTANTS[0]!
-
   return (
     <section
       id="agentes"
       aria-labelledby="ai-connect-heading"
       className="mx-auto max-w-6xl px-6 py-24 sm:px-10 md:py-32"
     >
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center">
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:items-center lg:gap-12">
         <div>
           <h2
             id="ai-connect-heading"
@@ -316,98 +233,29 @@ export function LandingConnectYourAi() {
           >
             Já usa Claude, ChatGPT ou Gemini? Conecte no Zora.
           </h2>
-          <p className="text-muted-foreground mt-4 max-w-[46ch] text-sm leading-relaxed sm:text-base">
-            Nada de ficar copiando roteiro de um chat e colando em cinco telas. Você liga sua IA ao
-            seu estúdio e ela cria rascunhos, sugere pautas olhando seus resultados e agenda seus
-            posts com você.
+          <p className="text-muted-foreground mt-4 max-w-[46ch] text-base leading-relaxed sm:hidden">
+            Sua IA cria rascunhos e agenda posts direto no seu calendário.
+          </p>
+          <p className="text-muted-foreground mt-4 hidden max-w-[46ch] text-base leading-relaxed sm:block">
+            Nada de copiar roteiro de um chat e colar em cinco telas. Ligue sua IA ao Zora e ela
+            cria rascunhos, sugere pautas olhando seus resultados e agenda seus posts com você.
           </p>
 
-          {/* Clean underline tabs (zero pill badges) */}
-          <div
-            className="border-border mt-8 flex items-center gap-6 border-b"
-            role="tablist"
-            aria-label="Escolher IA"
-          >
-            {AI_ASSISTANTS.map((item) => {
-              const active = activeId === item.id
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setActiveId(item.id)}
-                  className={cn(
-                    '-mb-px border-b-2 pb-3 text-sm font-semibold transition-colors',
-                    active
-                      ? 'border-lime text-foreground'
-                      : 'border-transparent text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {item.name}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Prompt & reply for the selected AI */}
-          <div className="mt-6 space-y-2.5">
-            <p className="font-display text-xl leading-snug font-medium sm:text-2xl">
-              “{assistant.prompt}”
-            </p>
-            <p className="text-muted-foreground text-sm leading-relaxed">{assistant.reply}</p>
-          </div>
-
-          <div className="mt-7 flex flex-wrap items-center gap-4">
-            <Link
-              to="/connect"
-              className="text-brand inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
-            >
-              Conectar minha IA em 1 minuto
-              <ArrowUpRight className="size-4" />
+          <Button asChild size="lg" className="mt-8 h-11 rounded-full px-6">
+            <Link to="/connect">
+              Conectar MCP
+              <ArrowRight data-icon="inline-end" />
             </Link>
-            <span className="text-muted-foreground text-xs">
-              Funciona direto na web, sem instalar nada
-            </span>
-          </div>
+          </Button>
         </div>
 
-        {/* Right: Living stop-motion claymation loop + resulting calendar items */}
-        <div className="space-y-4">
-          <div className="relative aspect-video w-full overflow-hidden rounded-[1.75rem] bg-[#ebe4d6] shadow-2xl shadow-black/20">
-            <ClayLoop
-              webm={landingAiWebm}
-              mp4={landingAiMp4}
-              poster={landingAiPoster}
-              className="absolute inset-0 size-full"
-            />
-          </div>
-
-          <div className="bg-card rounded-[1.5rem] p-4 sm:p-5">
-            <p className="text-muted-foreground mb-3 text-xs font-medium">
-              Criado no seu calendário pelo{' '}
-              <strong className="text-foreground">{assistant.name}</strong>
-            </p>
-            <div className="space-y-2">
-              {assistant.createdItems.map((entry) => (
-                <div
-                  key={entry.title}
-                  className="bg-background/75 relative flex items-center justify-between gap-3 overflow-hidden rounded-xl py-2.5 pr-4 pl-4"
-                >
-                  <span
-                    aria-hidden="true"
-                    className={cn('absolute inset-y-0 left-0 w-1', CHANNEL_ACCENT[entry.channel])}
-                  />
-                  <div className="min-w-0 pl-1">
-                    <p className="truncate text-sm font-medium">{entry.title}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {CHANNEL_LABELS[entry.channel]} · {entry.meta}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="relative aspect-video w-full overflow-hidden rounded-[1.75rem] bg-[#ebe4d6] shadow-2xl shadow-black/20">
+          <ClayLoop
+            webm={landingAiWebm}
+            mp4={landingAiMp4}
+            poster={landingAiPoster}
+            className="absolute inset-0 size-full"
+          />
         </div>
       </div>
     </section>
@@ -415,8 +263,8 @@ export function LandingConnectYourAi() {
 }
 
 /**
- * Affinity-inspired horizontal scrolling editorial deck ("O novo padrão" -> "O novo ritmo")
- * with numbered 01-04 cards on alternating contrasting surfaces.
+ * "O novo ritmo": three editorial cards on contrasting surfaces, a snapping
+ * rail on small screens and a three-column row from `lg`.
  */
 export function LandingEditorialDeck() {
   const trackRef = useRef<HTMLDivElement>(null)
@@ -440,7 +288,7 @@ export function LandingEditorialDeck() {
           </p>
         </div>
 
-        <div className="hidden items-center gap-2 sm:flex">
+        <div className="hidden items-center gap-2 sm:flex lg:hidden">
           <button
             type="button"
             onClick={() => scrollByCard(-1)}
@@ -463,13 +311,12 @@ export function LandingEditorialDeck() {
       {/* Horizontal snap-scrolling card rail */}
       <div
         ref={trackRef}
-        className="mx-auto mt-10 flex max-w-6xl snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-4 [scrollbar-width:none] sm:px-10 [&::-webkit-scrollbar]:hidden"
+        className="mx-auto mt-10 flex max-w-6xl snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-4 [scrollbar-width:none] sm:px-10 lg:grid lg:grid-cols-3 lg:overflow-visible [&::-webkit-scrollbar]:hidden"
       >
-        {/* 01 — Deep charcoal card with bespoke claymation analytics sculpture */}
-        <article className="relative flex min-h-[460px] w-[84vw] max-w-[370px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[2rem] bg-[#1e1e1f] text-white ring-1 ring-white/10">
+        {/* Deep charcoal card with the clay analytics sculpture */}
+        <article className="relative flex min-h-[460px] w-[84vw] max-w-[370px] shrink-0 snap-start lg:w-auto lg:max-w-none flex-col justify-between overflow-hidden rounded-[2rem] bg-[#1e1e1f] text-white ring-1 ring-white/10">
           <div className="p-7 pb-3">
-            <span className="font-mono text-xs text-[#a8a39b]">01</span>
-            <h3 className="font-display mt-3 text-3xl leading-[1.08] font-semibold tracking-[-0.02em]">
+            <h3 className="font-display text-3xl leading-[1.08] font-semibold tracking-[-0.02em]">
               Conectou, já tem dados
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-[#a8a39b]">
@@ -491,16 +338,15 @@ export function LandingEditorialDeck() {
           </div>
         </article>
 
-        {/* 02 — High-contrast Warm Bone card */}
-        <article className="relative flex min-h-[460px] w-[84vw] max-w-[370px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[2rem] bg-[#efe9de] p-7 text-[#0e1318]">
+        {/* Warm bone card */}
+        <article className="relative flex min-h-[460px] w-[84vw] max-w-[370px] shrink-0 snap-start lg:w-auto lg:max-w-none flex-col justify-between overflow-hidden rounded-[2rem] bg-[#efe9de] p-7 text-[#0e1318]">
           <div>
-            <span className="font-mono text-xs text-[#0e1318]/55">02</span>
-            <h3 className="font-display mt-3 text-3xl leading-[1.08] font-semibold tracking-[-0.02em]">
+            <h3 className="font-display text-3xl leading-[1.08] font-semibold tracking-[-0.02em]">
               Equipe e IA no mesmo lugar
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-[#0e1318]/75">
-              Convide editores, social media ou clientes por e-mail. Todo mundo — inclusive sua IA
-              conectada — trabalha no mesmo calendário.
+              Convide editores, social media ou clientes por e-mail. Todo mundo, inclusive sua IA
+              conectada, trabalha no mesmo calendário.
             </p>
           </div>
 
@@ -521,11 +367,10 @@ export function LandingEditorialDeck() {
           </div>
         </article>
 
-        {/* 03 — Deep midnight violet studio card with bespoke claymation rocket */}
-        <article className="relative flex min-h-[460px] w-[84vw] max-w-[370px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[2rem] bg-[#262139] text-white">
+        {/* Midnight violet card with the clay rocket */}
+        <article className="relative flex min-h-[460px] w-[84vw] max-w-[370px] shrink-0 snap-start lg:w-auto lg:max-w-none flex-col justify-between overflow-hidden rounded-[2rem] bg-[#262139] text-white">
           <div className="p-7 pb-3">
-            <span className="font-mono text-xs text-white/60">03</span>
-            <h3 className="font-display mt-3 text-3xl leading-[1.08] font-semibold tracking-[-0.02em]">
+            <h3 className="font-display text-3xl leading-[1.08] font-semibold tracking-[-0.02em]">
               No ar na hora certa
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-white/75">
@@ -547,30 +392,78 @@ export function LandingEditorialDeck() {
           </div>
         </article>
 
-        {/* 04 — Electric Lime editorial card */}
-        <article className="relative flex min-h-[460px] w-[84vw] max-w-[370px] shrink-0 snap-start flex-col justify-between overflow-hidden rounded-[2rem] bg-[#a7f175] p-7 text-[#0e1318]">
-          <div>
-            <span className="font-mono text-xs text-[#0e1318]/60">04</span>
-            <h3 className="font-display mt-3 text-3xl leading-[1.08] font-semibold tracking-[-0.02em]">
-              Sinais de criador, sem siglas
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-[#0e1318]/80">
-              Cada rede mede sucesso diferente. Veja envios por alcance, salvos, tempo assistido e
-              gráficos visuais que fazem sentido em 5 segundos.
-            </p>
+      </div>
+    </section>
+  )
+}
+
+const LAUNCH_PLAN_FEATURES = [
+  'Calendário editorial e pipeline',
+  'Publicação direta no Instagram, TikTok, YouTube, LinkedIn e X',
+  'Analytics feito para criadores',
+  'Claude, ChatGPT ou Gemini conectados pelo MCP',
+  'Workspace com sua equipe',
+  'Zora Desktop com Studio e LightCraft',
+] as const
+
+/**
+ * Pricing: everything is free during the launch. One plan card beside the
+ * clay price tag loop, on the warm bone surface.
+ */
+export function LandingPricing({ signedIn }: { signedIn: boolean }) {
+  return (
+    <section id="precos" aria-labelledby="pricing-heading" className="bg-[#efe9de] text-[#0e1318]">
+      <div className="mx-auto max-w-6xl px-6 py-24 sm:px-10 md:py-32">
+        <div className="max-w-2xl">
+          <h2
+            id="pricing-heading"
+            className="font-display text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.03] font-semibold tracking-[-0.03em] text-balance"
+          >
+            Grátis por tempo limitado
+          </h2>
+        </div>
+
+        <div className="mt-12 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-stretch">
+          <div className="relative aspect-video w-full overflow-hidden rounded-[2rem] bg-[#e4dccd] shadow-2xl shadow-black/15 lg:aspect-auto lg:min-h-full">
+            <ClayLoop
+              webm={landingPricingWebm}
+              mp4={landingPricingMp4}
+              poster={landingPricingPoster}
+              className="absolute inset-0 size-full"
+            />
           </div>
 
-          <div aria-hidden="true" className="mt-8 grid grid-cols-2 gap-2.5">
-            <div className="rounded-2xl bg-[#0e1318] p-3.5 text-white">
-              <span className="text-[10px] text-white/65">Envios / alcance</span>
-              <p className="font-display mt-1 text-2xl font-semibold text-[#a7f175]">2,4%</p>
-            </div>
-            <div className="rounded-2xl bg-white p-3.5 text-[#0e1318]">
-              <span className="text-[10px] text-[#0e1318]/60">Tempo médio</span>
-              <p className="font-display mt-1 text-2xl font-semibold">14,2 s</p>
-            </div>
+          <div className="flex flex-col rounded-[2rem] bg-white p-7 shadow-xs sm:p-9">
+            <h3 className="font-display text-2xl font-semibold">Lançamento</h3>
+            <p className="mt-4 flex items-baseline gap-2">
+              <span className="font-display text-6xl font-semibold tracking-[-0.03em]">R$ 0</span>
+              <span className="text-sm text-[#0e1318]/60">por mês</span>
+            </p>
+            <p className="mt-2 text-sm text-[#0e1318]/65">Sem cartão de crédito.</p>
+
+            <ul className="mt-7 space-y-3 text-sm">
+              {LAUNCH_PLAN_FEATURES.map((feature) => (
+                <li key={feature} className="flex items-start gap-3">
+                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-[#a7f175]">
+                    <Check className="size-3" strokeWidth={3} />
+                  </span>
+                  <span className="leading-relaxed">{feature}</span>
+                </li>
+              ))}
+            </ul>
+
+            <Button
+              asChild
+              size="lg"
+              className="mt-8 h-12 rounded-full bg-[#0e1318] px-7 text-base font-semibold text-white hover:bg-[#0e1318]/90 lg:mt-auto"
+            >
+              <Link to={signedIn ? '/calendar' : '/sign-up'}>
+                {signedIn ? 'Acessar meu workspace' : 'Criar minha conta grátis'}
+                <ArrowRight data-icon="inline-end" />
+              </Link>
+            </Button>
           </div>
-        </article>
+        </div>
       </div>
     </section>
   )

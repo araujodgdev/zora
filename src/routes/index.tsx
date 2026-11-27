@@ -1,18 +1,10 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
-import {
-  ArrowRight,
-  Download,
-  Globe,
-  Moon,
-  Sun,
-} from 'lucide-react'
+import { ArrowRight, Moon, Sun } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 import { z } from 'zod'
-import heroMp4 from '@/assets/brand/auth-hero.mp4'
-import heroWebm from '@/assets/brand/auth-hero.webm'
-import heroPoster from '@/assets/brand/auth-hero.webp'
 import catYarnAlpha from '@/assets/brand/cat-yarn-alpha.mp4'
 import catYarnStill from '@/assets/brand/cat-yarn-still.webp'
-import landingCraftArt from '@/assets/brand/landing-craft.webp'
 import landingHeroMp4 from '@/assets/brand/landing-hero.mp4'
 import landingHeroWebm from '@/assets/brand/landing-hero.webm'
 import landingHeroPoster from '@/assets/brand/landing-hero.webp'
@@ -20,11 +12,13 @@ import { AlphaLoop, ClayLoop, ZORA_SLOGAN, ZoraLogo } from '@/components/brand'
 import {
   LandingConnectYourAi,
   LandingEditorialDeck,
+  LandingPricing,
   LandingStudioStage,
 } from '@/components/landing/landing-showcase'
 import { Button } from '@/components/ui/button'
 import { ZORA_DESKTOP_DOWNLOAD_URL } from '@/lib/desktop-bridge'
 import { setTheme, useTheme } from '@/lib/theme'
+import { cn } from '@/lib/utils'
 
 const landingSearchSchema = z.object({
   home: z.boolean().optional(),
@@ -74,6 +68,9 @@ function LandingPage() {
   const { user, theme: initialTheme } = Route.useRouteContext()
   const theme = useTheme(initialTheme)
   const isDark = theme === 'dark'
+  const headerRef = useRef<HTMLElement>(null)
+
+  const headerOverDark = useHeaderOverDarkSection(headerRef)
 
   function toggleTheme() {
     setTheme(isDark ? 'light' : 'dark')
@@ -82,7 +79,13 @@ function LandingPage() {
   return (
     <div className="bg-background text-foreground min-h-svh overflow-x-clip">
       {/* Quiet Sticky Navigation (Affinity style) */}
-      <header className="bg-background/85 sticky top-0 z-40 backdrop-blur-md">
+      <header
+        ref={headerRef}
+        className={cn(
+          'bg-background/85 text-foreground sticky top-0 z-40 backdrop-blur-md transition-colors duration-300',
+          headerOverDark && 'dark',
+        )}
+      >
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-10">
           <Link to="/" search={{ home: true }} className="text-[1.5rem]">
             <ZoraLogo aria-label="Zora" />
@@ -93,13 +96,13 @@ function LandingPage() {
               href="#produto"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              Estúdio
+              Conheça
             </a>
             <a
               href="#agentes"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              Sua IA
+              MCP
             </a>
             <a
               href="#recursos"
@@ -108,10 +111,10 @@ function LandingPage() {
               Recursos
             </a>
             <a
-              href="#desktop"
+              href="#precos"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              Desktop
+              Preços
             </a>
           </nav>
 
@@ -130,7 +133,7 @@ function LandingPage() {
             {user ? (
               <Button asChild size="sm" className="rounded-full px-4">
                 <Link to="/calendar">
-                  Abrir o Zora
+                  Acessar
                   <ArrowRight data-icon="inline-end" />
                 </Link>
               </Button>
@@ -189,119 +192,11 @@ function LandingPage() {
         {/* BAND 4 — Connect your favorite AI (Claude, ChatGPT, Gemini) */}
         <LandingConnectYourAi />
 
-        {/* BAND 5 — Affinity Horizontal Scrolling Editorial Deck (01 / 02 / 03 / 04) */}
+        {/* BAND 5 — Editorial deck: three cards */}
         <LandingEditorialDeck />
 
-        {/* BAND 6 — Contrasting Full-Bleed Warm Bone Chapter (Clay Diorama + Web/Desktop Platforms) */}
-        <section
-          id="desktop"
-          aria-labelledby="platforms-heading"
-          className="bg-[#efe9de] text-[#0e1318]"
-        >
-          <div className="mx-auto max-w-6xl px-6 py-24 sm:px-10 md:py-32">
-            <div className="grid gap-12 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center">
-              {/* The signature Claymation Diorama breathing on warm bone */}
-              <div className="mx-auto w-full max-w-md lg:max-w-none">
-                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[2rem] bg-[#a8d8e8] shadow-2xl shadow-black/15">
-                  <ClayLoop
-                    webm={heroWebm}
-                    mp4={heroMp4}
-                    poster={heroPoster}
-                    className="absolute inset-0 size-full object-[50%_58%]"
-                  />
-                </div>
-              </div>
-
-              {/* Clean 3-part platform story (no uppercase eyebrow, no pill badges) */}
-              <div className="space-y-8">
-                <div>
-                  <h2
-                    id="platforms-heading"
-                    className="font-display text-[clamp(2.25rem,5vw,3.5rem)] leading-[1.03] font-semibold tracking-[-0.03em]"
-                  >
-                    Comece no navegador. Edite nativo quando quiser.
-                  </h2>
-                  <p className="mt-4 text-sm leading-relaxed text-[#0e1318]/75 sm:text-base">
-                    Tudo de planejamento, publicação, analytics e conexão com Claude, ChatGPT ou
-                    Gemini roda direto na web em qualquer sistema. O Zora Desktop é o extra opcional
-                    para quem quer os editores nativos de design e foto.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-start gap-4 rounded-2xl bg-white p-5 shadow-xs">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#a7f175] text-[#0e1318]">
-                      <Globe className="size-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <h3 className="font-display text-xl font-semibold">Zora na Web</h3>
-                        <span className="text-xs text-[#0e1318]/55">Mac · Windows · Celular</span>
-                      </div>
-                      <p className="mt-1.5 text-sm leading-relaxed text-[#0e1318]/70">
-                        Calendário, pipeline, publicação direta nas redes, Analytics e conexão com
-                        Claude, ChatGPT ou Gemini em poucos cliques.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Tactile claymation showcase for Zora Studio + Zora LightCraft */}
-                  <div className="overflow-hidden rounded-[1.5rem] bg-white shadow-xs">
-                    <img
-                      src={landingCraftArt}
-                      alt=""
-                      aria-hidden="true"
-                      width={960}
-                      height={720}
-                      draggable={false}
-                      className="aspect-[16/9] w-full object-cover object-center select-none"
-                    />
-                    <div className="grid divide-y divide-[#0e1318]/8 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-                      <div className="p-5">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <h3 className="font-display text-xl font-semibold">Zora Studio</h3>
-                          <span className="text-[11px] text-[#0e1318]/55">Windows</span>
-                        </div>
-                        <p className="mt-1.5 text-sm leading-relaxed text-[#0e1318]/70">
-                          Design vetorial nativo para carrosséis, capas e criativos, com versões
-                          sincronizadas no post.
-                        </p>
-                      </div>
-                      <div className="p-5">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <h3 className="font-display text-xl font-semibold">Zora LightCraft</h3>
-                          <span className="text-[11px] text-[#0e1318]/55">Windows</span>
-                        </div>
-                        <p className="mt-1.5 text-sm leading-relaxed text-[#0e1318]/70">
-                          Revelação não-destrutiva de fotos RAW e JPG enviada em 1 clique para a
-                          mídia do conteúdo.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <Button
-                    asChild
-                    className="h-11 rounded-full bg-[#0e1318] px-6 text-sm font-semibold text-white hover:bg-[#0e1318]/90"
-                  >
-                    <a href={ZORA_DESKTOP_DOWNLOAD_URL} target="_blank" rel="noreferrer">
-                      <Download data-icon="inline-start" />
-                      Baixar Zora Desktop (Windows)
-                    </a>
-                  </Button>
-                  <Link
-                    to={user ? '/calendar' : '/sign-up'}
-                    className="px-3 py-2 text-sm font-semibold text-[#0e1318] underline underline-offset-4 hover:opacity-75"
-                  >
-                    Ou começar direto na web
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* BAND 6 — Pricing on warm bone: free during launch, claymation price tag */}
+        <LandingPricing signedIn={Boolean(user)} />
 
         {/* BAND 7 — Signature Electric Lime CTA Band with Animated Cutout Clay Cat */}
         <section className="mx-auto max-w-6xl px-6 py-16 sm:px-10 md:py-24">
@@ -466,4 +361,46 @@ function LandingPage() {
       </footer>
     </div>
   )
+}
+
+/**
+ * True while the sticky header sits over a section marked
+ * `data-header-theme="dark"`, so the header can switch to the dark tokens
+ * there (in the light theme; in the dark theme it is dark anyway).
+ */
+function useHeaderOverDarkSection(headerRef: RefObject<HTMLElement | null>) {
+  const [overDark, setOverDark] = useState(false)
+
+  useEffect(() => {
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const header = headerRef.current
+      if (!header) return
+      const probe = header.getBoundingClientRect().bottom / 2
+      const sections = document.querySelectorAll<HTMLElement>('[data-header-theme="dark"]')
+      let hit = false
+      for (const section of sections) {
+        const rect = section.getBoundingClientRect()
+        if (rect.top <= probe && rect.bottom >= probe) {
+          hit = true
+          break
+        }
+      }
+      setOverDark(hit)
+    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update)
+    }
+    update()
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule)
+    return () => {
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [headerRef])
+
+  return overDark
 }

@@ -14,9 +14,10 @@ variant can be produced in the same style.
 | `src/assets/brand/landing-hero.{webm,mp4,webp}` | outdoor claymation world with "Criação sem ruído." where Zora rolls in the lime period, straightens the tilted "o", naps on top, then chases the ball back out (16 s seamless loop, 1920×1080) | Landing page Hero (`ClayLoop`) |
 | `src/assets/brand/landing-tour.{webm,mp4,webp}` | 32 s 1080p 100% stop-motion claymation launch film covering planning, social integrations (Instagram, YouTube, TikTok, X, LinkedIn), analytics charts, and AI agents (Claude, ChatGPT, Gemini) with Zora's cat and minimalist sound design | Landing page (`LandingStudioStage`) |
 | `src/assets/brand/landing-ai.{webm,mp4,webp}` | terracotta clay robot with lime clapperboard and Zora's sleeping cat (8 s loop, 960×540) | Landing page (`LandingConnectYourAi` via `ClayLoop`) |
-| `src/assets/brand/landing-analytics.webp` | cream cat beside lime clay donut and pastel bars on charcoal (1:1) | Landing page (editorial card `01`) |
-| `src/assets/brand/landing-rocket.webp` | coral and lime plasticine rocket launching on deep midnight violet (1:1) | Landing page (editorial card `03`) |
-| `src/assets/brand/landing-craft.webp` | sleeping cream cat peeking over clay camera lens, lime Bezier curve and pastel swatches (4:3) | Landing page (desktop Studio & LightCraft showcase) |
+| `src/assets/brand/landing-analytics.webp` | cream cat beside lime clay donut and pastel bars on charcoal (1:1) | Landing page ("O novo ritmo", first card) |
+| `src/assets/brand/landing-rocket.webp` | coral and lime plasticine rocket launching on deep midnight violet (1:1) | Landing page ("O novo ritmo", third card) |
+| `src/assets/brand/landing-pricing.{webm,mp4,webp}` | cream clay cat batting a blank lime clay price tag on a string on the warm bone clay set (8 s seamless loop, 960×540; Nano Banana 2.1 still from `landing-craft.webp` as reference, animated with Omni 1.2 Flash using the same still as first and last frame, through gflow-cli) | Landing page (`LandingPricing` via `ClayLoop`) |
+| `src/assets/brand/landing-craft.webp` | sleeping cream cat peeking over clay camera lens, lime Bezier curve and pastel swatches (4:3) | not shown; the style reference for `landing-pricing` |
 | `scripts/brand/app-icon.png` | 1024 px icon master on charcoal clay | `scripts/app-icon.html` -> `node scripts/generate-icons.mjs` |
 
 ## How they were made
